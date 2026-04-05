@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { useLanguage } from '../i18n/LanguageContext'
+import { getItemImage } from '../data/itemImages'
 
 const CATEGORIES: MenuCategory[] = [
   'Coffee',
@@ -198,13 +199,26 @@ export default function Sales() {
                   key={item.id}
                   className="flex items-center justify-between border border-sheen-muted/30 rounded-lg p-3"
                 >
-                  <div className="min-w-0 mr-3">
-                    <p className="font-body font-medium text-sheen-black truncate">
-                      {item.name}
-                    </p>
-                    <p className="font-body text-sm text-sheen-brown">
-                      {item.selling_price} د.إ
-                    </p>
+                  <div className="flex items-center gap-2 min-w-0 mr-3">
+                    {getItemImage(item.name) ? (
+                      <img
+                        src={getItemImage(item.name)}
+                        alt={item.name}
+                        className="w-12 h-12 rounded-lg object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-sheen-cream flex items-center justify-center shrink-0 text-xl">
+                        ☕
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-body font-medium text-sheen-black truncate">
+                        {item.name}
+                      </p>
+                      <p className="font-body text-sm text-sheen-brown">
+                        {item.selling_price} د.إ
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">

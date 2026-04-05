@@ -8,6 +8,7 @@ import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { getItemImage } from '../data/itemImages'
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
@@ -171,6 +172,19 @@ export default function Menu() {
                 >
                   {/* Main row */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4">
+                    {/* Item photo */}
+                    {getItemImage(item.name) ? (
+                      <img
+                        src={getItemImage(item.name)}
+                        alt={item.name}
+                        className="w-16 h-16 rounded-xl object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-xl bg-sheen-cream flex items-center justify-center shrink-0 text-2xl">
+                        ☕
+                      </div>
+                    )}
+
                     {/* Margin badge */}
                     <MarginBadge pct={margin} />
 
