@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-sheen-black: #1A1A1A;
+  --color-sheen-cream: #F5F0E8;
+  --color-sheen-brown: #8B4513;
+  --color-sheen-gold: #D4A843;
+  --color-sheen-white: #FFFFFF;
+  --color-sheen-muted: #A0785A;
+  --font-display: "Playfair Display", serif;
+  --font-body: "DM Sans", sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: #F5F0E8;
+  color: #1A1A1A;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* RTL support — Tailwind handles most via logical properties,
+   but some explicit overrides needed */
+[dir="rtl"] {
+  text-align: right;
+}
+[dir="rtl"] table {
+  text-align: right;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #A0785A;
+  border-radius: 3px;
+}
