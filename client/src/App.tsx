@@ -4,7 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { LanguageProvider } from './i18n/LanguageContext'
 
 import Sidebar from './components/layout/Sidebar'
-import BottomNav from './components/layout/BottomNav'
+import HamburgerMenu from './components/layout/HamburgerMenu'
 import ToastProvider from './components/ui/Toast'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -26,11 +26,11 @@ function AppLayout() {
     <ProtectedRoute>
       <div className="flex min-h-screen bg-sheen-cream">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+        <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>
-      <BottomNav />
+      <HamburgerMenu />
     </ProtectedRoute>
   )
 }
