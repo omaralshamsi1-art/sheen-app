@@ -59,7 +59,7 @@ router.post('/', async (req: Request, res: Response) => {
     const sanitized = {
       expense_date,
       ingredient_name: ingredient_name.trim(),
-      category: String(category).trim() as import('../../../client/src/types').IngredientCategory,
+      category: String(category).trim() as import('../types').IngredientCategory,
       supplier: req.body.supplier ? String(req.body.supplier).trim().slice(0, 200) : undefined,
       unit: req.body.unit ? String(req.body.unit).trim().slice(0, 50) : undefined,
       qty_bought,

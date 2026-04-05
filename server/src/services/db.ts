@@ -10,7 +10,7 @@ import type {
   MenuItem,
   Ingredient,
   PLReport,
-} from '../../../client/src/types'
+} from '../types'
 
 // ─────────────────────────────────────────────
 // Sales
