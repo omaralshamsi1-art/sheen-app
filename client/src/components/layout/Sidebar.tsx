@@ -25,7 +25,7 @@ export default function Sidebar() {
   const toggleLang = () => setLang(lang === 'en' ? 'ar' : 'en')
 
   return (
-    <aside className="w-60 bg-sheen-black min-h-screen flex flex-col shrink-0">
+    <aside className="hidden md:flex w-60 bg-sheen-black min-h-screen flex-col shrink-0">
       <div className="p-6 border-b border-white/10">
         <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
         <p className="text-xs text-sheen-muted mt-1 font-body">{t('coffeeShopManager')}</p>

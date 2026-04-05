@@ -18,6 +18,8 @@ body {
   background: #F5F0E8;
   color: #1A1A1A;
   -webkit-font-smoothing: antialiased;
+  /* Prevent overscroll bounce on iOS */
+  overscroll-behavior: none;
 }
 
 * {
@@ -32,6 +34,25 @@ body {
 [dir="rtl"] table {
   text-align: right;
 }
+
+/* iOS safe area utilities */
+.safe-top    { padding-top:    env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Ensure minimum touch target size */
+button, a, [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevent text size adjustment on iOS rotation */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Hide scrollbar for horizontal scroll tabs on mobile */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {

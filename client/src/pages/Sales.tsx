@@ -167,12 +167,12 @@ export default function Sales() {
         </h1>
 
         {/* ── Category Tabs ── */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none no-scrollbar" style={{ scrollbarWidth: 'none' }}>
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-full text-sm font-body font-medium transition-colors ${
+              className={`shrink-0 px-4 py-2 rounded-full text-sm font-body font-medium transition-colors ${
                 activeCategory === cat
                   ? 'bg-sheen-brown text-sheen-white'
                   : 'bg-sheen-white text-sheen-black border border-sheen-muted hover:bg-sheen-gold/10'
@@ -211,7 +211,7 @@ export default function Sales() {
                     <button
                       onClick={() => decrement(item.id)}
                       disabled={getQty(item.id) === 0}
-                      className="w-8 h-8 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold hover:bg-sheen-gold/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="w-10 h-10 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold hover:bg-sheen-gold/20 active:bg-sheen-gold/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
                       &minus;
                     </button>
@@ -222,11 +222,11 @@ export default function Sales() {
                       onChange={(e) =>
                         setQty(item.id, parseInt(e.target.value, 10) || 0)
                       }
-                      className="w-12 h-8 text-center font-body text-sm border border-sheen-muted/40 rounded-md bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-12 h-10 text-center font-body text-sm border border-sheen-muted/40 rounded-md bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <button
                       onClick={() => increment(item.id)}
-                      className="w-8 h-8 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold hover:bg-sheen-gold/20 transition-colors"
+                      className="w-10 h-10 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold hover:bg-sheen-gold/20 active:bg-sheen-gold/30 transition-colors"
                     >
                       +
                     </button>
