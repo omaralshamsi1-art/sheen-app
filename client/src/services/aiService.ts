@@ -9,8 +9,8 @@ export const aiService = {
     return data
   },
 
-  async chat(messages: { role: 'user' | 'assistant'; content: string }[], context?: AiContextResponse): Promise<string> {
-    const { data } = await api.post('/api/ai/chat', { messages, context })
+  async chat(messages: { role: 'user' | 'assistant'; content: string }[], context?: AiContextResponse, lang?: string): Promise<string> {
+    const { data } = await api.post('/api/ai/chat', { messages, context, lang })
     return data.content
   },
 

@@ -122,7 +122,7 @@ router.get('/context', async (_req: Request, res: Response) => {
 // ─── POST /api/ai/chat ───
 router.post('/chat', async (req: Request, res: Response) => {
   try {
-    const { messages, context } = req.body as {
+    const { messages, context, lang } = req.body as {
       messages: { role: 'user' | 'assistant'; content: string }[]
       context?: {
         salesContext: string
@@ -131,6 +131,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         menuContext: string
         netProfit: number
       }
+      lang?: string
     }
 
     if (!messages || !Array.isArray(messages) || !messages.length) {
@@ -157,13 +158,17 @@ router.post('/chat', async (req: Request, res: Response) => {
       ? buildDataBlock(context)
       : 'No business data provided.'
 
+    const langInstruction = lang === 'ar'
+      ? '\n\nIMPORTANT: You MUST respond entirely in Arabic (العربية). All your answers, analysis, and advice must be written in Arabic.'
+      : ''
+
     const response = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 1024,
       messages: [
         {
           role: 'system',
-          content: `${SYSTEM_INSTRUCTION}\n\nYou have access to the following real business data:\n${dataBlock}`,
+          content: `${SYSTEM_INSTRUCTION}${langInstruction}\n\nYou have access to the following real business data:\n${dataBlock}`,
         },
         ...messages.map((m) => ({
           role: m.role as 'user' | 'assistant',

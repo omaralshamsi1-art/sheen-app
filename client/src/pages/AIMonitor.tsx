@@ -4,16 +4,7 @@ import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
 
-const QUICK_QUESTIONS_EN = [
-  "Today's Performance Summary",
-  'Best Selling Items This Week',
-  'Revenue Trend — Am I Growing?',
-  'Which Items Have the Best Margin?',
-  'Pricing Recommendations',
-  'Slow Hours — How to Boost Sales?',
-  'Monthly Profit Forecast',
-  'What Should I Restock?',
-]
+// Quick questions are sent in the displayed language (from translations)
 
 export default function AIMonitor() {
   const { t } = useLanguage()
@@ -54,7 +45,7 @@ export default function AIMonitor() {
 
   const handleQuickQuestion = (idx: number) => {
     if (isTyping) return
-    sendMessage(QUICK_QUESTIONS_EN[idx])
+    sendMessage(quickQuestions[idx])
   }
 
   return (
