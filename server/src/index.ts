@@ -27,7 +27,7 @@ app.use('/api/ai', aiRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/orders', ordersRouter)
 
-app.get('/health', (_, res) => res.json({ status: 'ok' }))
+app.get('/health', (_, res) => res.json({ status: 'ok', version: '2.1' }))
 
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {
