@@ -135,9 +135,11 @@ export default function Login() {
           <div className="mt-4">
             <Link
               to="/public-menu"
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-sheen-brown text-sheen-brown font-body font-semibold hover:bg-sheen-brown hover:text-sheen-white transition-colors"
+              className="w-full flex items-center justify-center px-4 py-2.5 font-body font-semibold transition-colors"
+              style={{ color: '#ab7f2c', backgroundColor: 'transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.75' }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
             >
-              <img src="/images/Newspaper-Outline--Streamline-Ionic-Outline.svg" alt="" width={20} height={20} style={{ filter: 'brightness(0) sepia(1) saturate(5) hue-rotate(-15deg)' }} />
               {t('viewMenu')}
             </Link>
           </div>
