@@ -1,60 +1,35 @@
 /**
- * Maps menu item names to image URLs.
- * Talabat CDN images for featured items; Unsplash for the rest.
+ * Maps menu item names to local images from /public/images/.
+ * Real SHEEN café photos.
  */
 export const itemImages: Record<string, string> = {
 
   // ── COFFEE ──────────────────────────────────────────────────────────────────
-  'V60':
-    'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=400&fit=crop&auto=format',
-  'Espresso':
-    'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=400&h=400&fit=crop&auto=format',
-  'Americano':
-    'https://images.unsplash.com/photo-1580661869408-55ab23f2ca6e?w=400&h=400&fit=crop&auto=format',
-  'Piccolo':
-    'https://images.unsplash.com/photo-1561047029-3000c68339ca?w=400&h=400&fit=crop&auto=format',
-  'Cortado':
-    'https://images.unsplash.com/photo-1514432324607-6a8d8b2ba5c1?w=400&h=400&fit=crop&auto=format',
-  'Latte':
-    'https://images.unsplash.com/photo-1504630083234-14187a9df0f5?w=400&h=400&fit=crop&auto=format',
-  'Cappuccino':
-    'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=400&h=400&fit=crop&auto=format',
-  'Flatwhite':
-    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop&auto=format',
-  'Spanish Latte':
-    'https://images.unsplash.com/photo-1611854779393-1b2da9d400fe?w=400&h=400&fit=crop&auto=format',
-  'Mocha':
-    'https://images.unsplash.com/photo-1545665277-5937489579f2?w=400&h=400&fit=crop&auto=format',
-  'Creamy Vanilla Coffee':
-    'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=400&fit=crop&auto=format',
-  'Creamy Vanilla Coffee Cold':
-    'https://images.deliveryhero.io/image/talabat/MenuItems/Creamy_Vanilla_Coffee_Col639088334943989690.jpg',
-  'Spanish Cortado':
-    'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=400&fit=crop&auto=format',
+  'V60':            '/images/V60 Hot.webp',
+  'Espresso':       '/images/Espresso Hot.webp',
+  'Americano':      '/images/Americano Hot.webp',
+  'Piccolo':        '/images/Piccolo Hot.webp',
+  'Cortado':        '/images/Cortado Hot.webp',
+  'Latte':          '/images/Latte Hot.webp',
+  'Cappuccino':     '/images/Cappucino Hot.webp',
+  'Flatwhite':      '/images/Flatwhite Hot.webp',
+  'Spanish Latte':  '/images/Spanish Latte Hot.webp',
+  'Mocha':          '/images/Mocha Hot.webp',
+  'Creamy Vanilla Coffee': '/images/Creamy Vanilla Coffee Hot.webp',
+  'Spanish Cortado': '/images/Spanish Cortado Hot.webp',
 
   // ── MATCHA ──────────────────────────────────────────────────────────────────
-  'Iced Matcha':
-    'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=400&fit=crop&auto=format',
-  'Matcha':
-    'https://images.unsplash.com/photo-1616085290814-c663de3e6cda?w=400&h=400&fit=crop&auto=format',
-  'Creamy Vanilla Matcha':
-    'https://images.deliveryhero.io/image/talabat/MenuItems/Creamy_Vanilla_Matcha639088353306696676.jpg',
-  'Creamy Mango Matcha':
-    'https://images.deliveryhero.io/image/talabat/MenuItems/Creamy_Mango_Matcha639088353350640362.jpg',
-  'Matcha Blended':
-    'https://images.unsplash.com/photo-1570856503770-f699bf175b00?w=400&h=400&fit=crop&auto=format',
+  'Iced Matcha':           '/images/Iced Matcha.webp',
+  'Matcha':                '/images/Matcha.webp',
+  'Creamy Vanilla Matcha': '/images/Creamy Vanilla Matcha.webp',
+  'Creamy Mango Matcha':   '/images/Creamy Mango Matcha.webp',
+  'Matcha Blended':        '/images/Matcha Blended.webp',
 
   // ── COLD DRINKS ─────────────────────────────────────────────────────────────
-  'V60 Cold':
-    'https://images.deliveryhero.io/image/talabat/MenuItems/V60_Cold639088333653667142.jpg',
-  'Raspberry Iced Tea':
-    'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&h=400&fit=crop&auto=format',
-  'Mango Iced Tea':
-    'https://images.unsplash.com/photo-1546173159-315724a31696?w=400&h=400&fit=crop&auto=format',
-  'Hibiscus Iced Tea':
-    'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=400&h=400&fit=crop&auto=format',
-  'Peach Iced Tea':
-    'https://images.unsplash.com/photo-1499638673689-79a0b5115d87?w=400&h=400&fit=crop&auto=format',
+  'Raspberry Iced Tea': '/images/Raspberry Iced Tea.webp',
+  'Mango Iced Tea':     '/images/Mango Iced Tea.webp',
+  'Hibiscus Iced Tea':  '/images/Hibiscus Iced Tea.webp',
+  'Peach Iced Tea':     '/images/Peach Iced Tea.webp',
 
   // ── AÇAÍ ────────────────────────────────────────────────────────────────────
   'Acai Bowl':
