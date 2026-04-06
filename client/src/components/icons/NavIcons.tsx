@@ -1,13 +1,18 @@
-const cn = "w-5 h-5 object-contain brightness-0 invert opacity-70 group-[.active]:opacity-100"
-
 function ImgIcon({ src, alt }: { src: string; alt: string }) {
-  return <img src={src} alt={alt} className={cn} />
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={20}
+      height={20}
+      style={{ filter: 'brightness(0) invert(1)', opacity: 0.85, minWidth: 20, minHeight: 20 }}
+    />
+  )
 }
 
-// Dashboard keeps SVG (no custom icon provided)
 export function DashboardIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="7" height="9" rx="1.5" />
       <rect x="14" y="3" width="7" height="5" rx="1.5" />
       <rect x="14" y="12" width="7" height="9" rx="1.5" />
@@ -24,10 +29,9 @@ export function ExpensesIcon() {
   return <ImgIcon src="/images/Money-Outgoing-Expense--Streamline-Plump.png" alt="Expenses" />
 }
 
-// Fixed Costs keeps SVG (no custom icon provided)
 export function FixedCostsIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 21H21" />
       <path d="M5 21V7L12 3L19 7V21" />
       <rect x="9" y="13" width="6" height="8" />
