@@ -22,8 +22,13 @@ export default function Sidebar() {
   return (
     <aside className="hidden md:flex w-60 bg-sheen-black min-h-screen flex-col shrink-0">
       <div className="p-6 border-b border-white/10">
-        <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
-        <p className="text-xs text-sheen-muted mt-1 font-body">{t('coffeeShopManager')}</p>
+        <div className="flex items-center gap-3">
+          <img src="/images/logo.png" alt="SHEEN" className="w-10 h-10 rounded-full" />
+          <div>
+            <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
+            <p className="text-xs text-sheen-muted font-body">{t('coffeeShopManager')}</p>
+          </div>
+        </div>
         {role && (
           <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-body font-medium uppercase tracking-wider bg-sheen-gold/15 text-sheen-gold">
             {t(role as any)}

@@ -42,6 +42,7 @@ export default function Login() {
         <div className="bg-sheen-white rounded-xl shadow-sm p-8">
           {/* Branding */}
           <div className="text-center mb-8">
+            <img src="/images/logo.png" alt="SHEEN" className="w-20 h-20 mx-auto mb-3 rounded-full" />
             <h1 className="font-display text-4xl text-sheen-black tracking-wide">
               SHEEN
             </h1>

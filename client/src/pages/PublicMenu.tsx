@@ -22,9 +22,12 @@ export default function PublicMenu() {
       {/* Header */}
       <header className="bg-sheen-black sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
-            <p className="text-xs text-sheen-muted font-body">{t('ourMenu')}</p>
+          <div className="flex items-center gap-3">
+            <img src="/images/logo.png" alt="SHEEN" className="w-10 h-10 rounded-full" />
+            <div>
+              <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
+              <p className="text-xs text-sheen-muted font-body">{t('ourMenu')}</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <button

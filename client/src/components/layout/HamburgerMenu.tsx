@@ -66,14 +66,17 @@ export default function HamburgerMenu() {
       >
         {/* Drawer header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
-          <div>
-            <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
-            <p className="text-xs text-sheen-muted mt-1 font-body">{t('coffeeShopManager')}</p>
-            {role && (
-              <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-body font-medium uppercase tracking-wider bg-sheen-gold/15 text-sheen-gold">
-                {t(role as any)}
-              </span>
-            )}
+          <div className="flex items-center gap-3">
+            <img src="/images/logo.png" alt="SHEEN" className="w-10 h-10 rounded-full" />
+            <div>
+              <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
+              <p className="text-xs text-sheen-muted font-body">{t('coffeeShopManager')}</p>
+              {role && (
+                <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-body font-medium uppercase tracking-wider bg-sheen-gold/15 text-sheen-gold">
+                  {t(role as any)}
+                </span>
+              )}
+            </div>
           </div>
           <button
             onClick={() => setOpen(false)}
