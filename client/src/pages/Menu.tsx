@@ -87,7 +87,7 @@ export default function Menu() {
         is_active: editActive,
       })
       toast.success(t('menuItemUpdated'))
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] })
       setEditItem(null)
     } catch {
       toast.error('Failed to update menu item')
@@ -102,7 +102,7 @@ export default function Menu() {
     try {
       await api.post('/api/menu/recalculate')
       toast.success(t('marginsRecalculated'))
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] })
     } catch {
       toast.error('Failed to recalculate margins')
     } finally {

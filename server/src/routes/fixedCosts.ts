@@ -2,8 +2,8 @@ import { Router, Request, Response } from 'express'
 import {
   getFixedCostsByMonth,
   insertFixedCost,
-  updateFixedCostPaid,
 } from '../services/db'
+import { supabase } from '../lib/supabase'
 
 const router = Router()
 
@@ -66,11 +66,45 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
-// PATCH /api/fixed-costs/:id — mark as paid
+// PATCH /api/fixed-costs/:id — toggle paid status
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
-    const cost = await updateFixedCostPaid(req.params.id as string)
-    res.json(cost)
+    const { is_paid, paid_date } = req.body
+    const updates: Record<string, any> = {}
+
+    if (typeof is_paid === 'boolean') {
+      updates.is_paid = is_paid
+      updates.paid_date = is_paid ? (paid_date || new Date().toISOString().slice(0, 10)) : null
+    } else {
+      // Fallback: mark as paid (legacy behavior)
+      updates.is_paid = true
+      updates.paid_date = new Date().toISOString().slice(0, 10)
+    }
+
+    const { data, error } = await supabase
+      .from('fixed_costs')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single()
+
+    if (error) throw error
+    res.json(data)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// DELETE /api/fixed-costs/:id
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { error } = await supabase
+      .from('fixed_costs')
+      .delete()
+      .eq('id', req.params.id)
+
+    if (error) throw error
+    res.json({ message: 'Fixed cost deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
