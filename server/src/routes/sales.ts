@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { getSalesByDateRange, insertSale } from '../services/db'
+import { supabase } from '../lib/supabase'
 
 const router = Router()
 
@@ -15,8 +16,172 @@ router.get('/', async (req: Request, res: Response) => {
   }
 })
 
+// GET /api/sales/kpis/today — dashboard KPIs
+router.get('/kpis/today', async (_req: Request, res: Response) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+
+    // Revenue + cups from sales
+    const { data: sales, error: salesErr } = await supabase
+      .from('sales')
+      .select('total_revenue, total_cups')
+      .eq('sale_date', today)
+
+    if (salesErr) throw salesErr
+
+    const total_revenue = (sales ?? []).reduce((s, r) => s + Number(r.total_revenue), 0)
+    const total_cups = (sales ?? []).reduce((s, r) => s + r.total_cups, 0)
+
+    // Expenses today
+    const { data: expenses, error: expErr } = await supabase
+      .from('expenses')
+      .select('total_cost')
+      .eq('expense_date', today)
+
+    if (expErr) throw expErr
+
+    const total_expenses = (expenses ?? []).reduce((s, e) => s + Number(e.total_cost), 0)
+
+    const net_profit = total_revenue - total_expenses
+
+    res.json({ total_revenue, total_cups, total_expenses, net_profit })
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// GET /api/sales/hourly?date=YYYY-MM-DD — cups by hour
+router.get('/hourly', async (req: Request, res: Response) => {
+  try {
+    const date = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+
+    const { data: sales, error } = await supabase
+      .from('sales')
+      .select('recorded_at, total_cups')
+      .eq('sale_date', date)
+
+    if (error) throw error
+
+    // Aggregate by hour (6am to 10pm)
+    const hourMap: Record<number, number> = {}
+    for (let h = 6; h <= 22; h++) hourMap[h] = 0
+
+    for (const sale of sales ?? []) {
+      const hour = new Date(sale.recorded_at).getHours()
+      if (hour >= 6 && hour <= 22) {
+        hourMap[hour] += sale.total_cups
+      }
+    }
+
+    const result = Object.entries(hourMap).map(([hour, cups]) => ({
+      hour: Number(hour),
+      cups,
+    }))
+
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// GET /api/sales/top-sellers?date=YYYY-MM-DD&limit=5
+router.get('/top-sellers', async (req: Request, res: Response) => {
+  try {
+    const date = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+    const limit = Number(req.query.limit) || 5
+
+    // Get sale IDs for the date
+    const { data: sales, error: salesErr } = await supabase
+      .from('sales')
+      .select('id')
+      .eq('sale_date', date)
+
+    if (salesErr) throw salesErr
+
+    const saleIds = (sales ?? []).map((s) => s.id)
+
+    if (saleIds.length === 0) {
+      res.json([])
+      return
+    }
+
+    const { data: items, error: itemsErr } = await supabase
+      .from('sale_items')
+      .select('name, category, qty, total')
+      .in('sale_id', saleIds)
+
+    if (itemsErr) throw itemsErr
+
+    // Aggregate by item name
+    const map: Record<string, { name: string; category: string; qty: number; revenue: number }> = {}
+    for (const item of items ?? []) {
+      if (!map[item.name]) {
+        map[item.name] = { name: item.name, category: item.category, qty: 0, revenue: 0 }
+      }
+      map[item.name].qty += item.qty
+      map[item.name].revenue += Number(item.total)
+    }
+
+    const sorted = Object.values(map)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, limit)
+
+    res.json(sorted)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// GET /api/sales/last-7-days — revenue + expenses per day
+router.get('/last-7-days', async (_req: Request, res: Response) => {
+  try {
+    const today = new Date()
+    const days: { date: string; revenue: number; expenses: number }[] = []
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today)
+      d.setDate(d.getDate() - i)
+      const dateStr = d.toISOString().slice(0, 10)
+      days.push({ date: dateStr, revenue: 0, expenses: 0 })
+    }
+
+    // Fetch sales for range
+    const from = days[0].date
+    const to = days[days.length - 1].date
+
+    const [salesRes, expRes] = await Promise.all([
+      supabase
+        .from('sales')
+        .select('sale_date, total_revenue')
+        .gte('sale_date', from)
+        .lte('sale_date', to),
+      supabase
+        .from('expenses')
+        .select('expense_date, total_cost')
+        .gte('expense_date', from)
+        .lte('expense_date', to),
+    ])
+
+    if (salesRes.error) throw salesRes.error
+    if (expRes.error) throw expRes.error
+
+    for (const sale of salesRes.data ?? []) {
+      const day = days.find((d) => d.date === sale.sale_date)
+      if (day) day.revenue += Number(sale.total_revenue)
+    }
+
+    for (const exp of expRes.data ?? []) {
+      const day = days.find((d) => d.date === exp.expense_date)
+      if (day) day.expenses += Number(exp.total_cost)
+    }
+
+    res.json(days)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // POST /api/sales
-// Body: { sale_date, items: [...], recorded_by? }
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { sale_date, items, recorded_by } = req.body
@@ -60,6 +225,21 @@ router.post('/', async (req: Request, res: Response) => {
       sanitizedItems
     )
     res.status(201).json(sale)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// DELETE /api/sales/:id
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { error } = await supabase
+      .from('sales')
+      .delete()
+      .eq('id', req.params.id)
+
+    if (error) throw error
+    res.json({ message: 'Sale deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
