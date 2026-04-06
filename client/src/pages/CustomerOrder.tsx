@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import { useAuth } from '../hooks/useAuth'
@@ -12,6 +12,8 @@ import type { MenuItem, MenuCategory, Order, OrderItem } from '../types'
 import { format } from 'date-fns'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites']
+const PAYMENT_METHODS = ['cash', 'card', 'apple_pay'] as const
+type PaymentMethod = typeof PAYMENT_METHODS[number]
 
 export default function CustomerOrder() {
   const { t } = useLanguage()
@@ -21,7 +23,34 @@ export default function CustomerOrder() {
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [notes, setNotes] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [showCart, setShowCart] = useState(false)
+
+  // Swipe logic
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
+  const isSwiping = useRef(false)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+    isSwiping.current = false
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = Math.abs(e.touches[0].clientX - touchStartX.current)
+    const dy = Math.abs(e.touches[0].clientY - touchStartY.current)
+    if (dx > dy && dx > 10) isSwiping.current = true
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isSwiping.current) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    if (Math.abs(dx) < 50) return
+    const idx = CATEGORIES.indexOf(activeCategory)
+    if (dx < 0 && idx < CATEGORIES.length - 1) setActiveCategory(CATEGORIES[idx + 1])
+    else if (dx > 0 && idx > 0) setActiveCategory(CATEGORIES[idx - 1])
+  }
 
   // Fetch customer's orders
   const { data: myOrders = [] } = useQuery({
@@ -47,7 +76,6 @@ export default function CustomerOrder() {
       return { ...prev, [id]: cur - 1 }
     }), [])
 
-  // Cart items
   const cartItems = useMemo(() => {
     return Object.entries(quantities)
       .filter(([, qty]) => qty > 0)
@@ -61,7 +89,6 @@ export default function CustomerOrder() {
   const cartTotal = cartItems.reduce((s, i) => s + i.total, 0)
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0)
 
-  // Submit order
   const submitOrder = useMutation({
     mutationFn: () => createOrder({
       customer_id: user!.id,
@@ -73,12 +100,13 @@ export default function CustomerOrder() {
         price: i.selling_price,
         qty: i.qty,
       })),
-      notes: notes || undefined,
+      notes: notes ? `${notes}\n[Payment: ${t(paymentMethod as any)}]` : `[Payment: ${t(paymentMethod as any)}]`,
     }),
     onSuccess: () => {
       toast.success(t('orderSubmitted'))
       setQuantities({})
       setNotes('')
+      setPaymentMethod('cash')
       setShowCart(false)
       queryClient.invalidateQueries({ queryKey: ['orders'] })
     },
@@ -92,18 +120,40 @@ export default function CustomerOrder() {
     completed: 'bg-blue-100 text-blue-700',
   }
 
+  const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
+    cash: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M2 10H6" /><path d="M18 10H22" />
+      </svg>
+    ),
+    card: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M2 10H22" />
+        <path d="M6 14H10" />
+      </svg>
+    ),
+    apple_pay: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M17.72 7.4c-.47.52-1.23.92-1.97.86-.09-.74.27-1.53.7-2.01.47-.53 1.29-.9 1.95-.93.08.76-.22 1.51-.68 2.08zM17.05 8.35c-1.09-.06-2.02.62-2.54.62-.52 0-1.33-.59-2.18-.57-1.13.02-2.16.65-2.74 1.66-1.17 2.02-.3 5.02.84 6.67.56.81 1.23 1.72 2.11 1.69.85-.03 1.17-.55 2.19-.55 1.02 0 1.31.55 2.2.53.91-.01 1.49-.83 2.05-1.64.64-.94.9-1.85.92-1.9-.02-.01-1.77-.68-1.78-2.7-.01-1.68 1.37-2.49 1.43-2.53-.78-1.15-2-1.28-2.43-1.31l-.07.03z"/>
+      </svg>
+    ),
+  }
+
   return (
     <div className="min-h-screen bg-sheen-cream">
       <TopBar title={t('orderNow')} />
 
       <main className="max-w-5xl mx-auto px-4 py-6">
         {/* Category Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none no-scrollbar" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none no-scrollbar snap-x snap-mandatory" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-body font-medium transition-colors ${
+              className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-body font-medium transition-colors snap-start ${
                 activeCategory === cat
                   ? 'bg-sheen-brown text-sheen-white shadow-md'
                   : 'bg-sheen-white text-sheen-black border border-sheen-muted/30'
@@ -114,8 +164,13 @@ export default function CustomerOrder() {
           ))}
         </div>
 
-        {/* Menu Items Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+        {/* Menu Items Grid (swipeable) */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6"
+        >
           {menuLoading ? (
             <p className="col-span-full text-center text-sheen-muted font-body py-12">{t('loadingMenu')}</p>
           ) : activeItems.length === 0 ? (
@@ -165,13 +220,14 @@ export default function CustomerOrder() {
         {/* Cart Panel */}
         {showCart && (
           <div className="fixed inset-0 z-30 bg-black/50 flex items-end justify-center" onClick={() => setShowCart(false)}>
-            <div className="bg-sheen-white w-full max-w-lg rounded-t-2xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-sheen-white w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-sheen-white border-b border-sheen-cream px-5 py-4 flex items-center justify-between">
                 <h2 className="font-display text-lg text-sheen-black">{t('yourOrder')}</h2>
                 <button onClick={() => setShowCart(false)} className="text-sheen-muted hover:text-sheen-black text-xl">&times;</button>
               </div>
 
               <div className="p-5 space-y-3">
+                {/* Cart Items */}
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
@@ -184,6 +240,27 @@ export default function CustomerOrder() {
                     </div>
                   </div>
                 ))}
+
+                {/* Payment Method */}
+                <div className="pt-3 border-t border-sheen-cream">
+                  <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
+                  <div className="flex gap-2">
+                    {PAYMENT_METHODS.map((method) => (
+                      <button
+                        key={method}
+                        onClick={() => setPaymentMethod(method)}
+                        className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl text-xs font-body font-medium transition-all ${
+                          paymentMethod === method
+                            ? 'bg-sheen-brown text-white shadow-md'
+                            : 'bg-sheen-cream text-sheen-black border border-sheen-muted/20'
+                        }`}
+                      >
+                        {paymentIcons[method]}
+                        {t(method as any)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Notes */}
                 <div className="pt-3">
