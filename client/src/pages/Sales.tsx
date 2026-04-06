@@ -270,7 +270,7 @@ export default function Sales() {
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="font-body font-medium text-sheen-black truncate">
+                      <p className="font-body font-medium text-sheen-black text-sm leading-tight">
                         {item.name}
                       </p>
                       <p className="font-body text-sm text-sheen-brown">
