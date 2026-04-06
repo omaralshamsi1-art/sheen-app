@@ -237,8 +237,13 @@ export default function Sales() {
           ))}
         </div>
 
-        {/* ── Menu Items Grid ── */}
-        <div className="bg-sheen-white rounded-xl shadow-sm p-6 mb-8">
+        {/* ── Menu Items Grid (swipeable) ── */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="bg-sheen-white rounded-xl shadow-sm p-6 mb-8"
+        >
           {menuLoading ? (
             <p className="text-sheen-muted font-body">{t('loadingMenu')}</p>
           ) : currentItems.length === 0 ? (
