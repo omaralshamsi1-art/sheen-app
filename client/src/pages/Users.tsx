@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUsers, addOrUpdateUser, updateUserRole, deleteUser } from '../services/userService'
+import { getUsers, addUser, updateUserRole, deleteUser } from '../services/userService'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -17,19 +17,18 @@ export default function Users() {
     queryFn: getUsers,
   })
 
-  // Form state for adding new user
   const [newEmail, setNewEmail] = useState('')
-  const [newUserId, setNewUserId] = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState<UserRole>('staff')
   const [showAddForm, setShowAddForm] = useState(false)
 
   const addMutation = useMutation({
-    mutationFn: () => addOrUpdateUser(newUserId.trim(), newEmail.trim(), newRole),
+    mutationFn: () => addUser(newEmail.trim(), newRole, newPassword || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       toast.success(t('userAdded'))
       setNewEmail('')
-      setNewUserId('')
+      setNewPassword('')
       setNewRole('staff')
       setShowAddForm(false)
     },
@@ -82,24 +81,27 @@ export default function Users() {
         {showAddForm && (
           <div className="bg-sheen-white rounded-xl shadow-sm p-6 mb-6">
             <h2 className="font-display text-lg text-sheen-black mb-4">{t('addUser')}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-body text-sheen-muted mb-1">User ID (UUID)</label>
-                <input
-                  type="text"
-                  value={newUserId}
-                  onChange={(e) => setNewUserId(e.target.value)}
-                  placeholder="Supabase user UUID"
-                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-                />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-body text-sheen-muted mb-1">{t('email')}</label>
                 <input
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="user@sheencafe.com"
+                  placeholder="staff@sheencafe.com"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-1">
+                  {t('password')}
+                  <span className="text-sheen-muted/60 ml-1">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Default: Sheen@2026"
                   className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
                 />
               </div>
@@ -116,10 +118,13 @@ export default function Users() {
                 </select>
               </div>
             </div>
+            <p className="mt-3 text-xs font-body text-sheen-muted">
+              If the email already exists in Supabase Auth, the role will be assigned. Otherwise, a new account is created with the password above.
+            </p>
             <div className="mt-4">
               <Button
                 onClick={() => addMutation.mutate()}
-                disabled={!newUserId.trim() || !newEmail.trim() || addMutation.isPending}
+                disabled={!newEmail.trim() || addMutation.isPending}
               >
                 {addMutation.isPending ? t('saving') : t('addUser')}
               </Button>
@@ -147,7 +152,6 @@ export default function Users() {
                   <tr key={user.id} className="hover:bg-sheen-cream/50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="font-body text-sm text-sheen-black">{user.email}</p>
-                      <p className="font-body text-xs text-sheen-muted mt-0.5 truncate max-w-[200px]">{user.user_id}</p>
                     </td>
                     <td className="px-6 py-4">
                       <select

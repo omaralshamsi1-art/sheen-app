@@ -41,15 +41,11 @@ router.get('/role/:userId', async (req: Request, res: Response) => {
   }
 })
 
-// POST /api/users — add or update a user role
+// POST /api/users — add or update a user role (looks up UUID by email automatically)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { user_id, email, role } = req.body
+    const { email, role, password } = req.body
 
-    if (!user_id || typeof user_id !== 'string') {
-      res.status(400).json({ message: 'user_id is required' })
-      return
-    }
     if (!email || typeof email !== 'string') {
       res.status(400).json({ message: 'email is required' })
       return
@@ -59,11 +55,34 @@ router.post('/', async (req: Request, res: Response) => {
       return
     }
 
-    // Upsert — insert or update if user_id already exists
+    const cleanEmail = email.trim().toLowerCase()
+
+    // Try to find existing user in Supabase Auth by listing users
+    const { data: { users }, error: listErr } = await supabase.auth.admin.listUsers()
+    if (listErr) throw listErr
+
+    let userId: string | null = null
+    const existingUser = users.find((u) => u.email?.toLowerCase() === cleanEmail)
+
+    if (existingUser) {
+      userId = existingUser.id
+    } else {
+      // User doesn't exist in Auth — create them with a password
+      const userPassword = password || 'Sheen@2026'
+      const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+        email: cleanEmail,
+        password: userPassword,
+        email_confirm: true,
+      })
+      if (createErr) throw createErr
+      userId = newUser.user.id
+    }
+
+    // Upsert role
     const { data, error } = await supabase
       .from('user_roles')
       .upsert(
-        { user_id, email: email.trim().toLowerCase(), role, updated_at: new Date().toISOString() },
+        { user_id: userId, email: cleanEmail, role, updated_at: new Date().toISOString() },
         { onConflict: 'user_id' }
       )
       .select()

@@ -8,8 +8,8 @@ export async function getUsers(): Promise<UserRoleRecord[]> {
   return data
 }
 
-export async function addOrUpdateUser(user_id: string, email: string, role: UserRole): Promise<UserRoleRecord> {
-  const { data } = await api.post('/api/users', { user_id, email, role })
+export async function addUser(email: string, role: UserRole, password?: string): Promise<UserRoleRecord> {
+  const { data } = await api.post('/api/users', { email, role, password })
   return data
 }
 
