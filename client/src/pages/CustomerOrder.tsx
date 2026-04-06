@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import { useAuth } from '../hooks/useAuth'
@@ -25,6 +25,18 @@ export default function CustomerOrder() {
   const [notes, setNotes] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [showCart, setShowCart] = useState(false)
+
+  // Refs
+  const tabsRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll active tab into view
+  useEffect(() => {
+    if (!tabsRef.current) return
+    const activeBtn = tabsRef.current.querySelector('[data-active="true"]') as HTMLElement | null
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    }
+  }, [activeCategory])
 
   // Swipe logic
   const touchStartX = useRef(0)
@@ -148,10 +160,11 @@ export default function CustomerOrder() {
 
       <main className="max-w-5xl mx-auto px-4 py-6">
         {/* Category Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none no-scrollbar snap-x snap-mandatory" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+        <div ref={tabsRef} className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none no-scrollbar snap-x snap-mandatory" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
+              data-active={activeCategory === cat}
               onClick={() => setActiveCategory(cat)}
               className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-body font-medium transition-colors snap-start ${
                 activeCategory === cat
