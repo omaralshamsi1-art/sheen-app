@@ -14,6 +14,73 @@ router.get('/', async (_req: Request, res: Response) => {
   }
 })
 
+// POST /api/menu — add a new menu item
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { id, name, category, selling_price, estimated_cogs, packaging_cost } = req.body
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      res.status(400).json({ message: 'name is required' })
+      return
+    }
+
+    const validCategories = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites']
+    if (!category || !validCategories.includes(category)) {
+      res.status(400).json({ message: `category must be one of: ${validCategories.join(', ')}` })
+      return
+    }
+
+    if (typeof selling_price !== 'number' || selling_price < 0) {
+      res.status(400).json({ message: 'selling_price must be a non-negative number' })
+      return
+    }
+
+    const cogs = typeof estimated_cogs === 'number' ? estimated_cogs : 0
+    const pkg = typeof packaging_cost === 'number' ? packaging_cost : 0
+    const gross_margin = selling_price > 0
+      ? ((selling_price - cogs - pkg) / selling_price) * 100
+      : 0
+
+    // Generate id from name if not provided
+    const itemId = id || name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+
+    const { data, error } = await supabase
+      .from('menu_items')
+      .insert({
+        id: itemId,
+        name: name.trim(),
+        category,
+        selling_price,
+        estimated_cogs: cogs,
+        packaging_cost: pkg,
+        gross_margin: Math.round(gross_margin * 100) / 100,
+        is_active: true,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    res.status(201).json(data)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// DELETE /api/menu/:id — delete a menu item
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { error } = await supabase
+      .from('menu_items')
+      .delete()
+      .eq('id', req.params.id)
+
+    if (error) throw error
+    res.json({ message: 'Menu item deleted' })
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // PATCH /api/menu/:id — update selling_price and/or is_active
 router.patch('/:id', async (req: Request, res: Response) => {
   try {

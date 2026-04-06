@@ -150,6 +150,11 @@ export const translations = {
   perCup: { en: 'per cup', ar: 'لكل كوب' },
   saveChanges: { en: 'Save Changes', ar: 'حفظ التغييرات' },
   menuItemUpdated: { en: 'Menu item updated', ar: 'تم تحديث العنصر' },
+  addMenuItem: { en: 'Add Item', ar: 'إضافة عنصر' },
+  menuItemAdded: { en: 'Menu item added!', ar: 'تم إضافة العنصر!' },
+  itemName: { en: 'Item Name', ar: 'اسم العنصر' },
+  estimatedCOGS: { en: 'Est. COGS', ar: 'تكلفة تقديرية' },
+  packagingCost: { en: 'Packaging', ar: 'التغليف' },
   marginsRecalculated: { en: 'Margins recalculated', ar: 'تم إعادة حساب الهوامش' },
 
   // ── AI Monitor ──

@@ -48,6 +48,15 @@ export default function Menu() {
   const [saving, setSaving] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
 
+  // Add item state
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newCategory, setNewCategory] = useState<MenuCategory>('Coffee')
+  const [newPrice, setNewPrice] = useState('')
+  const [newCogs, setNewCogs] = useState('')
+  const [newPkg, setNewPkg] = useState('')
+  const [adding, setAdding] = useState(false)
+
   // Extract unique categories from items
   const categories = Array.from(
     new Set(menuItems.map((item) => item.category).filter(Boolean)),
@@ -110,6 +119,41 @@ export default function Menu() {
     }
   }
 
+  // Add new menu item
+  async function handleAddItem() {
+    if (!newName.trim() || !newPrice) return
+    setAdding(true)
+    try {
+      await api.post('/api/menu', {
+        name: newName.trim(),
+        category: newCategory,
+        selling_price: Number(newPrice),
+        estimated_cogs: Number(newCogs) || 0,
+        packaging_cost: Number(newPkg) || 0,
+      })
+      toast.success(t('menuItemAdded'))
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] })
+      setNewName('')
+      setNewPrice('')
+      setNewCogs('')
+      setNewPkg('')
+      setShowAddForm(false)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to add item')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  // Preview margin for new item
+  const newMarginPreview = (() => {
+    const price = Number(newPrice) || 0
+    const cogs = Number(newCogs) || 0
+    const pkg = Number(newPkg) || 0
+    if (price <= 0) return 0
+    return ((price - cogs - pkg) / price) * 100
+  })()
+
   return (
     <div className="min-h-screen bg-sheen-cream">
       <TopBar title={t('menu')} />
@@ -143,10 +187,95 @@ export default function Menu() {
             ))}
           </div>
 
-          <Button onClick={handleRecalculate} disabled={recalculating}>
-            {recalculating ? t('recalculating') : t('recalculateAllMargins')}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setShowAddForm(!showAddForm)}>
+              {showAddForm ? t('cancel') : t('addMenuItem')}
+            </Button>
+            <Button onClick={handleRecalculate} disabled={recalculating}>
+              {recalculating ? t('recalculating') : t('recalculateAllMargins')}
+            </Button>
+          </div>
         </div>
+
+        {/* Add Item Form */}
+        {showAddForm && (
+          <div className="bg-sheen-white rounded-xl shadow-sm p-6">
+            <h2 className="font-display text-lg text-sheen-black mb-4">{t('addMenuItem')}</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-1">{t('itemName')}</label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. Iced Latte"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-1">{t('category')}</label>
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value as MenuCategory)}
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                >
+                  {(['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites'] as MenuCategory[]).map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-1">{t('sellingPrice')} (AED)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-1">{t('estimatedCOGS')} (AED)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={newCogs}
+                  onChange={(e) => setNewCogs(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-1">{t('packagingCost')} (AED)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={newPkg}
+                  onChange={(e) => setNewPkg(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              </div>
+              {newPrice && (
+                <div className="flex items-end pb-1">
+                  <div className="flex items-center gap-2">
+                    <MarginBadge pct={newMarginPreview} />
+                    <span className="font-body text-sm text-sheen-black">{newMarginPreview.toFixed(1)}% {t('margin')}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mt-4">
+              <Button onClick={handleAddItem} disabled={!newName.trim() || !newPrice || adding}>
+                {adding ? t('saving') : t('addMenuItem')}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Menu items list */}
         {isLoading ? (
