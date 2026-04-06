@@ -34,8 +34,7 @@ export const itemImages: Record<string, string> = {
   // ── AÇAÍ ────────────────────────────────────────────────────────────────────
   'Acai Bowl':
     'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=400&h=400&fit=crop&auto=format',
-  'Acai Smoothie':
-    'https://images.unsplash.com/photo-1638176067030-8a12afd00e37?w=400&h=400&fit=crop&auto=format',
+  'Acai Smoothie':  '/images/Acai Smoothie.webp',
 
   // ── DESSERTS ────────────────────────────────────────────────────────────────
   'Cheesecake':
