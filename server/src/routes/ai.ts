@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import Groq from 'groq-sdk'
 import { supabase } from '../lib/supabase'
 
 const router = Router()
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 const SYSTEM_INSTRUCTION = `You are "Barista AI", an expert coffee shop business analyst for SHEEN café.
 Provide concise, specific, actionable advice. Always reference actual numbers.
@@ -157,24 +157,26 @@ router.post('/chat', async (req: Request, res: Response) => {
       ? buildDataBlock(context)
       : 'No business data provided.'
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: `${SYSTEM_INSTRUCTION}\n\nYou have access to the following real business data:\n${dataBlock}`,
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'system',
+          content: `${SYSTEM_INSTRUCTION}\n\nYou have access to the following real business data:\n${dataBlock}`,
+        },
+        ...messages.map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })),
+      ],
     })
 
-    // Convert messages to Gemini chat history format
-    const history = messages.slice(0, -1).map((m) => ({
-      role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-      parts: [{ text: m.content }],
-    }))
-
-    const chat = model.startChat({ history })
-    const lastMsg = messages[messages.length - 1]
-    const result = await chat.sendMessage(lastMsg.content)
-    const assistantMessage = result.response.text()
+    const assistantMessage = response.choices[0]?.message?.content ?? ''
 
     // Save to ai_chats table
     const today = new Date().toISOString().slice(0, 10)
+    const lastMsg = messages[messages.length - 1]
     await supabase.from('ai_chats').insert([
       { session_date: today, role: 'user', content: lastMsg.content },
       { session_date: today, role: 'assistant', content: assistantMessage },
@@ -192,15 +194,22 @@ router.post('/analyze', async (_req: Request, res: Response) => {
     const ctx = await fetchBusinessContext()
     const dataBlock = buildDataBlock(ctx)
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction: `${SYSTEM_INSTRUCTION}\n\nYou have access to the following real business data:\n${dataBlock}`,
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'system',
+          content: `${SYSTEM_INSTRUCTION}\n\nYou have access to the following real business data:\n${dataBlock}`,
+        },
+        {
+          role: 'user',
+          content: "Analyze this coffee shop's performance and give me 3 specific, actionable bullet-point insights I should act on right now.",
+        },
+      ],
     })
 
-    const result = await model.generateContent(
-      "Analyze this coffee shop's performance and give me 3 specific, actionable bullet-point insights I should act on right now."
-    )
-    const content = result.response.text()
+    const content = response.choices[0]?.message?.content ?? ''
 
     // Save to ai_chats
     const today = new Date().toISOString().slice(0, 10)
