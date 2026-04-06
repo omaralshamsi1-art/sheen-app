@@ -10,6 +10,7 @@ export interface MenuItem {
   estimated_cogs: number;
   packaging_cost: number;
   gross_margin: number;
+  image_url: string | null;
   created_at: string;
 }
 

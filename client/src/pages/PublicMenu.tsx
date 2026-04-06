@@ -75,9 +75,9 @@ export default function PublicMenu() {
                 key={item.id}
                 className="bg-sheen-white rounded-xl shadow-sm overflow-hidden transition-shadow hover:shadow-md"
               >
-                {getItemImage(item.name) ? (
+                {getItemImage(item.name, item.image_url) ? (
                   <img
-                    src={getItemImage(item.name)}
+                    src={getItemImage(item.name, item.image_url)}
                     alt={item.name}
                     className="w-full h-36 object-cover"
                   />

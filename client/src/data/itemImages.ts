@@ -51,6 +51,8 @@ export const itemImages: Record<string, string> = {
     'https://images.unsplash.com/photo-1495147466023-ac5c588e2e94?w=400&h=400&fit=crop&auto=format',
 }
 
-export function getItemImage(name: string): string | undefined {
+export function getItemImage(name: string, imageUrl?: string | null): string | undefined {
+  // Prefer database image_url, then fall back to local mapping
+  if (imageUrl) return imageUrl
   return itemImages[name]
 }

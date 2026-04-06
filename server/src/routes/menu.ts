@@ -17,7 +17,7 @@ router.get('/', async (_req: Request, res: Response) => {
 // POST /api/menu — add a new menu item
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { id, name, category, selling_price, estimated_cogs, packaging_cost } = req.body
+    const { id, name, category, selling_price, estimated_cogs, packaging_cost, image_url } = req.body
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       res.status(400).json({ message: 'name is required' })
@@ -55,6 +55,7 @@ router.post('/', async (req: Request, res: Response) => {
         packaging_cost: pkg,
         gross_margin: Math.round(gross_margin * 100) / 100,
         is_active: true,
+        ...(image_url ? { image_url } : {}),
       })
       .select()
       .single()
@@ -84,7 +85,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // PATCH /api/menu/:id — update selling_price and/or is_active
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
-    const { selling_price, is_active } = req.body
+    const { selling_price, is_active, image_url } = req.body
     const updates: Record<string, any> = {}
 
     if (selling_price !== undefined) {
@@ -101,6 +102,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
         return
       }
       updates.is_active = is_active
+    }
+
+    if (image_url !== undefined) {
+      updates.image_url = image_url
     }
 
     if (Object.keys(updates).length === 0) {

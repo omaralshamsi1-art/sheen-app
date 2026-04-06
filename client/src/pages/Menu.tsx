@@ -9,6 +9,7 @@ import Modal from '../components/ui/Modal'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { getItemImage } from '../data/itemImages'
+import { supabase } from '../lib/supabase'
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
@@ -56,6 +57,8 @@ export default function Menu() {
   const [newCogs, setNewCogs] = useState('')
   const [newPkg, setNewPkg] = useState('')
   const [adding, setAdding] = useState(false)
+  const [newImageFile, setNewImageFile] = useState<File | null>(null)
+  const [newImagePreview, setNewImagePreview] = useState<string | null>(null)
 
   // Extract unique categories from items
   const categories = Array.from(
@@ -119,17 +122,47 @@ export default function Menu() {
     }
   }
 
+  // Handle image file selection
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setNewImageFile(file)
+    setNewImagePreview(URL.createObjectURL(file))
+  }
+
   // Add new menu item
   async function handleAddItem() {
     if (!newName.trim() || !newPrice) return
     setAdding(true)
     try {
+      let image_url: string | undefined
+
+      // Upload image to Supabase Storage if selected
+      if (newImageFile) {
+        const itemId = newName.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+        const ext = newImageFile.name.split('.').pop() || 'jpg'
+        const filePath = `${itemId}.${ext}`
+
+        const { error: uploadErr } = await supabase.storage
+          .from('menu-images')
+          .upload(filePath, newImageFile, { upsert: true })
+
+        if (uploadErr) throw uploadErr
+
+        const { data: urlData } = supabase.storage
+          .from('menu-images')
+          .getPublicUrl(filePath)
+
+        image_url = urlData.publicUrl
+      }
+
       await api.post('/api/menu', {
         name: newName.trim(),
         category: newCategory,
         selling_price: Number(newPrice),
         estimated_cogs: Number(newCogs) || 0,
         packaging_cost: Number(newPkg) || 0,
+        ...(image_url ? { image_url } : {}),
       })
       toast.success(t('menuItemAdded'))
       queryClient.invalidateQueries({ queryKey: ['menu-items'] })
@@ -137,6 +170,8 @@ export default function Menu() {
       setNewPrice('')
       setNewCogs('')
       setNewPkg('')
+      setNewImageFile(null)
+      setNewImagePreview(null)
       setShowAddForm(false)
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to add item')
@@ -260,6 +295,28 @@ export default function Menu() {
                   className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
                 />
               </div>
+              {/* Image upload */}
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-1">{t('productImage')}</label>
+                <div className="flex items-center gap-3">
+                  {newImagePreview ? (
+                    <img src={newImagePreview} alt="Preview" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg bg-sheen-cream flex items-center justify-center shrink-0 text-xl text-sheen-muted">
+                      +
+                    </div>
+                  )}
+                  <label className="cursor-pointer px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm text-sheen-brown hover:bg-sheen-gold/10 transition-colors">
+                    {newImageFile ? newImageFile.name : t('chooseImage')}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
               {newPrice && (
                 <div className="flex items-end pb-1">
                   <div className="flex items-center gap-2">
@@ -302,9 +359,9 @@ export default function Menu() {
                   {/* Main row */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4">
                     {/* Item photo */}
-                    {getItemImage(item.name) ? (
+                    {getItemImage(item.name, item.image_url) ? (
                       <img
-                        src={getItemImage(item.name)}
+                        src={getItemImage(item.name, item.image_url)}
                         alt={item.name}
                         className="w-16 h-16 rounded-xl object-cover shrink-0"
                       />

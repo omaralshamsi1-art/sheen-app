@@ -155,6 +155,8 @@ export const translations = {
   itemName: { en: 'Item Name', ar: 'اسم العنصر' },
   estimatedCOGS: { en: 'Est. COGS', ar: 'تكلفة تقديرية' },
   packagingCost: { en: 'Packaging', ar: 'التغليف' },
+  productImage: { en: 'Product Image', ar: 'صورة المنتج' },
+  chooseImage: { en: 'Choose image...', ar: 'اختر صورة...' },
   marginsRecalculated: { en: 'Margins recalculated', ar: 'تم إعادة حساب الهوامش' },
 
   // ── AI Monitor ──

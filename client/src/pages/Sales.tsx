@@ -258,9 +258,9 @@ export default function Sales() {
                   className="flex items-center justify-between border border-sheen-muted/30 rounded-lg p-3"
                 >
                   <div className="flex items-center gap-2 min-w-0 mr-3">
-                    {getItemImage(item.name) ? (
+                    {getItemImage(item.name, item.image_url) ? (
                       <img
-                        src={getItemImage(item.name)}
+                        src={getItemImage(item.name, item.image_url)}
                         alt={item.name}
                         className="w-12 h-12 rounded-lg object-cover shrink-0"
                       />
