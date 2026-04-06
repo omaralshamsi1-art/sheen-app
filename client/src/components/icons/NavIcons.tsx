@@ -55,7 +55,7 @@ export function UsersIcon() {
   return <NavImg src="/images/People-Circle-Outline--Streamline-Ionic-Outline.svg" alt="Users" />
 }
 
-export const navIconMap: Record<string, () => JSX.Element> = {
+export const navIconMap: Record<string, () => React.ReactElement> = {
   '/dashboard': DashboardIcon,
   '/sales': SalesIcon,
   '/expenses': ExpensesIcon,
