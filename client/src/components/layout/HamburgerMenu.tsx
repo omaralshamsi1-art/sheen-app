@@ -3,21 +3,13 @@ import { NavLink } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 import { useLanguage } from '../../i18n/LanguageContext'
-import type { TranslationKey } from '../../i18n/translations'
-
-const navItems: { to: string; labelKey: TranslationKey; icon: string }[] = [
-  { to: '/dashboard', labelKey: 'dashboard', icon: '\u{1F4CA}' },
-  { to: '/sales', labelKey: 'sales', icon: '\u2615' },
-  { to: '/expenses', labelKey: 'expenses', icon: '\u{1F4B8}' },
-  { to: '/fixed-costs', labelKey: 'fixedCosts', icon: '\u{1F3E0}' },
-  { to: '/menu', labelKey: 'menu', icon: '\u{1F4CB}' },
-  { to: '/ai-monitor', labelKey: 'aiMonitor', icon: '\u{1F916}' },
-  { to: '/reports', labelKey: 'reports', icon: '\u{1F4C8}' },
-]
+import { useRole } from '../../hooks/useRole'
+import { navItems } from '../../config/roles'
 
 export default function HamburgerMenu() {
   const [open, setOpen] = useState(false)
   const { t, lang, setLang } = useLanguage()
+  const { role } = useRole()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -29,6 +21,8 @@ export default function HamburgerMenu() {
     setLang(lang === 'en' ? 'ar' : 'en')
     setOpen(false)
   }
+
+  const visibleItems = navItems.filter((item) => role && item.roles.includes(role))
 
   return (
     <>
@@ -74,6 +68,11 @@ export default function HamburgerMenu() {
           <div>
             <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
             <p className="text-xs text-sheen-muted mt-1 font-body">{t('coffeeShopManager')}</p>
+            {role && (
+              <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-body font-medium uppercase tracking-wider bg-sheen-gold/15 text-sheen-gold">
+                {t(role as any)}
+              </span>
+            )}
           </div>
           <button
             onClick={() => setOpen(false)}
@@ -88,7 +87,7 @@ export default function HamburgerMenu() {
 
         {/* Nav links */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(item => (
+          {visibleItems.map(item => (
             <NavLink
               key={item.to}
               to={item.to}

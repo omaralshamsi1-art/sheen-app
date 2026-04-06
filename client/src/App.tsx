@@ -14,6 +14,7 @@ import FixedCosts from './pages/FixedCosts'
 import Menu from './pages/Menu'
 import AIMonitor from './pages/AIMonitor'
 import Reports from './pages/Reports'
+import Users from './pages/Users'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="/menu" element={<Menu />} />
             <Route path="/ai-monitor" element={<AIMonitor />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/users" element={<Users />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

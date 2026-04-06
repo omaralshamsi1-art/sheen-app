@@ -225,6 +225,20 @@ export interface HourlySales {
 }
 
 // ─────────────────────────────────────────────
+// USER ROLES
+// ─────────────────────────────────────────────
+export type UserRole = 'admin' | 'staff' | 'customer';
+
+export interface UserRoleRecord {
+  id: string;
+  user_id: string;
+  email: string;
+  role: UserRole;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─────────────────────────────────────────────
 // COMMON
 // ─────────────────────────────────────────────
 export interface DateRange {
