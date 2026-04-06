@@ -67,9 +67,13 @@ export default function Login() {
             <h1 className="font-display text-4xl text-sheen-black tracking-wide">
               SHEEN
             </h1>
-            <p className="font-body text-sheen-muted mt-1 text-sm">
-              {t('coffeeShopManager')}
-            </p>
+            <Link
+              to="/public-menu"
+              className="inline-block mt-2 font-body font-semibold text-sm transition-opacity hover:opacity-75"
+              style={{ color: '#ab7f2c' }}
+            >
+              {t('viewMenu')}
+            </Link>
           </div>
 
           {/* Error message */}
@@ -181,18 +185,6 @@ export default function Login() {
             {t('signInWithGoogle')}
           </button>
 
-          {/* View Menu button */}
-          <div className="mt-4">
-            <Link
-              to="/public-menu"
-              className="w-full flex items-center justify-center px-4 py-2.5 font-body font-semibold transition-colors"
-              style={{ color: '#ab7f2c', backgroundColor: 'transparent' }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.75' }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
-            >
-              {t('viewMenu')}
-            </Link>
-          </div>
         </div>
 
         <p className="text-center mt-6 text-xs font-body text-sheen-muted">
