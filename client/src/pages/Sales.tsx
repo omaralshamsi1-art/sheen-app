@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useTodaySales, useRecordSale, useDeleteSale } from '../hooks/useSales'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import type { MenuCategory, SalePayload, MenuItem, Sale, SaleItem } from '../types'
@@ -148,6 +148,51 @@ export default function Sales() {
     return { cups, revenue }
   }, [todaySales])
 
+  // ── Swipe-to-change-category logic ──
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
+  const isSwiping = useRef(false)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+    isSwiping.current = false
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const deltaX = Math.abs(e.touches[0].clientX - touchStartX.current)
+    const deltaY = Math.abs(e.touches[0].clientY - touchStartY.current)
+    if (deltaX > deltaY && deltaX > 10) {
+      isSwiping.current = true
+    }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isSwiping.current) return
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current
+    const threshold = 50
+    if (Math.abs(deltaX) < threshold) return
+
+    const currentIndex = CATEGORIES.indexOf(activeCategory)
+    if (deltaX < 0 && currentIndex < CATEGORIES.length - 1) {
+      // Swipe left → next category
+      setActiveCategory(CATEGORIES[currentIndex + 1])
+    } else if (deltaX > 0 && currentIndex > 0) {
+      // Swipe right → previous category
+      setActiveCategory(CATEGORIES[currentIndex - 1])
+    }
+  }
+
+  // Auto-scroll active tab into view
+  useEffect(() => {
+    if (!tabsRef.current) return
+    const activeBtn = tabsRef.current.querySelector('[data-active="true"]') as HTMLElement | null
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    }
+  }, [activeCategory])
+
   // Sorted sales (reverse chronological)
   const sortedSales = useMemo(
     () =>
@@ -167,15 +212,23 @@ export default function Sales() {
           {t('recordSales')}
         </h1>
 
-        {/* ── Category Tabs ── */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none no-scrollbar" style={{ scrollbarWidth: 'none' }}>
+        {/* ── Category Tabs (swipeable) ── */}
+        <div
+          ref={tabsRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="flex gap-2 mb-6 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none no-scrollbar snap-x snap-mandatory"
+          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+        >
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
+              data-active={activeCategory === cat}
               onClick={() => setActiveCategory(cat)}
-              className={`shrink-0 px-4 py-2 rounded-full text-sm font-body font-medium transition-colors ${
+              className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-body font-medium transition-colors snap-start ${
                 activeCategory === cat
-                  ? 'bg-sheen-brown text-sheen-white'
+                  ? 'bg-sheen-brown text-sheen-white shadow-md'
                   : 'bg-sheen-white text-sheen-black border border-sheen-muted hover:bg-sheen-gold/10'
               }`}
             >
