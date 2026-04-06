@@ -56,6 +56,8 @@ export const translations = {
   emailPlaceholder: { en: 'you@sheencafe.com', ar: 'you@sheencafe.com' },
   passwordPlaceholder: { en: 'Enter your password', ar: 'أدخل كلمة المرور' },
   loginError: { en: 'An unexpected error occurred. Please try again.', ar: 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.' },
+  orContinueWith: { en: 'or continue with', ar: 'أو تابع عبر' },
+  signInWithGoogle: { en: 'Sign in with Google', ar: 'تسجيل الدخول بحساب Google' },
   allRightsReserved: { en: 'SHEEN Coffee. All rights reserved.', ar: 'SHEEN Coffee. جميع الحقوق محفوظة.' },
 
   // ── Dashboard ──
