@@ -44,6 +44,9 @@ export const translations = {
   userAdded: { en: 'User added', ar: 'تم إضافة المستخدم' },
   userDeleted: { en: 'User deleted', ar: 'تم حذف المستخدم' },
   confirmDelete: { en: 'Are you sure?', ar: 'هل أنت متأكد؟' },
+  viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
+  backToLogin: { en: 'Back to Login', ar: 'العودة لتسجيل الدخول' },
+  ourMenu: { en: 'Our Menu', ar: 'قائمتنا' },
 
   // ── Login ──
   signIn: { en: 'Sign In', ar: 'تسجيل الدخول' },

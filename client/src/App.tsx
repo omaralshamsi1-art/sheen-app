@@ -15,6 +15,7 @@ import Menu from './pages/Menu'
 import AIMonitor from './pages/AIMonitor'
 import Reports from './pages/Reports'
 import Users from './pages/Users'
+import PublicMenu from './pages/PublicMenu'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +45,7 @@ export default function App() {
         <ToastProvider />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/public-menu" element={<PublicMenu />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/sales" element={<Sales />} />

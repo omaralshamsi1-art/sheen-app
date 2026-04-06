@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -129,6 +129,21 @@ export default function Login() {
               )}
             </Button>
           </form>
+
+          {/* View Menu link */}
+          <div className="mt-6 text-center">
+            <Link
+              to="/public-menu"
+              className="inline-flex items-center gap-2 font-body text-sm text-sheen-brown hover:text-sheen-gold transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4H20V16C20 18.21 18.21 20 16 20H8C5.79 20 4 18.21 4 16V4Z" />
+                <path d="M4 4C4 4 4.5 9 12 9C19.5 9 20 4 20 4" />
+                <path d="M12 9V20" />
+              </svg>
+              {t('viewMenu')}
+            </Link>
+          </div>
         </div>
 
         <p className="text-center mt-6 text-xs font-body text-sheen-muted">
