@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useLanguage } from '../../i18n/LanguageContext'
 import { useRole } from '../../hooks/useRole'
 import { navItems } from '../../config/roles'
+import { navIconMap } from '../icons/NavIcons'
 
 export default function HamburgerMenu() {
   const [open, setOpen] = useState(false)
@@ -87,23 +88,26 @@ export default function HamburgerMenu() {
 
         {/* Nav links */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {visibleItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-body transition-all ${
-                  isActive
-                    ? 'bg-sheen-gold/15 text-sheen-gold font-medium'
-                    : 'text-gray-400 hover:text-sheen-cream hover:bg-white/5 active:bg-white/10'
-                }`
-              }
-            >
-              <span className="text-lg">{item.icon}</span>
-              {t(item.labelKey)}
-            </NavLink>
-          ))}
+          {visibleItems.map(item => {
+            const IconComponent = navIconMap[item.to]
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-body transition-all ${
+                    isActive
+                      ? 'bg-sheen-gold/15 text-sheen-gold font-medium'
+                      : 'text-gray-400 hover:text-sheen-cream hover:bg-white/5 active:bg-white/10'
+                  }`
+                }
+              >
+                {IconComponent ? <IconComponent /> : <span className="text-lg">{item.icon}</span>}
+                {t(item.labelKey)}
+              </NavLink>
+            )
+          })}
         </nav>
 
         {/* Language + Logout */}
@@ -112,14 +116,22 @@ export default function HamburgerMenu() {
             onClick={toggleLang}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-body text-gray-400 hover:text-sheen-gold hover:bg-sheen-gold/5 active:bg-sheen-gold/10 transition-all"
           >
-            <span className="text-lg">{'\u{1F310}'}</span>
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M2 12H22" />
+              <path d="M12 2C14.5 4.73 16 8.29 16 12C16 15.71 14.5 19.27 12 22C9.5 19.27 8 15.71 8 12C8 8.29 9.5 4.73 12 2Z" />
+            </svg>
             {lang === 'en' ? 'العربية' : 'English'}
           </button>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-body text-gray-400 hover:text-red-400 hover:bg-red-400/5 active:bg-red-400/10 transition-all"
           >
-            <span className="text-lg">{'\u{1F6AA}'}</span>
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5C3.89 21 3 20.11 3 19V5C3 3.89 3.89 3 5 3H9" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
             {t('logout')}
           </button>
         </div>
