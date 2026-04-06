@@ -25,9 +25,9 @@ const queryClient = new QueryClient({
 function AppLayout() {
   return (
     <ProtectedRoute>
-      <div className="flex min-h-screen bg-sheen-cream">
+      <div className="flex min-h-screen max-w-[100vw] overflow-x-hidden bg-sheen-cream">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 min-w-0 overflow-x-hidden">
           <Outlet />
         </main>
       </div>

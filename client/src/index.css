@@ -48,6 +48,13 @@ button, a, [role="button"] {
 /* Prevent text size adjustment on iOS rotation */
 html {
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+/* Prevent horizontal overflow on mobile */
+html, body, #root {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* Hide scrollbar for horizontal scroll tabs on mobile */
