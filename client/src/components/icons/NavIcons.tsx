@@ -55,12 +55,22 @@ export function UsersIcon() {
   return <NavImg src="/images/People-Circle-Outline--Streamline-Ionic-Outline.svg" alt="Users" />
 }
 
+export function OrderIcon() {
+  return <NavImg src="/images/Cafe-Outline--Streamline-Ionic-Outline.svg" alt="Order" />
+}
+
+export function OrdersIcon() {
+  return <NavImg src="/images/Receipt-Outline--Streamline-Ionic-Outline.svg" alt="Orders" />
+}
+
 export const navIconMap: Record<string, () => React.ReactElement> = {
   '/dashboard': DashboardIcon,
   '/sales': SalesIcon,
   '/expenses': ExpensesIcon,
   '/fixed-costs': FixedCostsIcon,
   '/menu': MenuIcon,
+  '/order': OrderIcon,
+  '/orders': OrdersIcon,
   '/ai-monitor': AIMonitorIcon,
   '/reports': ReportsIcon,
   '/users': UsersIcon,

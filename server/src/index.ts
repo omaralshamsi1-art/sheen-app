@@ -10,6 +10,7 @@ import ingredientsRouter from './routes/ingredients'
 import reportsRouter from './routes/reports'
 import aiRouter from './routes/ai'
 import usersRouter from './routes/users'
+import ordersRouter from './routes/orders'
 
 const app = express()
 
@@ -24,6 +25,7 @@ app.use('/api/ingredients', ingredientsRouter)
 app.use('/api/reports', reportsRouter)
 app.use('/api/ai', aiRouter)
 app.use('/api/users', usersRouter)
+app.use('/api/orders', ordersRouter)
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }))
 

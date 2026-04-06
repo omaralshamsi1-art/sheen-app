@@ -226,6 +226,34 @@ export interface HourlySales {
 }
 
 // ─────────────────────────────────────────────
+// ORDERS
+// ─────────────────────────────────────────────
+export type OrderStatus = 'pending' | 'confirmed' | 'rejected' | 'completed';
+
+export interface Order {
+  id: string;
+  customer_id: string;
+  customer_email: string | null;
+  customer_name: string | null;
+  status: OrderStatus;
+  total_amount: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  order_items?: OrderItem[];
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  menu_item_id: string;
+  name: string;
+  price: number;
+  qty: number;
+  total: number;
+}
+
+// ─────────────────────────────────────────────
 // USER ROLES
 // ─────────────────────────────────────────────
 export type UserRole = 'admin' | 'staff' | 'customer';

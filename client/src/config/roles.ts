@@ -9,14 +9,16 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { to: '/dashboard',  labelKey: 'dashboard',  icon: '\u{1F4CA}', roles: ['admin', 'staff'] },
-  { to: '/sales',      labelKey: 'sales',      icon: '\u2615',     roles: ['admin', 'staff'] },
-  { to: '/expenses',   labelKey: 'expenses',   icon: '\u{1F4B8}', roles: ['admin', 'staff'] },
-  { to: '/fixed-costs',labelKey: 'fixedCosts',  icon: '\u{1F3E0}', roles: ['admin'] },
-  { to: '/menu',       labelKey: 'menu',       icon: '\u{1F4CB}', roles: ['admin', 'staff', 'customer'] },
-  { to: '/ai-monitor', labelKey: 'aiMonitor',  icon: '\u{1F916}', roles: ['admin', 'staff'] },
-  { to: '/reports',    labelKey: 'reports',    icon: '\u{1F4C8}', roles: ['admin'] },
-  { to: '/users',      labelKey: 'users' as TranslationKey, icon: '\u{1F465}', roles: ['admin'] },
+  { to: '/dashboard',  labelKey: 'dashboard',  icon: '', roles: ['admin', 'staff'] },
+  { to: '/sales',      labelKey: 'sales',      icon: '', roles: ['admin', 'staff'] },
+  { to: '/expenses',   labelKey: 'expenses',   icon: '', roles: ['admin', 'staff'] },
+  { to: '/fixed-costs',labelKey: 'fixedCosts',  icon: '', roles: ['admin'] },
+  { to: '/menu',       labelKey: 'menu',       icon: '', roles: ['admin', 'staff'] },
+  { to: '/order',      labelKey: 'orderNow' as TranslationKey, icon: '', roles: ['customer'] },
+  { to: '/orders',     labelKey: 'orders' as TranslationKey, icon: '', roles: ['admin', 'staff'] },
+  { to: '/ai-monitor', labelKey: 'aiMonitor',  icon: '', roles: ['admin', 'staff'] },
+  { to: '/reports',    labelKey: 'reports',    icon: '', roles: ['admin'] },
+  { to: '/users',      labelKey: 'users' as TranslationKey, icon: '', roles: ['admin'] },
 ]
 
 // Which roles can access which routes
@@ -25,7 +27,9 @@ export const routeRoles: Record<string, UserRole[]> = {
   '/sales':       ['admin', 'staff'],
   '/expenses':    ['admin', 'staff'],
   '/fixed-costs': ['admin'],
-  '/menu':        ['admin', 'staff', 'customer'],
+  '/menu':        ['admin', 'staff'],
+  '/order':       ['customer'],
+  '/orders':      ['admin', 'staff'],
   '/ai-monitor':  ['admin', 'staff'],
   '/reports':     ['admin'],
   '/users':       ['admin'],
@@ -35,5 +39,5 @@ export const routeRoles: Record<string, UserRole[]> = {
 export const defaultRoute: Record<UserRole, string> = {
   admin: '/dashboard',
   staff: '/sales',
-  customer: '/menu',
+  customer: '/order',
 }
