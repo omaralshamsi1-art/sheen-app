@@ -131,17 +131,13 @@ export default function Login() {
             </Button>
           </form>
 
-          {/* View Menu link */}
-          <div className="mt-6 text-center">
+          {/* View Menu button */}
+          <div className="mt-4">
             <Link
               to="/public-menu"
-              className="inline-flex items-center gap-2 font-body text-sm text-sheen-brown hover:text-sheen-gold transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-sheen-brown text-sheen-brown font-body font-semibold hover:bg-sheen-brown hover:text-sheen-white transition-colors"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 4H20V16C20 18.21 18.21 20 16 20H8C5.79 20 4 18.21 4 16V4Z" />
-                <path d="M4 4C4 4 4.5 9 12 9C19.5 9 20 4 20 4" />
-                <path d="M12 9V20" />
-              </svg>
+              <img src="/images/Newspaper-Outline--Streamline-Ionic-Outline.svg" alt="" width={20} height={20} style={{ filter: 'brightness(0) sepia(1) saturate(5) hue-rotate(-15deg)' }} />
               {t('viewMenu')}
             </Link>
           </div>

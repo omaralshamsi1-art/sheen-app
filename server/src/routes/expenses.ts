@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { getExpensesByDateRange, insertExpense } from '../services/db'
+import { supabase } from '../lib/supabase'
 
 const router = Router()
 
@@ -71,6 +72,21 @@ router.post('/', async (req: Request, res: Response) => {
 
     const expense = await insertExpense(sanitized)
     res.status(201).json(expense)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// DELETE /api/expenses/:id
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', req.params.id)
+
+    if (error) throw error
+    res.json({ message: 'Expense deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
