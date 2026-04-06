@@ -14,7 +14,7 @@ export default function InsightCard({ insight, isLoading, onRefresh }: InsightCa
     <div className="bg-white rounded-xl p-5 shadow-sm border border-sheen-gold/20">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg">&#x2728;</span>
+          <img src="/images/Ai-Chat-Bot--Streamline-Plump.png" alt="" width={20} height={20} style={{ filter: 'brightness(0) saturate(100%) invert(67%) sepia(30%) saturate(600%) hue-rotate(5deg)', minWidth: 20, minHeight: 20 }} />
           <h3 className="font-display font-semibold text-sheen-black">{t('aiQuickInsight')}</h3>
         </div>
         <Button variant="ghost" size="sm" onClick={onRefresh} loading={isLoading}>

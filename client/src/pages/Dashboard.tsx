@@ -76,22 +76,38 @@ export default function Dashboard() {
     {
       title: t('totalRevenueToday'),
       value: `${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.إ`,
-      icon: '\u{1F4B0}',
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M16 8H13C11.9 8 11 8.9 11 10C11 11.1 11.9 12 13 12H15C16.1 12 17 12.9 17 14C17 15.1 16.1 16 15 16H8" />
+          <path d="M12 6V8" /><path d="M12 16V18" />
+        </svg>
+      ),
     },
     {
       title: t('cupsSoldToday'),
       value: cupsSold.toLocaleString(),
-      icon: '\u2615',
+      icon: (
+        <img src="/images/Cafe-Outline--Streamline-Ionic-Outline.svg" alt="" width={22} height={22} style={{ filter: 'brightness(0) saturate(100%) invert(67%) sepia(30%) saturate(600%) hue-rotate(5deg)' }} />
+      ),
     },
     {
       title: t('totalExpensesToday'),
       value: `${totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.إ`,
-      icon: '\u{1F4C9}',
+      icon: (
+        <img src="/images/Receipt-Outline--Streamline-Ionic-Outline.svg" alt="" width={22} height={22} style={{ filter: 'brightness(0) saturate(100%) invert(67%) sepia(30%) saturate(600%) hue-rotate(5deg)' }} />
+      ),
     },
     {
       title: t('netProfitToday'),
       value: `${netProfit >= 0 ? '' : '-'}${Math.abs(netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.إ`,
-      icon: '\u{1F4C8}',
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 21H4C3.45 21 3 20.55 3 20V3" />
+          <path d="M7 17L12 11L16 14L21 8" />
+          <path d="M18 8H21V11" />
+        </svg>
+      ),
     },
   ]
 
