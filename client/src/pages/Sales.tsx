@@ -52,7 +52,7 @@ export default function Sales() {
   const itemsByCategory = useMemo(() => {
     const grouped: Record<string, MenuItem[]> = {}
     for (const cat of CATEGORIES) {
-      grouped[cat] = menuItems.filter((item: MenuItem) => item.category === cat)
+      grouped[cat] = menuItems.filter((item: MenuItem) => item.category === cat && item.is_active)
     }
     return grouped
   }, [menuItems])
