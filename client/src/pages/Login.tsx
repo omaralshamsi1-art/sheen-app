@@ -4,58 +4,100 @@ import { supabase } from '../lib/supabase'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
 
+type LoginMode = 'password' | 'otp'
+
 export default function Login() {
   const { t } = useLanguage()
   const navigate = useNavigate()
+  const [mode, setMode] = useState<LoginMode>('password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Email + Password login
+  const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
-
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (authError) {
-        setError(authError.message)
-        return
-      }
-
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) { setError(authError.message); return }
       navigate('/dashboard')
-    } catch (err) {
+    } catch {
       setError(t('loginError'))
     } finally {
       setLoading(false)
     }
   }
 
+  // Send OTP code to email
+  const handleSendOTP = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email.trim()) return
+    setError(null)
+    setSuccess(null)
+    setLoading(true)
+    try {
+      const { error: otpError } = await supabase.auth.signInWithOtp({ email })
+      if (otpError) { setError(otpError.message); return }
+      setOtpSent(true)
+      setSuccess(t('otpSent'))
+    } catch {
+      setError(t('loginError'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Verify OTP code
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!otpCode.trim()) return
+    setError(null)
+    setSuccess(null)
+    setLoading(true)
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode.trim(),
+        type: 'email',
+      })
+      if (verifyError) { setError(verifyError.message); return }
+      navigate('/dashboard')
+    } catch {
+      setError(t('loginError'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Google OAuth
   const handleGoogleSignIn = async () => {
     setError(null)
     setGoogleLoading(true)
     try {
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
+        options: { redirectTo: `${window.location.origin}/dashboard` },
       })
-      if (authError) {
-        setError(authError.message)
-        setGoogleLoading(false)
-      }
+      if (authError) { setError(authError.message); setGoogleLoading(false) }
     } catch {
       setError(t('loginError'))
       setGoogleLoading(false)
     }
   }
+
+  const Spinner = () => (
+    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  )
 
   return (
     <div className="min-h-screen bg-sheen-cream flex items-center justify-center px-4">
@@ -64,9 +106,7 @@ export default function Login() {
           {/* Branding */}
           <div className="text-center mb-8">
             <img src="/images/logo.png" alt="SHEEN" className="w-20 h-20 mx-auto mb-3 rounded-full" />
-            <h1 className="font-display text-4xl text-sheen-black tracking-wide">
-              SHEEN
-            </h1>
+            <h1 className="font-display text-4xl text-sheen-black tracking-wide">SHEEN</h1>
             <Link
               to="/public-menu"
               className="inline-block mt-2 font-body font-semibold text-sm transition-opacity hover:opacity-75"
@@ -76,85 +116,133 @@ export default function Login() {
             </Link>
           </div>
 
-          {/* Error message */}
+          {/* Error / Success messages */}
           {error && (
             <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-body">
               {error}
             </div>
           )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-body font-medium text-sheen-black mb-1.5"
-              >
-                {t('email')}
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={t('emailPlaceholder')}
-                className="w-full rounded-lg border border-sheen-muted/30 bg-sheen-cream/40 px-4 py-2.5 font-body text-sm text-sheen-black placeholder:text-sheen-muted/60 focus:outline-none focus:ring-2 focus:ring-sheen-gold/50 focus:border-sheen-gold transition-colors"
-              />
+          {success && (
+            <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-body">
+              {success}
             </div>
+          )}
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-body font-medium text-sheen-black mb-1.5"
-              >
-                {t('password')}
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t('passwordPlaceholder')}
-                className="w-full rounded-lg border border-sheen-muted/30 bg-sheen-cream/40 px-4 py-2.5 font-body text-sm text-sheen-black placeholder:text-sheen-muted/60 focus:outline-none focus:ring-2 focus:ring-sheen-gold/50 focus:border-sheen-gold transition-colors"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-sheen-gold hover:bg-sheen-gold/90 text-sheen-black font-body font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          {/* Login Mode Tabs */}
+          <div className="flex gap-1 mb-5 bg-sheen-cream/60 rounded-lg p-1">
+            <button
+              onClick={() => { setMode('password'); setOtpSent(false); setError(null); setSuccess(null) }}
+              className={`flex-1 py-2 rounded-md text-sm font-body font-medium transition-colors ${
+                mode === 'password' ? 'bg-white text-sheen-black shadow-sm' : 'text-sheen-muted'
+              }`}
             >
-              {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <svg
-                    className="animate-spin h-4 w-4"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  {t('signingIn')}
-                </span>
-              ) : (
-                t('signIn')
-              )}
-            </Button>
-          </form>
+              {t('password')}
+            </button>
+            <button
+              onClick={() => { setMode('otp'); setError(null); setSuccess(null) }}
+              className={`flex-1 py-2 rounded-md text-sm font-body font-medium transition-colors ${
+                mode === 'otp' ? 'bg-white text-sheen-black shadow-sm' : 'text-sheen-muted'
+              }`}
+            >
+              {t('emailOTP')}
+            </button>
+          </div>
+
+          {/* Password Login Form */}
+          {mode === 'password' && (
+            <form onSubmit={handlePasswordLogin} className="space-y-5">
+              <div>
+                <label htmlFor="email" className="block text-sm font-body font-medium text-sheen-black mb-1.5">
+                  {t('email')}
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t('emailPlaceholder')}
+                  className="w-full rounded-lg border border-sheen-muted/30 bg-sheen-cream/40 px-4 py-2.5 font-body text-sm text-sheen-black placeholder:text-sheen-muted/60 focus:outline-none focus:ring-2 focus:ring-sheen-gold/50 focus:border-sheen-gold transition-colors"
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-body font-medium text-sheen-black mb-1.5">
+                  {t('password')}
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t('passwordPlaceholder')}
+                  className="w-full rounded-lg border border-sheen-muted/30 bg-sheen-cream/40 px-4 py-2.5 font-body text-sm text-sheen-black placeholder:text-sheen-muted/60 focus:outline-none focus:ring-2 focus:ring-sheen-gold/50 focus:border-sheen-gold transition-colors"
+                />
+              </div>
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? <span className="inline-flex items-center gap-2"><Spinner />{t('signingIn')}</span> : t('signIn')}
+              </Button>
+            </form>
+          )}
+
+          {/* Email OTP Form */}
+          {mode === 'otp' && !otpSent && (
+            <form onSubmit={handleSendOTP} className="space-y-5">
+              <div>
+                <label htmlFor="otp-email" className="block text-sm font-body font-medium text-sheen-black mb-1.5">
+                  {t('email')}
+                </label>
+                <input
+                  id="otp-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t('emailPlaceholder')}
+                  className="w-full rounded-lg border border-sheen-muted/30 bg-sheen-cream/40 px-4 py-2.5 font-body text-sm text-sheen-black placeholder:text-sheen-muted/60 focus:outline-none focus:ring-2 focus:ring-sheen-gold/50 focus:border-sheen-gold transition-colors"
+                />
+              </div>
+              <p className="text-xs font-body text-sheen-muted">{t('otpDescription')}</p>
+              <Button type="submit" disabled={loading || !email.trim()} className="w-full">
+                {loading ? <span className="inline-flex items-center gap-2"><Spinner />{t('sending')}</span> : t('sendCode')}
+              </Button>
+            </form>
+          )}
+
+          {/* OTP Verification */}
+          {mode === 'otp' && otpSent && (
+            <form onSubmit={handleVerifyOTP} className="space-y-5">
+              <p className="font-body text-sm text-sheen-black text-center">
+                {t('otpSentTo')} <span className="font-semibold">{email}</span>
+              </p>
+              <div>
+                <label htmlFor="otp-code" className="block text-sm font-body font-medium text-sheen-black mb-1.5">
+                  {t('verificationCode')}
+                </label>
+                <input
+                  id="otp-code"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  required
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="w-full rounded-lg border border-sheen-muted/30 bg-sheen-cream/40 px-4 py-2.5 font-body text-2xl text-center tracking-[0.5em] text-sheen-black placeholder:text-sheen-muted/30 focus:outline-none focus:ring-2 focus:ring-sheen-gold/50 focus:border-sheen-gold transition-colors"
+                />
+              </div>
+              <Button type="submit" disabled={loading || otpCode.length < 6} className="w-full">
+                {loading ? <span className="inline-flex items-center gap-2"><Spinner />{t('verifying')}</span> : t('verify')}
+              </Button>
+              <button
+                type="button"
+                onClick={() => { setOtpSent(false); setOtpCode(''); setSuccess(null) }}
+                className="w-full text-center text-sm font-body text-sheen-muted hover:text-sheen-black transition-colors"
+              >
+                {t('changeEmail')}
+              </button>
+            </form>
+          )}
 
           {/* Divider */}
           <div className="flex items-center gap-3 my-5">
@@ -170,10 +258,7 @@ export default function Login() {
             className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg border border-sheen-muted/30 bg-white font-body text-sm font-medium text-sheen-black hover:bg-sheen-cream/50 transition-colors disabled:opacity-60"
           >
             {googleLoading ? (
-              <svg className="animate-spin h-5 w-5 text-sheen-muted" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <Spinner />
             ) : (
               <svg width="20" height="20" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
@@ -184,7 +269,6 @@ export default function Login() {
             )}
             {t('signInWithGoogle')}
           </button>
-
         </div>
 
         <p className="text-center mt-6 text-xs font-body text-sheen-muted">

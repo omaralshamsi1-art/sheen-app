@@ -77,6 +77,16 @@ export const translations = {
   loginError: { en: 'An unexpected error occurred. Please try again.', ar: 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.' },
   orContinueWith: { en: 'or continue with', ar: 'أو تابع عبر' },
   signInWithGoogle: { en: 'Sign in with Google', ar: 'تسجيل الدخول بحساب Google' },
+  emailOTP: { en: 'Email Code', ar: 'رمز البريد' },
+  sendCode: { en: 'Send Code', ar: 'إرسال الرمز' },
+  sending: { en: 'Sending...', ar: 'جاري الإرسال...' },
+  otpDescription: { en: "We'll send a 6-digit code to your email. No password needed.", ar: 'سنرسل رمزاً مكوناً من 6 أرقام إلى بريدك. لا حاجة لكلمة مرور.' },
+  otpSent: { en: 'Code sent! Check your email.', ar: 'تم إرسال الرمز! تحقق من بريدك.' },
+  otpSentTo: { en: 'Code sent to', ar: 'تم إرسال الرمز إلى' },
+  verificationCode: { en: 'Verification Code', ar: 'رمز التحقق' },
+  verify: { en: 'Verify', ar: 'تحقق' },
+  verifying: { en: 'Verifying...', ar: 'جاري التحقق...' },
+  changeEmail: { en: '← Change email', ar: '← تغيير البريد' },
   allRightsReserved: { en: 'SHEEN Coffee. All rights reserved.', ar: 'SHEEN Coffee. جميع الحقوق محفوظة.' },
 
   // ── Dashboard ──
