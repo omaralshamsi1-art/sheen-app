@@ -18,6 +18,75 @@ interface AuditEntry {
   created_at: string
 }
 
+const fieldLabels: Record<string, string> = {
+  selling_price: 'Selling Price',
+  is_active: 'Active',
+  is_paid: 'Paid',
+  paid_date: 'Paid Date',
+  status: 'Status',
+  role: 'Role',
+  allowed_pages: 'Page Access',
+  allowed_payment_methods: 'Payment Methods',
+  sale_date: 'Sale Date',
+  items_count: 'Items',
+  total: 'Total',
+  total_amount: 'Total Amount',
+  expense_date: 'Date',
+  ingredient_name: 'Ingredient',
+  category: 'Category',
+  description: 'Description',
+  amount: 'Amount',
+  qty_bought: 'Quantity',
+  unit_cost: 'Unit Cost',
+  total_cost: 'Total Cost',
+  name: 'Name',
+  email: 'Email',
+  image_url: 'Image',
+  action: 'Action',
+  customer_email: 'Customer',
+}
+
+function formatValue(key: string, value: any): string {
+  if (value === true) return 'Yes'
+  if (value === false) return 'No'
+  if (value === null || value === undefined) return '—'
+  if (Array.isArray(value)) return value.join(', ') || 'None'
+  if (typeof value === 'number') {
+    if (key.includes('price') || key.includes('cost') || key.includes('amount') || key === 'total') {
+      return `${value.toFixed(2)} AED`
+    }
+    return String(value)
+  }
+  return String(value)
+}
+
+function formatDetails(action: string, _entity: string, details: Record<string, any>): React.ReactNode {
+  const entries = Object.entries(details).filter(
+    ([k]) => !['updated_at', 'ip_address'].includes(k)
+  )
+
+  if (entries.length === 0) return null
+
+  if (action === 'delete') {
+    return (
+      <p className="text-red-600">
+        Deleted: {entries.map(([k, v]) => `${fieldLabels[k] || k}: ${formatValue(k, v)}`).join(' · ')}
+      </p>
+    )
+  }
+
+  return (
+    <ul className="space-y-0.5">
+      {entries.map(([key, value]) => (
+        <li key={key}>
+          <span className="text-sheen-muted">{fieldLabels[key] || key}:</span>{' '}
+          <span className="text-sheen-black font-medium">{formatValue(key, value)}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function AuditLog() {
   const { t } = useLanguage()
   const [filterEntity, setFilterEntity] = useState('')
@@ -122,11 +191,11 @@ export default function AuditLog() {
                     </span>
                   </div>
 
-                  {/* Details */}
+                  {/* Details — human readable */}
                   {log.details && (
-                    <pre className="mt-2 text-xs font-body text-sheen-muted bg-sheen-cream/50 rounded-lg p-2 overflow-x-auto">
-                      {JSON.stringify(log.details, null, 2)}
-                    </pre>
+                    <div className="mt-2 text-xs font-body text-sheen-muted">
+                      {formatDetails(log.action, log.entity, log.details)}
+                    </div>
                   )}
                 </div>
               ))}
