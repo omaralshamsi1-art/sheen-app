@@ -6,7 +6,8 @@ const router = Router()
 
 const VALID_ROLES = ['admin', 'staff', 'customer']
 
-const DEFAULT_CUSTOMER_ID = '__default_customer__'
+// Fixed UUID for the "any customer" default settings record
+const DEFAULT_CUSTOMER_ID = '00000000-0000-0000-0000-000000000000'
 
 // GET /api/users/default-payment-methods — get default payment methods for any customer
 router.get('/default-payment-methods', async (_req: Request, res: Response) => {
