@@ -29,3 +29,12 @@ export async function updateUserPaymentMethods(id: string, allowed_payment_metho
 export async function deleteUser(id: string): Promise<void> {
   await api.delete(`/api/users/${id}`)
 }
+
+export async function getDefaultPaymentMethods(): Promise<string[] | null> {
+  const { data } = await api.get('/api/users/default-payment-methods')
+  return data.allowed_payment_methods
+}
+
+export async function updateDefaultPaymentMethods(allowed_payment_methods: string[]): Promise<void> {
+  await api.patch('/api/users/default-payment-methods', { allowed_payment_methods })
+}

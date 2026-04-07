@@ -52,6 +52,8 @@ export const translations = {
   soundOn: { en: 'Sound notifications on', ar: 'إشعارات صوتية مفعّلة' },
   soundOff: { en: 'Sound notifications off', ar: 'إشعارات صوتية معطّلة' },
   testSound: { en: 'Test notification sound', ar: 'تجربة صوت الإشعار' },
+  anyCustomer: { en: 'Any Customer', ar: 'أي عميل' },
+  anyCustomerDesc: { en: 'Default payment methods for all customers (including guests)', ar: 'طرق الدفع الافتراضية لجميع العملاء (بما في ذلك الزوار)' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },

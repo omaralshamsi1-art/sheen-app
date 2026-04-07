@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import { useAuth } from '../hooks/useAuth'
 import { useRole } from '../hooks/useRole'
+import { getDefaultPaymentMethods } from '../services/userService'
 import { createOrder, getOrders } from '../services/orderService'
 import { createPaymentIntent } from '../services/paymentService'
 import { getItemImage } from '../data/itemImages'
@@ -23,6 +24,19 @@ export default function CustomerOrder() {
   const { user } = useAuth()
   const { allowedPaymentMethods } = useRole()
   const queryClient = useQueryClient()
+
+  // Fetch default payment methods (for any customer)
+  const { data: defaultPaymentMethods } = useQuery({
+    queryKey: ['default-payment-methods'],
+    queryFn: getDefaultPaymentMethods,
+  })
+
+  // User-specific methods take priority, then default, then all
+  const effectivePaymentMethods = allowedPaymentMethods && allowedPaymentMethods.length > 0
+    ? allowedPaymentMethods
+    : defaultPaymentMethods && defaultPaymentMethods.length > 0
+      ? defaultPaymentMethods
+      : null
   const { data: menuItems = [], isLoading: menuLoading } = useMenuItems()
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
@@ -285,7 +299,7 @@ export default function CustomerOrder() {
                   <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
                   <div className="flex gap-2">
                     {PAYMENT_METHODS.filter((m) =>
-                      !allowedPaymentMethods || allowedPaymentMethods.length === 0 || allowedPaymentMethods.includes(m)
+                      !effectivePaymentMethods || effectivePaymentMethods.includes(m)
                     ).map((method) => (
                       <button
                         key={method}

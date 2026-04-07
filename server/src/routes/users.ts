@@ -6,12 +6,63 @@ const router = Router()
 
 const VALID_ROLES = ['admin', 'staff', 'customer']
 
+const DEFAULT_CUSTOMER_ID = '__default_customer__'
+
+// GET /api/users/default-payment-methods — get default payment methods for any customer
+router.get('/default-payment-methods', async (_req: Request, res: Response) => {
+  try {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('allowed_payment_methods')
+      .eq('user_id', DEFAULT_CUSTOMER_ID)
+      .single()
+
+    res.json({ allowed_payment_methods: data?.allowed_payment_methods ?? null })
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// PATCH /api/users/default-payment-methods — update default payment methods
+router.patch('/default-payment-methods', async (req: Request, res: Response) => {
+  try {
+    const { allowed_payment_methods } = req.body
+
+    if (!Array.isArray(allowed_payment_methods)) {
+      res.status(400).json({ message: 'allowed_payment_methods must be an array' })
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('user_roles')
+      .upsert(
+        {
+          user_id: DEFAULT_CUSTOMER_ID,
+          email: 'default-customer@system',
+          role: 'customer',
+          allowed_payment_methods,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      )
+      .select()
+      .single()
+
+    if (error) throw error
+    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: DEFAULT_CUSTOMER_ID, details: { allowed_payment_methods } })
+    res.json(data)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // GET /api/users — list all user roles
 router.get('/', async (_req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('user_roles')
       .select('*')
+      .neq('user_id', DEFAULT_CUSTOMER_ID)
       .order('created_at', { ascending: false })
 
     if (error) throw error
