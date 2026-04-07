@@ -132,12 +132,8 @@ export function playNotificationSound() {
   }
 }
 
-// Auto-unlock on desktop browsers (works on Chrome/Firefox, not Safari)
-if (typeof window !== 'undefined') {
-  const tryUnlock = () => { unlockAndTestAudio() }
-  window.addEventListener('click', tryUnlock, { once: true })
-  window.addEventListener('touchstart', tryUnlock, { once: true })
-}
+// NOTE: No global auto-unlock — it must only happen for staff/admin
+// via the banner tap or the test sound button on the Orders page.
 
 /**
  * Global order notifier — mount once in AppLayout.
