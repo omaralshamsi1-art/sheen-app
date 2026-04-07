@@ -225,7 +225,37 @@ router.post('/', async (req: Request, res: Response) => {
       { sale_date, recorded_by: recorded_by ? String(recorded_by).trim().slice(0, 100) : undefined },
       sanitizedItems
     )
-    await logAudit(req, { action: 'create', entity: 'sale', entity_id: sale.id, details: { page: 'Sales', sale_date, items: sanitizedItems.map((i: any) => `${i.name} x${i.qty}`).join(', '), total_revenue: sanitizedItems.reduce((s: number, i: any) => s + i.total, 0) } })
+
+    // Also create a completed order so it shows on the Orders page
+    const totalAmount = sanitizedItems.reduce((s: number, i: any) => s + i.total, 0)
+    const staffEmail = req.headers['x-user-email'] as string | undefined
+
+    const { data: order } = await supabase
+      .from('orders')
+      .insert({
+        customer_id: req.headers['x-user-id'] ?? null,
+        customer_email: staffEmail ?? null,
+        customer_name: `Staff: ${staffEmail?.split('@')[0] ?? 'POS'}`,
+        status: 'completed',
+        total_amount: totalAmount,
+        notes: `[POS Sale — ${sale_date}]`,
+      })
+      .select()
+      .single()
+
+    if (order) {
+      const orderItems = sanitizedItems.map((item: any) => ({
+        order_id: order.id,
+        menu_item_id: item.menu_item_id,
+        name: item.name,
+        price: item.price,
+        qty: item.qty,
+        total: item.total,
+      }))
+      await supabase.from('order_items').insert(orderItems)
+    }
+
+    await logAudit(req, { action: 'create', entity: 'sale', entity_id: sale.id, details: { page: 'Sales', sale_date, items: sanitizedItems.map((i: any) => `${i.name} x${i.qty}`).join(', '), total_revenue: totalAmount } })
     res.status(201).json(sale)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
