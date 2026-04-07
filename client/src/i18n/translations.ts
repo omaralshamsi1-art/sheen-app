@@ -75,6 +75,8 @@ export const translations = {
   lowStock: { en: 'Low Stock', ar: 'مخزون منخفض' },
   restockNeeded: { en: 'Restock Needed', ar: 'يحتاج إعادة تخزين' },
   ingredients: { en: 'Ingredients', ar: 'المكوّنات' },
+  printSticker: { en: 'Print Sticker', ar: 'طباعة ملصق' },
+  shuffle: { en: 'Shuffle', ar: 'تبديل' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },

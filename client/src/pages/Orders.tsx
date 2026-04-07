@@ -4,6 +4,7 @@ import { getOrders, updateOrderStatus } from '../services/orderService'
 import TopBar from '../components/layout/TopBar'
 import { useLanguage } from '../i18n/LanguageContext'
 import { playNotificationSound } from '../components/OrderNotifier'
+import StickerPrint from '../components/StickerPrint'
 import toast from 'react-hot-toast'
 import type { Order, OrderItem, OrderStatus } from '../types'
 import { format } from 'date-fns'
@@ -14,6 +15,7 @@ export default function Orders() {
   const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<OrderStatus | 'all'>('pending')
+  const [stickerOrder, setStickerOrder] = useState<Order | null>(null)
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders', activeTab],
@@ -162,11 +164,23 @@ export default function Orders() {
                     )}
                     {order.status === 'confirmed' && (
                       <button
-                        onClick={() => updateStatus.mutate({ id: order.id, status: 'completed' })}
+                        onClick={() => {
+                          updateStatus.mutate({ id: order.id, status: 'completed' }, {
+                            onSuccess: () => setStickerOrder(order),
+                          })
+                        }}
                         disabled={updateStatus.isPending}
                         className="px-4 py-1.5 rounded-lg bg-blue-500 text-white text-sm font-body font-medium hover:bg-blue-600 transition-colors disabled:opacity-50"
                       >
                         {t('markComplete')}
+                      </button>
+                    )}
+                    {order.status === 'completed' && (
+                      <button
+                        onClick={() => setStickerOrder(order)}
+                        className="px-4 py-1.5 rounded-lg bg-sheen-gold/20 text-sheen-brown text-sm font-body font-medium hover:bg-sheen-gold/30 transition-colors"
+                      >
+                        {t('printSticker')}
                       </button>
                     )}
                   </div>
@@ -176,6 +190,13 @@ export default function Orders() {
           </div>
         )}
       </main>
+
+      {stickerOrder && (
+        <StickerPrint
+          customerName={stickerOrder.customer_name || stickerOrder.customer_email?.split('@')[0] || undefined}
+          onClose={() => setStickerOrder(null)}
+        />
+      )}
     </div>
   )
 }
