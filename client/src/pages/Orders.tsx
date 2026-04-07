@@ -136,8 +136,8 @@ export default function Orders() {
                   ))}
                 </div>
 
-                {/* Notes — hide internal POS notes */}
-                {order.notes && !order.notes.startsWith('[POS') && (
+                {/* Notes — hide internal notes (POS, Payment) */}
+                {order.notes && !order.notes.startsWith('[POS') && !order.notes.startsWith('[Payment') && (
                   <p className="font-body text-xs text-sheen-muted italic mb-3">"{order.notes}"</p>
                 )}
 
