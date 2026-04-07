@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
 import { useLanguage } from '../i18n/LanguageContext'
 
@@ -10,11 +10,15 @@ interface StickerMessage {
 
 // SK 20 label sizes (width x height in mm)
 const LABEL_SIZES = [
-  { label: '50 × 30 mm', w: 50, h: 30 },
-  { label: '50 × 40 mm', w: 50, h: 40 },
-  { label: '40 × 30 mm', w: 40, h: 30 },
-  { label: '60 × 40 mm', w: 60, h: 40 },
+  { label: '50 \u00d7 30 mm', w: 50, h: 30 },
+  { label: '50 \u00d7 40 mm', w: 50, h: 40 },
+  { label: '40 \u00d7 30 mm', w: 40, h: 30 },
+  { label: '60 \u00d7 40 mm', w: 60, h: 40 },
 ] as const
+
+// DPI for thermal printers (203 DPI is standard for SK 20)
+const DPI = 203
+const mmToPx = (mm: number) => Math.round((mm / 25.4) * DPI)
 
 interface StickerPrintProps {
   customerName?: string
@@ -28,6 +32,8 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     const saved = localStorage.getItem('sheen-label-size')
     return saved ? Number(saved) : 0
   })
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const label = LABEL_SIZES[labelIdx]
 
@@ -47,103 +53,152 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     localStorage.setItem('sheen-label-size', String(idx))
   }
 
+  // Render sticker to canvas as PNG image
+  const renderToCanvas = () => {
+    const canvas = canvasRef.current
+    if (!canvas || !sticker) return null
+
+    const w = mmToPx(label.w)
+    const h = mmToPx(label.h)
+    canvas.width = w
+    canvas.height = h
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    // White background
+    ctx.fillStyle = '#FFFFFF'
+    ctx.fillRect(0, 0, w, h)
+
+    const cx = w / 2
+    const scale = label.w / 50 // normalize to 50mm
+
+    // SHEEN logo
+    ctx.fillStyle = '#000000'
+    ctx.textAlign = 'center'
+    ctx.font = `bold ${Math.round(28 * scale)}px Arial, Helvetica, sans-serif`
+    let y = h * 0.18
+    ctx.fillText('SHEEN', cx, y)
+
+    // Customer name
+    if (customerName) {
+      y += Math.round(20 * scale)
+      ctx.font = `600 ${Math.round(14 * scale)}px Arial, Helvetica, sans-serif`
+      ctx.fillStyle = '#333333'
+      ctx.fillText(customerName, cx, y)
+    }
+
+    // Arabic message — may need to wrap
+    y += Math.round(22 * scale)
+    ctx.fillStyle = '#000000'
+    const arFontSize = Math.round(16 * scale)
+    ctx.font = `500 ${arFontSize}px Arial, Helvetica, sans-serif`
+
+    const arText = sticker.message_ar
+    const maxWidth = w * 0.88
+    const arLines = wrapText(ctx, arText, maxWidth)
+
+    for (const line of arLines) {
+      ctx.fillText(line, cx, y)
+      y += arFontSize * 1.3
+    }
+
+    // English message
+    y += Math.round(4 * scale)
+    ctx.fillStyle = '#888888'
+    ctx.font = `${Math.round(10 * scale)}px Arial, Helvetica, sans-serif`
+    ctx.fillText(sticker.message_en, cx, y)
+
+    // @SheenCafe
+    y += Math.round(14 * scale)
+    ctx.fillStyle = '#AAAAAA'
+    ctx.font = `${Math.round(9 * scale)}px Arial, Helvetica, sans-serif`
+    ctx.fillText('@SheenCafe', cx, y)
+
+    return canvas.toDataURL('image/png')
+  }
+
+  // Regenerate image when sticker or label size changes
+  useEffect(() => {
+    if (sticker) {
+      // Small delay to ensure canvas is ready
+      setTimeout(() => {
+        const url = renderToCanvas()
+        setImageUrl(url)
+      }, 50)
+    }
+  }, [sticker, labelIdx, customerName])
+
+  // Share as image (for OpenLabel on iPad)
+  const handleShare = async () => {
+    const url = renderToCanvas()
+    if (!url) return
+
+    try {
+      // Convert data URL to blob
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const file = new File([blob], 'sheen-sticker.png', { type: 'image/png' })
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'SHEEN Sticker',
+        })
+      } else {
+        // Fallback: download the image
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'sheen-sticker.png'
+        a.click()
+      }
+    } catch {
+      // User cancelled share or not supported — try download
+      const a = document.createElement('a')
+      a.href = url!
+      a.download = 'sheen-sticker.png'
+      a.click()
+    }
+  }
+
+  // Print via browser print dialog
   const handlePrint = () => {
-    if (!sticker) return
+    const url = renderToCanvas()
+    if (!url) return
 
-    // Scale font sizes based on label width
-    const scale = label.w / 50 // normalize to 50mm base
-    const logoSize = Math.round(14 * scale)
-    const arSize = Math.round(9 * scale)
-    const enSize = Math.round(6 * scale)
-    const nameSize = Math.round(7 * scale)
-    const socialSize = Math.round(5.5 * scale)
-
-    const printWindow = window.open('', '_blank', 'width=400,height=400')
+    const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
     printWindow.document.write(`<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
-  @page {
-    size: ${label.w}mm ${label.h}mm;
-    margin: 0;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: ${label.w}mm;
-    height: ${label.h}mm;
-    overflow: hidden;
-  }
-  body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: Arial, Helvetica, sans-serif;
-  }
-  .label {
-    width: ${label.w}mm;
-    height: ${label.h}mm;
-    padding: 2mm;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5mm;
-  }
-  .logo {
-    font-size: ${logoSize}pt;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-  }
-  .name {
-    font-size: ${nameSize}pt;
-    font-weight: 600;
-  }
-  .ar {
-    font-size: ${arSize}pt;
-    line-height: 1.4;
-    direction: rtl;
-  }
-  .en {
-    font-size: ${enSize}pt;
-    color: #666;
-    direction: ltr;
-  }
-  .social {
-    font-size: ${socialSize}pt;
-    color: #999;
-  }
-  @media screen {
-    body { background: #f5f0e8; min-height: 100vh; width: auto; height: auto; }
-    .label { border: 1px dashed #ccc; border-radius: 4mm; background: #fff; width: ${label.w * 3}px; height: ${label.h * 3}px; }
-  }
+  @page { size: ${label.w}mm ${label.h}mm; margin: 0; }
+  * { margin: 0; padding: 0; }
+  body { display: flex; align-items: center; justify-content: center; }
+  img { width: ${label.w}mm; height: ${label.h}mm; }
+  @media screen { body { min-height: 100vh; background: #f5f0e8; } }
 </style>
 </head>
 <body>
-<div class="label">
-  <div class="logo">SHEEN</div>
-  ${customerName ? `<div class="name">${customerName}</div>` : ''}
-  <div class="ar">${sticker.message_ar}</div>
-  <div class="en">${sticker.message_en}</div>
-  <div class="social">@SheenCafe</div>
-</div>
+<img src="${url}" />
 </body>
 </html>`)
     printWindow.document.close()
-    setTimeout(() => { printWindow.print() }, 500)
+    setTimeout(() => { printWindow.print() }, 300)
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Hidden canvas for rendering */}
+        <canvas ref={canvasRef} className="hidden" />
+
         {/* Label size selector */}
         <div className="px-5 pt-4 pb-2">
           <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider mb-2">{t('labelSize')}</p>
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 flex-wrap">
             {LABEL_SIZES.map((sz, idx) => (
               <button
                 key={idx}
@@ -160,37 +215,42 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
           </div>
         </div>
 
-        {/* Preview */}
+        {/* Preview — shows the actual rendered image */}
         <div className="px-5 py-3 flex justify-center">
-          <div
-            className="border-2 border-dashed border-sheen-gold rounded-xl flex flex-col items-center justify-center text-center"
-            style={{
-              width: `${label.w * 3}px`,
-              height: `${label.h * 3}px`,
-              padding: '6px',
-            }}
-          >
-            <p className="font-display text-lg font-bold text-sheen-gold tracking-wider leading-none">SHEEN</p>
-            {customerName && (
-              <p className="font-body text-[10px] text-sheen-brown font-semibold mt-0.5">{customerName}</p>
-            )}
-            <p className="font-body text-xs text-sheen-black leading-snug mt-1" dir="rtl">{sticker?.message_ar}</p>
-            <p className="font-body text-[8px] text-sheen-muted mt-0.5" dir="ltr">{sticker?.message_en}</p>
-            <p className="font-body text-[7px] text-sheen-muted mt-0.5">@SheenCafe</p>
-          </div>
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt="Sticker preview"
+              className="border border-sheen-muted/20 rounded-lg"
+              style={{ width: `${label.w * 3}px`, height: `${label.h * 3}px`, objectFit: 'contain' }}
+            />
+          ) : (
+            <div
+              className="border-2 border-dashed border-sheen-gold rounded-xl flex items-center justify-center"
+              style={{ width: `${label.w * 3}px`, height: `${label.h * 3}px` }}
+            >
+              <p className="font-body text-xs text-sheen-muted">{t('loading')}</p>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
         <div className="px-5 pb-4 flex gap-2">
           <button
             onClick={() => fetchRandom()}
-            className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-brown font-body text-sm font-medium hover:bg-sheen-gold/20 transition-colors"
+            className="px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-brown font-body text-sm font-medium hover:bg-sheen-gold/20 transition-colors"
           >
             {t('shuffle')}
           </button>
           <button
+            onClick={handleShare}
+            className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors"
+          >
+            {t('shareToApp')}
+          </button>
+          <button
             onClick={handlePrint}
-            className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors"
+            className="px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors"
           >
             {t('printSticker')}
           </button>
@@ -198,4 +258,23 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
       </div>
     </div>
   )
+}
+
+// Helper: wrap text into multiple lines if too wide
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word
+    if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+      lines.push(currentLine)
+      currentLine = word
+    } else {
+      currentLine = testLine
+    }
+  }
+  if (currentLine) lines.push(currentLine)
+  return lines
 }

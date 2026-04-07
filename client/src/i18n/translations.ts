@@ -84,6 +84,7 @@ export const translations = {
   active: { en: 'active', ar: 'نشط' },
   closed: { en: 'Closed', ar: 'مغلق' },
   labelSize: { en: 'Label Size', ar: 'حجم الملصق' },
+  shareToApp: { en: 'Share to OpenLabel', ar: 'مشاركة إلى OpenLabel' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },
