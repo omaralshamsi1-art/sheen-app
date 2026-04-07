@@ -3,7 +3,17 @@ import Stripe from 'stripe'
 
 const router = Router()
 
-const stripe = new (Stripe as any)(process.env.STRIPE_SECRET_KEY!)
+// Lazy-init Stripe only when a payment endpoint is called
+let _stripe: any = null
+function getStripe() {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY is not configured')
+    }
+    _stripe = new (Stripe as any)(process.env.STRIPE_SECRET_KEY)
+  }
+  return _stripe
+}
 
 // POST /api/payments/create-intent
 // Body: { amount (in AED), customer_email?, metadata? }
@@ -20,7 +30,7 @@ router.post('/create-intent', async (req: Request, res: Response) => {
     // 1 AED = 100 fils
     const amountInFils = Math.round(amount * 100)
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount: amountInFils,
       currency: 'aed',
       payment_method_types: ['card'],
@@ -41,7 +51,7 @@ router.post('/create-intent', async (req: Request, res: Response) => {
 // GET /api/payments/:id — check payment status
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const paymentIntent = await stripe.paymentIntents.retrieve(req.params.id)
+    const paymentIntent = await getStripe().paymentIntents.retrieve(req.params.id)
     res.json({
       status: paymentIntent.status,
       amount: paymentIntent.amount / 100,
