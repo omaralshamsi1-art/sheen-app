@@ -101,8 +101,13 @@ export default function Orders() {
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="font-body font-medium text-sheen-black">
-                      {order.customer_name || order.customer_email?.split('@')[0] || 'Customer'}
+                    <p className="font-body font-medium text-sheen-black inline-flex items-center gap-2">
+                      {(order.customer_name ?? '').startsWith('Staff:')
+                        ? (order.customer_name ?? '').replace('Staff: ', '')
+                        : order.customer_name || order.customer_email?.split('@')[0] || 'Customer'}
+                      {order.notes?.startsWith('[POS') && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-body font-medium bg-sheen-muted/15 text-sheen-muted">POS</span>
+                      )}
                     </p>
                     {order.customer_email && order.customer_name && (
                       <p className="font-body text-xs text-sheen-muted">{order.customer_email}</p>
@@ -119,14 +124,17 @@ export default function Orders() {
                 {/* Items */}
                 <div className="flex flex-wrap gap-2 mb-3">
                   {(order.order_items ?? []).map((item: OrderItem, idx: number) => (
-                    <span key={idx} className="bg-sheen-cream text-sheen-black text-sm font-body px-3 py-1.5 rounded-lg">
-                      {item.name} <span className="text-sheen-muted">x{item.qty}</span> <span className="text-sheen-brown font-medium">{item.total.toFixed(2)}</span>
+                    <span key={idx} className="inline-flex items-center gap-1.5 bg-sheen-cream text-sm font-body px-3 py-1.5 rounded-lg">
+                      <span className="text-sheen-black">{item.name}</span>
+                      <span className="text-sheen-muted">×</span>
+                      <span className="text-sheen-black font-medium">{item.qty}</span>
+                      <span className="text-sheen-brown font-semibold">{item.total.toFixed(2)}</span>
                     </span>
                   ))}
                 </div>
 
-                {/* Notes */}
-                {order.notes && (
+                {/* Notes — hide internal POS notes */}
+                {order.notes && !order.notes.startsWith('[POS') && (
                   <p className="font-body text-xs text-sheen-muted italic mb-3">"{order.notes}"</p>
                 )}
 
