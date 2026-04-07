@@ -272,8 +272,8 @@ export default function CustomerOrder() {
 
         {/* Cart Panel */}
         {showCart && (
-          <div className="fixed inset-0 z-30 bg-black/50 flex items-end justify-center" onClick={() => setShowCart(false)}>
-            <div className="bg-sheen-white w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-30 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowCart(false)}>
+            <div className="bg-sheen-white w-full max-w-lg rounded-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="sticky top-0 bg-sheen-white border-b border-sheen-cream px-5 py-4 flex items-center justify-between">
                 <h2 className="font-display text-lg text-sheen-black">{t('yourOrder')}</h2>
                 <button onClick={() => setShowCart(false)} className="text-sheen-muted hover:text-sheen-black text-xl">&times;</button>
