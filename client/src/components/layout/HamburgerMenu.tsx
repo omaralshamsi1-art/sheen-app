@@ -81,7 +81,7 @@ export default function HamburgerMenu() {
             <img src="/images/logo.png" alt="SHEEN" className="w-10 h-10 rounded-full" />
             <div>
               <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
-              <p className="text-xs text-sheen-muted font-body">{t('coffeeShopManager')}</p>
+              <p className="text-xs text-sheen-muted font-body">{role === 'customer' ? t('coffeeShop') : t('coffeeShopManager')}</p>
               {(displayName || role) && (
                 <div className="mt-1 flex items-center gap-2">
                   {displayName && (

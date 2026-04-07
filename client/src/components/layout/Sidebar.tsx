@@ -38,7 +38,7 @@ export default function Sidebar() {
           <img src="/images/logo.png" alt="SHEEN" className="w-10 h-10 rounded-full" />
           <div>
             <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
-            <p className="text-xs text-sheen-muted font-body">{t('coffeeShopManager')}</p>
+            <p className="text-xs text-sheen-muted font-body">{role === 'customer' ? t('coffeeShop') : t('coffeeShopManager')}</p>
           </div>
         </div>
         {(displayName || role) && (

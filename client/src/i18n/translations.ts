@@ -3,6 +3,7 @@ export type Lang = 'en' | 'ar'
 export const translations = {
   // ── Common ──
   coffeeShopManager: { en: 'Coffee Shop Manager', ar: 'مدير المقهى' },
+  coffeeShop: { en: 'Coffee Shop', ar: 'مقهى' },
   loading: { en: 'Loading...', ar: 'جاري التحميل...' },
   save: { en: 'Save', ar: 'حفظ' },
   saving: { en: 'Saving...', ar: 'جاري الحفظ...' },
