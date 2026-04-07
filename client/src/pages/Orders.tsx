@@ -102,8 +102,11 @@ export default function Orders() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <p className="font-body font-medium text-sheen-black">
-                      {order.customer_name || order.customer_email || 'Customer'}
+                      {order.customer_name || order.customer_email?.split('@')[0] || 'Customer'}
                     </p>
+                    {order.customer_email && order.customer_name && (
+                      <p className="font-body text-xs text-sheen-muted">{order.customer_email}</p>
+                    )}
                     <p className="font-body text-xs text-sheen-muted">
                       {format(new Date(order.created_at), 'MMM d, yyyy h:mm a')}
                     </p>

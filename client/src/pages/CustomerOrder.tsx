@@ -111,7 +111,7 @@ export default function CustomerOrder() {
     await createOrder({
       customer_id: user!.id,
       customer_email: user!.email,
-      customer_name: user!.user_metadata?.full_name || user!.email,
+      customer_name: user!.user_metadata?.full_name || user!.user_metadata?.name || user!.email?.split('@')[0] || user!.email,
       items: cartItems.map((i) => ({
         menu_item_id: i.id,
         name: i.name,
