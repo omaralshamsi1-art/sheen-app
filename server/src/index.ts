@@ -11,6 +11,7 @@ import reportsRouter from './routes/reports'
 import aiRouter from './routes/ai'
 import usersRouter from './routes/users'
 import ordersRouter from './routes/orders'
+import paymentsRouter from './routes/payments'
 
 const app = express()
 
@@ -26,6 +27,7 @@ app.use('/api/reports', reportsRouter)
 app.use('/api/ai', aiRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/orders', ordersRouter)
+app.use('/api/payments', paymentsRouter)
 
 app.get('/health', (_, res) => res.json({ status: 'ok', version: '2.1' }))
 

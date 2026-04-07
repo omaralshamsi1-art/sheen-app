@@ -3,16 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import { useAuth } from '../hooks/useAuth'
 import { createOrder, getOrders } from '../services/orderService'
+import { createPaymentIntent } from '../services/paymentService'
 import { getItemImage } from '../data/itemImages'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
+import StripeCheckout from '../components/StripeCheckout'
 import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
 import type { MenuItem, MenuCategory, Order, OrderItem } from '../types'
 import { format } from 'date-fns'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites']
-const PAYMENT_METHODS = ['cash', 'card', 'apple_pay'] as const
+const PAYMENT_METHODS = ['cash', 'card'] as const
 type PaymentMethod = typeof PAYMENT_METHODS[number]
 
 export default function CustomerOrder() {
@@ -25,6 +27,8 @@ export default function CustomerOrder() {
   const [notes, setNotes] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [showCart, setShowCart] = useState(false)
+  const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null)
+  const [stripeLoading, setStripeLoading] = useState(false)
 
   // Refs
   const tabsRef = useRef<HTMLDivElement>(null)
@@ -101,8 +105,8 @@ export default function CustomerOrder() {
   const cartTotal = cartItems.reduce((s, i) => s + i.total, 0)
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0)
 
-  const submitOrder = useMutation({
-    mutationFn: () => createOrder({
+  const placeOrder = async (paymentNote: string) => {
+    await createOrder({
       customer_id: user!.id,
       customer_email: user!.email,
       customer_name: user!.user_metadata?.full_name || user!.email,
@@ -112,18 +116,43 @@ export default function CustomerOrder() {
         price: i.selling_price,
         qty: i.qty,
       })),
-      notes: notes ? `${notes}\n[Payment: ${t(paymentMethod as any)}]` : `[Payment: ${t(paymentMethod as any)}]`,
-    }),
-    onSuccess: () => {
-      toast.success(t('orderSubmitted'))
-      setQuantities({})
-      setNotes('')
-      setPaymentMethod('cash')
-      setShowCart(false)
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-    },
+      notes: notes ? `${notes}\n${paymentNote}` : paymentNote,
+    })
+    toast.success(t('orderSubmitted'))
+    setQuantities({})
+    setNotes('')
+    setPaymentMethod('cash')
+    setShowCart(false)
+    setStripeClientSecret(null)
+    queryClient.invalidateQueries({ queryKey: ['orders'] })
+  }
+
+  const submitOrder = useMutation({
+    mutationFn: () => placeOrder(`[Payment: ${t(paymentMethod as any)}]`),
     onError: () => toast.error(t('orderFailed')),
   })
+
+  // Start Stripe checkout for card payments (Apple Pay/Google Pay included)
+  const handleCardPayment = async () => {
+    setStripeLoading(true)
+    try {
+      const { clientSecret } = await createPaymentIntent(cartTotal, user?.email ?? undefined)
+      setStripeClientSecret(clientSecret)
+    } catch {
+      toast.error('Failed to start payment')
+    } finally {
+      setStripeLoading(false)
+    }
+  }
+
+  // Called when Stripe payment succeeds
+  const handlePaymentSuccess = async (paymentIntentId: string) => {
+    try {
+      await placeOrder(`[Payment: Card/Wallet - Stripe: ${paymentIntentId}]`)
+    } catch {
+      toast.error(t('orderFailed'))
+    }
+  }
 
   const statusColor: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-700',
@@ -145,11 +174,6 @@ export default function CustomerOrder() {
         <rect x="2" y="5" width="20" height="14" rx="2" />
         <path d="M2 10H22" />
         <path d="M6 14H10" />
-      </svg>
-    ),
-    apple_pay: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M17.72 7.4c-.47.52-1.23.92-1.97.86-.09-.74.27-1.53.7-2.01.47-.53 1.29-.9 1.95-.93.08.76-.22 1.51-.68 2.08zM17.05 8.35c-1.09-.06-2.02.62-2.54.62-.52 0-1.33-.59-2.18-.57-1.13.02-2.16.65-2.74 1.66-1.17 2.02-.3 5.02.84 6.67.56.81 1.23 1.72 2.11 1.69.85-.03 1.17-.55 2.19-.55 1.02 0 1.31.55 2.2.53.91-.01 1.49-.83 2.05-1.64.64-.94.9-1.85.92-1.9-.02-.01-1.77-.68-1.78-2.7-.01-1.68 1.37-2.49 1.43-2.53-.78-1.15-2-1.28-2.43-1.31l-.07.03z"/>
       </svg>
     ),
   }
@@ -292,13 +316,32 @@ export default function CustomerOrder() {
                     <span className="font-body font-semibold text-sheen-black">{t('total')}</span>
                     <span className="font-display text-xl font-bold text-sheen-brown">{cartTotal.toFixed(2)} AED</span>
                   </div>
-                  <Button
-                    onClick={() => submitOrder.mutate()}
-                    disabled={submitOrder.isPending}
-                    className="w-full"
-                  >
-                    {submitOrder.isPending ? t('submitting') : t('submitOrder')}
-                  </Button>
+
+                  {/* Stripe checkout form for card payments */}
+                  {stripeClientSecret && paymentMethod === 'card' ? (
+                    <StripeCheckout
+                      clientSecret={stripeClientSecret}
+                      amount={cartTotal}
+                      onSuccess={handlePaymentSuccess}
+                      onCancel={() => setStripeClientSecret(null)}
+                    />
+                  ) : paymentMethod === 'card' ? (
+                    <Button
+                      onClick={handleCardPayment}
+                      disabled={stripeLoading}
+                      className="w-full"
+                    >
+                      {stripeLoading ? t('processing') : t('proceedToPayment')}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => submitOrder.mutate()}
+                      disabled={submitOrder.isPending}
+                      className="w-full"
+                    >
+                      {submitOrder.isPending ? t('submitting') : t('submitOrder')}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
