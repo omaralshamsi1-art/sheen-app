@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import { useAuth } from '../hooks/useAuth'
+import { useRole } from '../hooks/useRole'
 import { createOrder, getOrders } from '../services/orderService'
 import { createPaymentIntent } from '../services/paymentService'
 import { getItemImage } from '../data/itemImages'
@@ -20,6 +21,7 @@ type PaymentMethod = typeof PAYMENT_METHODS[number]
 export default function CustomerOrder() {
   const { t } = useLanguage()
   const { user } = useAuth()
+  const { allowedPaymentMethods } = useRole()
   const queryClient = useQueryClient()
   const { data: menuItems = [], isLoading: menuLoading } = useMenuItems()
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
@@ -282,7 +284,9 @@ export default function CustomerOrder() {
                 <div className="pt-3 border-t border-sheen-cream">
                   <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
                   <div className="flex gap-2">
-                    {PAYMENT_METHODS.map((method) => (
+                    {PAYMENT_METHODS.filter((m) =>
+                      !allowedPaymentMethods || allowedPaymentMethods.length === 0 || allowedPaymentMethods.includes(m)
+                    ).map((method) => (
                       <button
                         key={method}
                         onClick={() => setPaymentMethod(method)}

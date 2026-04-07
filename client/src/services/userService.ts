@@ -23,6 +23,11 @@ export async function updateUserPages(id: string, allowed_pages: string[]): Prom
   return data
 }
 
+export async function updateUserPaymentMethods(id: string, allowed_payment_methods: string[]): Promise<UserRoleRecord> {
+  const { data } = await api.patch(`/api/users/${id}`, { allowed_payment_methods })
+  return data
+}
+
 export async function deleteUser(id: string): Promise<void> {
   await api.delete(`/api/users/${id}`)
 }

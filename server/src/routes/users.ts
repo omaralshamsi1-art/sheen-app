@@ -99,7 +99,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { role, allowed_pages } = req.body
+    const { role, allowed_pages, allowed_payment_methods } = req.body
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
 
@@ -117,6 +117,14 @@ router.patch('/:id', async (req: Request, res: Response) => {
         return
       }
       updates.allowed_pages = allowed_pages
+    }
+
+    if (allowed_payment_methods !== undefined) {
+      if (!Array.isArray(allowed_payment_methods)) {
+        res.status(400).json({ message: 'allowed_payment_methods must be an array of strings' })
+        return
+      }
+      updates.allowed_payment_methods = allowed_payment_methods
     }
 
     const { data, error } = await supabase

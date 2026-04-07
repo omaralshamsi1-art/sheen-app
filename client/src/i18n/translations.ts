@@ -45,6 +45,8 @@ export const translations = {
   userDeleted: { en: 'User deleted', ar: 'تم حذف المستخدم' },
   confirmDelete: { en: 'Are you sure?', ar: 'هل أنت متأكد؟' },
   pageAccess: { en: 'Page Access', ar: 'صلاحيات الصفحات' },
+  paymentMethods: { en: 'Payment Methods', ar: 'طرق الدفع' },
+  permissions: { en: 'Permissions', ar: 'الصلاحيات' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },

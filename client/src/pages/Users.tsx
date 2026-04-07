@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUsers, addUser, updateUserRole, updateUserPages, deleteUser } from '../services/userService'
+import { getUsers, addUser, updateUserRole, updateUserPages, updateUserPaymentMethods, deleteUser } from '../services/userService'
 import { navItems } from '../config/roles'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
@@ -14,6 +14,12 @@ const ROLES: UserRole[] = ['admin', 'staff', 'customer']
 const STAFF_PAGES = navItems
   .filter((item) => item.roles.includes('staff'))
   .map((item) => ({ path: item.to, labelKey: item.labelKey }))
+
+// Payment methods that admin can toggle
+const ALL_PAYMENT_METHODS = [
+  { id: 'cash', labelKey: 'cash' as const },
+  { id: 'card', labelKey: 'card' as const },
+]
 
 export default function Users() {
   const { t } = useLanguage()
@@ -76,6 +82,24 @@ export default function Users() {
       ? current.filter((p) => p !== pagePath)
       : [...current, pagePath]
     pagesMutation.mutate({ id: user.id, allowed_pages: updated })
+  }
+
+  const paymentMethodsMutation = useMutation({
+    mutationFn: ({ id, allowed_payment_methods }: { id: string; allowed_payment_methods: string[] }) =>
+      updateUserPaymentMethods(id, allowed_payment_methods),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success(t('userUpdated'))
+    },
+    onError: () => toast.error('Error updating payment methods'),
+  })
+
+  const togglePaymentMethod = (user: UserRoleRecord, methodId: string) => {
+    const current = user.allowed_payment_methods ?? ALL_PAYMENT_METHODS.map((m) => m.id)
+    const updated = current.includes(methodId)
+      ? current.filter((m) => m !== methodId)
+      : [...current, methodId]
+    paymentMethodsMutation.mutate({ id: user.id, allowed_payment_methods: updated })
   }
 
   const handleDelete = (user: UserRoleRecord) => {
@@ -196,12 +220,12 @@ export default function Users() {
                               ))}
                             </select>
 
-                            {user.role === 'staff' && (
+                            {(user.role === 'staff' || user.role === 'customer') && (
                               <button
                                 onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
                                 className="text-sheen-gold hover:text-sheen-brown text-xs font-body font-medium transition-colors"
                               >
-                                {isExpanded ? t('collapse') : t('pageAccess')}
+                                {isExpanded ? t('collapse') : t('permissions')}
                               </button>
                             )}
 
@@ -215,36 +239,74 @@ export default function Users() {
                           </div>
                         </div>
 
-                        {/* Page access toggles — only for staff */}
-                        {isExpanded && user.role === 'staff' && (
-                          <div className="mt-4 p-4 bg-sheen-cream/50 rounded-lg">
-                            <p className="font-body text-xs text-sheen-muted mb-3 uppercase tracking-wider">
-                              {t('pageAccess')}
-                            </p>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                              {STAFF_PAGES.map((page) => {
-                                const enabled = userPages.includes(page.path)
-                                return (
-                                  <label
-                                    key={page.path}
-                                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-                                      enabled
-                                        ? 'bg-sheen-gold/15 border border-sheen-gold/30'
-                                        : 'bg-white border border-sheen-muted/20'
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={enabled}
-                                      onChange={() => togglePage(user, page.path)}
-                                      className="h-4 w-4 accent-sheen-gold cursor-pointer"
-                                    />
-                                    <span className={`font-body text-sm ${enabled ? 'text-sheen-black font-medium' : 'text-sheen-muted'}`}>
-                                      {t(page.labelKey)}
-                                    </span>
-                                  </label>
-                                )
-                              })}
+                        {/* Page access + Payment method toggles */}
+                        {isExpanded && (user.role === 'staff' || user.role === 'customer') && (
+                          <div className="mt-4 space-y-4">
+                            {/* Page access — staff only */}
+                            {user.role === 'staff' && (
+                              <div className="p-4 bg-sheen-cream/50 rounded-lg">
+                                <p className="font-body text-xs text-sheen-muted mb-3 uppercase tracking-wider">
+                                  {t('pageAccess')}
+                                </p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {STAFF_PAGES.map((page) => {
+                                    const enabled = userPages.includes(page.path)
+                                    return (
+                                      <label
+                                        key={page.path}
+                                        className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
+                                          enabled
+                                            ? 'bg-sheen-gold/15 border border-sheen-gold/30'
+                                            : 'bg-white border border-sheen-muted/20'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={enabled}
+                                          onChange={() => togglePage(user, page.path)}
+                                          className="h-4 w-4 accent-sheen-gold cursor-pointer"
+                                        />
+                                        <span className={`font-body text-sm ${enabled ? 'text-sheen-black font-medium' : 'text-sheen-muted'}`}>
+                                          {t(page.labelKey)}
+                                        </span>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Payment methods — staff and customer */}
+                            <div className="p-4 bg-sheen-cream/50 rounded-lg">
+                              <p className="font-body text-xs text-sheen-muted mb-3 uppercase tracking-wider">
+                                {t('paymentMethods')}
+                              </p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {ALL_PAYMENT_METHODS.map((method) => {
+                                  const userMethods = user.allowed_payment_methods ?? ALL_PAYMENT_METHODS.map((m) => m.id)
+                                  const enabled = userMethods.includes(method.id)
+                                  return (
+                                    <label
+                                      key={method.id}
+                                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
+                                        enabled
+                                          ? 'bg-sheen-gold/15 border border-sheen-gold/30'
+                                          : 'bg-white border border-sheen-muted/20'
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={enabled}
+                                        onChange={() => togglePaymentMethod(user, method.id)}
+                                        className="h-4 w-4 accent-sheen-gold cursor-pointer"
+                                      />
+                                      <span className={`font-body text-sm ${enabled ? 'text-sheen-black font-medium' : 'text-sheen-muted'}`}>
+                                        {t(method.labelKey as any)}
+                                      </span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
                             </div>
                           </div>
                         )}
