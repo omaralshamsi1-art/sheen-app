@@ -1,6 +1,12 @@
-import { useState, useRef } from 'react'
-import { getRandomSticker } from '../data/stickerMessages'
+import { useState, useRef, useEffect } from 'react'
+import api from '../lib/api'
 import { useLanguage } from '../i18n/LanguageContext'
+
+interface StickerMessage {
+  id: string
+  message_ar: string
+  message_en: string
+}
 
 interface StickerPrintProps {
   customerName?: string
@@ -9,10 +15,25 @@ interface StickerPrintProps {
 
 export default function StickerPrint({ customerName, onClose }: StickerPrintProps) {
   const { t } = useLanguage()
-  const [sticker, setSticker] = useState(getRandomSticker())
+  const [sticker, setSticker] = useState<StickerMessage | null>(null)
+  const [, setLoading] = useState(true)
   const printRef = useRef<HTMLDivElement>(null)
 
+  const fetchRandom = async () => {
+    setLoading(true)
+    try {
+      const { data } = await api.get('/api/stickers/random')
+      setSticker(data)
+    } catch {
+      setSticker({ id: '', message_ar: 'شكراً لزيارتك ☕', message_en: 'Thank you for visiting' })
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchRandom() }, [])
+
   const handlePrint = () => {
+    if (!sticker) return
     const content = printRef.current
     if (!content) return
 
@@ -47,8 +68,8 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
         <div class="sticker">
           <div class="logo">SHEEN</div>
           ${customerName ? `<div class="name">${customerName}</div>` : ''}
-          <div class="message-ar">${sticker.ar}</div>
-          <div class="message-en">${sticker.en}</div>
+          <div class="message-ar">${sticker?.message_ar ?? ''}</div>
+          <div class="message-en">${sticker?.message_en ?? ''}</div>
           <div class="social">@SheenCafe</div>
         </div>
       </body>
@@ -58,7 +79,7 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     setTimeout(() => { printWindow.print() }, 300)
   }
 
-  const shuffle = () => setSticker(getRandomSticker())
+  const shuffle = () => fetchRandom()
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
@@ -70,8 +91,8 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
             {customerName && (
               <p className="font-body text-sm text-sheen-brown font-semibold mb-2">{customerName}</p>
             )}
-            <p className="font-body text-lg text-sheen-black leading-relaxed mb-2" dir="rtl">{sticker.ar}</p>
-            <p className="font-body text-xs text-sheen-muted" dir="ltr">{sticker.en}</p>
+            <p className="font-body text-lg text-sheen-black leading-relaxed mb-2" dir="rtl">{sticker?.message_ar}</p>
+            <p className="font-body text-xs text-sheen-muted" dir="ltr">{sticker?.message_en}</p>
             <p className="font-body text-[10px] text-sheen-muted mt-3">@SheenCafe</p>
           </div>
         </div>

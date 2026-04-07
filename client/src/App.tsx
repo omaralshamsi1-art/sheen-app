@@ -20,6 +20,7 @@ import CustomerOrder from './pages/CustomerOrder'
 import Orders from './pages/Orders'
 import AuditLog from './pages/AuditLog'
 import Ingredients from './pages/Ingredients'
+import Stickers from './pages/Stickers'
 import OrderNotifier from './components/OrderNotifier'
 
 const queryClient = new QueryClient({
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="/order" element={<CustomerOrder />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/ingredients" element={<Ingredients />} />
+            <Route path="/stickers" element={<Stickers />} />
             <Route path="/audit-log" element={<AuditLog />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

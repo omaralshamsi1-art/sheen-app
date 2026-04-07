@@ -20,6 +20,7 @@ export const navItems: NavItem[] = [
   { to: '/reports',    labelKey: 'reports',    icon: '', roles: ['admin'] },
   { to: '/users',      labelKey: 'users' as TranslationKey, icon: '', roles: ['admin'] },
   { to: '/ingredients', labelKey: 'ingredients' as TranslationKey, icon: '', roles: ['admin'] },
+  { to: '/stickers',    labelKey: 'stickerMessages' as TranslationKey, icon: '', roles: ['admin'] },
   { to: '/audit-log',  labelKey: 'auditLog' as TranslationKey, icon: '', roles: ['admin'] },
 ]
 
@@ -36,6 +37,7 @@ export const routeRoles: Record<string, UserRole[]> = {
   '/reports':     ['admin'],
   '/users':       ['admin'],
   '/ingredients':  ['admin'],
+  '/stickers':     ['admin'],
   '/audit-log':   ['admin'],
 }
 
