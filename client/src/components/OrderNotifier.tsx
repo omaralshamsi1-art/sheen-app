@@ -6,30 +6,88 @@ import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
 import type { Order } from '../types'
 
-// ── Audio engine ──
-let sharedAudioCtx: AudioContext | null = null
-let audioUnlocked = false
+// ── Audio engine — uses HTML5 Audio for Safari/iOS compatibility ──
 
-function getAudioCtx(): AudioContext {
-  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
-    sharedAudioCtx = new AudioContext()
+let audioUnlocked = false
+let notificationAudio: HTMLAudioElement | null = null
+
+// Generate a WAV notification chime programmatically
+function generateNotificationWAV(): string {
+  const sampleRate = 22050
+  const duration = 0.7
+  const numSamples = Math.floor(sampleRate * duration)
+  const buffer = new Float32Array(numSamples)
+
+  // Three ascending tones (A5, D6, E6) for a pleasant chime
+  const tones = [
+    { freq: 880, start: 0, end: 0.25, vol: 0.4 },
+    { freq: 1175, start: 0.12, end: 0.4, vol: 0.4 },
+    { freq: 1318, start: 0.25, end: 0.65, vol: 0.35 },
+  ]
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate
+    let sample = 0
+    for (const tone of tones) {
+      if (t >= tone.start && t < tone.end) {
+        const progress = (t - tone.start) / (tone.end - tone.start)
+        const envelope = Math.exp(-progress * 4) // decay
+        sample += Math.sin(2 * Math.PI * tone.freq * t) * tone.vol * envelope
+      }
+    }
+    buffer[i] = Math.max(-1, Math.min(1, sample))
   }
-  return sharedAudioCtx
+
+  // Encode as 16-bit WAV
+  const numChannels = 1
+  const bitsPerSample = 16
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8)
+  const blockAlign = numChannels * (bitsPerSample / 8)
+  const dataSize = numSamples * blockAlign
+  const headerSize = 44
+  const wav = new ArrayBuffer(headerSize + dataSize)
+  const view = new DataView(wav)
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i))
+  }
+
+  writeString(0, 'RIFF')
+  view.setUint32(4, 36 + dataSize, true)
+  writeString(8, 'WAVE')
+  writeString(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true) // PCM
+  view.setUint16(22, numChannels, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, byteRate, true)
+  view.setUint16(32, blockAlign, true)
+  view.setUint16(34, bitsPerSample, true)
+  writeString(36, 'data')
+  view.setUint32(40, dataSize, true)
+
+  for (let i = 0; i < numSamples; i++) {
+    const s = Math.max(-1, Math.min(1, buffer[i]))
+    view.setInt16(headerSize + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true)
+  }
+
+  // Convert to base64 data URL
+  const bytes = new Uint8Array(wav)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  return 'data:audio/wav;base64,' + btoa(binary)
 }
 
-/** Must be called from a direct user tap/click handler */
+// Create the audio element once
+const wavDataUrl = typeof window !== 'undefined' ? generateNotificationWAV() : ''
+
+/** Must be called from a direct user tap/click handler on Safari */
 export async function unlockAndTestAudio(): Promise<boolean> {
   try {
-    const ctx = getAudioCtx()
-    // Resume is the critical call that iOS requires inside a user gesture
-    await ctx.resume()
-    // Play a short silent tone to fully unlock the audio pipeline
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    gain.gain.setValueAtTime(0, ctx.currentTime)
-    osc.connect(gain).connect(ctx.destination)
-    osc.start()
-    osc.stop(ctx.currentTime + 0.01)
+    // Create and play the audio element — this is what Safari needs from a user gesture
+    notificationAudio = new Audio(wavDataUrl)
+    notificationAudio.volume = 0.8
+    await notificationAudio.play()
     audioUnlocked = true
     return true
   } catch {
@@ -39,34 +97,17 @@ export async function unlockAndTestAudio(): Promise<boolean> {
 
 export function playNotificationSound() {
   if (!audioUnlocked) return
-
   try {
-    const ctx = getAudioCtx()
-    if (ctx.state === 'suspended') ctx.resume()
-    const now = ctx.currentTime
-
-    const play = (freq: number, start: number, end: number, vol: number) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(freq, now + start)
-      gain.gain.setValueAtTime(0, now)
-      gain.gain.setValueAtTime(vol, now + start)
-      gain.gain.exponentialRampToValueAtTime(0.01, now + end)
-      osc.connect(gain).connect(ctx.destination)
-      osc.start(now + start)
-      osc.stop(now + end)
-    }
-
-    play(880, 0, 0.3, 0.4)
-    play(1175, 0.15, 0.5, 0.4)
-    play(1318, 0.3, 0.7, 0.35)
+    // Create a fresh Audio element each time (most reliable for Safari)
+    const audio = new Audio(wavDataUrl)
+    audio.volume = 0.8
+    audio.play().catch(() => {})
   } catch {
     // silent fallback
   }
 }
 
-// Try auto-unlock on desktop (works on Chrome/Firefox, not iOS)
+// Auto-unlock on desktop browsers (works on Chrome/Firefox)
 if (typeof window !== 'undefined') {
   const tryUnlock = () => { unlockAndTestAudio() }
   window.addEventListener('click', tryUnlock, { once: true })
