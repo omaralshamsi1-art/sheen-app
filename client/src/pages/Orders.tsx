@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOrders, updateOrderStatus } from '../services/orderService'
 import TopBar from '../components/layout/TopBar'
@@ -9,49 +9,68 @@ import { format } from 'date-fns'
 
 const STATUS_TABS: OrderStatus[] = ['pending', 'confirmed', 'rejected', 'completed']
 
+// Shared AudioContext — unlocked on first user interaction
+let sharedAudioCtx: AudioContext | null = null
+
+function getAudioCtx(): AudioContext {
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    sharedAudioCtx = new AudioContext()
+  }
+  if (sharedAudioCtx.state === 'suspended') {
+    sharedAudioCtx.resume()
+  }
+  return sharedAudioCtx
+}
+
+// Unlock audio on any user interaction (required by browsers)
+function unlockAudio() {
+  try { getAudioCtx() } catch { /* ignore */ }
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('click', unlockAudio, { once: true })
+  window.addEventListener('touchstart', unlockAudio, { once: true })
+}
+
 // Generate a notification chime using Web Audio API
 function playNotificationSound() {
   try {
-    const ctx = new AudioContext()
+    const ctx = getAudioCtx()
     const now = ctx.currentTime
 
-    // First tone (higher)
+    // First tone
     const osc1 = ctx.createOscillator()
     const gain1 = ctx.createGain()
     osc1.type = 'sine'
     osc1.frequency.setValueAtTime(880, now)
-    gain1.gain.setValueAtTime(0.3, now)
+    gain1.gain.setValueAtTime(0.4, now)
     gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.3)
     osc1.connect(gain1).connect(ctx.destination)
     osc1.start(now)
     osc1.stop(now + 0.3)
 
-    // Second tone (even higher, delayed)
+    // Second tone (delayed)
     const osc2 = ctx.createOscillator()
     const gain2 = ctx.createGain()
     osc2.type = 'sine'
     osc2.frequency.setValueAtTime(1175, now + 0.15)
     gain2.gain.setValueAtTime(0, now)
-    gain2.gain.setValueAtTime(0.3, now + 0.15)
+    gain2.gain.setValueAtTime(0.4, now + 0.15)
     gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.5)
     osc2.connect(gain2).connect(ctx.destination)
     osc2.start(now + 0.15)
     osc2.stop(now + 0.5)
 
-    // Third tone (highest, cheerful finish)
+    // Third tone (highest)
     const osc3 = ctx.createOscillator()
     const gain3 = ctx.createGain()
     osc3.type = 'sine'
     osc3.frequency.setValueAtTime(1318, now + 0.3)
     gain3.gain.setValueAtTime(0, now)
-    gain3.gain.setValueAtTime(0.25, now + 0.3)
+    gain3.gain.setValueAtTime(0.35, now + 0.3)
     gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.7)
     osc3.connect(gain3).connect(ctx.destination)
     osc3.start(now + 0.3)
     osc3.stop(now + 0.7)
-
-    // Clean up
-    setTimeout(() => ctx.close(), 1000)
   } catch {
     // Audio not available — silent fallback
   }
@@ -79,18 +98,22 @@ export default function Orders() {
   })
 
   // Detect new pending orders and play sound
-  const checkForNewOrders = useCallback(() => {
-    if (!soundEnabled || allPending.length === 0) return
-
+  useEffect(() => {
     const currentIds = new Set(allPending.map((o: Order) => o.id))
 
     if (initialLoadRef.current) {
+      // First load — just record current IDs, don't alert
       prevPendingIdsRef.current = currentIds
       initialLoadRef.current = false
       return
     }
 
-    // Check if any IDs are new
+    if (!soundEnabled) {
+      prevPendingIdsRef.current = currentIds
+      return
+    }
+
+    // Check if any order IDs are new (not seen before)
     let hasNew = false
     for (const id of currentIds) {
       if (!prevPendingIdsRef.current.has(id)) {
@@ -106,10 +129,6 @@ export default function Orders() {
 
     prevPendingIdsRef.current = currentIds
   }, [allPending, soundEnabled, t])
-
-  useEffect(() => {
-    checkForNewOrders()
-  }, [checkForNewOrders])
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => updateOrderStatus(id, status),
