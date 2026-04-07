@@ -82,6 +82,7 @@ export const translations = {
   messageAr: { en: 'Arabic Message', ar: 'الرسالة بالعربي' },
   messageEn: { en: 'English Message', ar: 'الرسالة بالإنجليزي' },
   active: { en: 'active', ar: 'نشط' },
+  closed: { en: 'Closed', ar: 'مغلق' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },

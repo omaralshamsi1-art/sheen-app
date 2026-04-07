@@ -1,8 +1,10 @@
 import { NavLink } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useLanguage } from '../../i18n/LanguageContext'
 import { useRole } from '../../hooks/useRole'
 import { useAuth } from '../../hooks/useAuth'
+import { getOrders } from '../../services/orderService'
 import { navItems } from '../../config/roles'
 import { navIconMap } from '../icons/NavIcons'
 import toast from 'react-hot-toast'
@@ -12,6 +14,15 @@ export default function Sidebar() {
   const { user } = useAuth()
   const { role, allowedPages } = useRole()
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
+
+  const isStaffOrAdmin = role === 'admin' || role === 'staff'
+  const { data: pendingOrders = [] } = useQuery({
+    queryKey: ['orders', 'pending-sidebar'],
+    queryFn: () => getOrders({ status: 'pending' }),
+    refetchInterval: 10000,
+    enabled: isStaffOrAdmin,
+  })
+  const pendingCount = pendingOrders.length
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -70,7 +81,12 @@ export default function Sidebar() {
               }
             >
               {IconComponent ? <IconComponent /> : <span className="text-base">{item.icon}</span>}
-              {t(item.labelKey)}
+              <span className="flex-1">{t(item.labelKey)}</span>
+              {item.to === '/orders' && pendingCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold min-w-[20px] h-5 flex items-center justify-center rounded-full px-1.5 animate-pulse">
+                  {pendingCount}
+                </span>
+              )}
             </NavLink>
           )
         })}

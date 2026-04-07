@@ -4,7 +4,7 @@ import { logAudit } from '../lib/audit'
 
 const router = Router()
 
-const VALID_STATUSES = ['pending', 'confirmed', 'rejected', 'completed']
+const VALID_STATUSES = ['pending', 'confirmed', 'rejected', 'completed', 'closed']
 
 // GET /api/orders?status=pending — list orders (staff/admin see all, customer sees own)
 router.get('/', async (req: Request, res: Response) => {

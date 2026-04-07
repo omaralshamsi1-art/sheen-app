@@ -228,7 +228,7 @@ export interface HourlySales {
 // ─────────────────────────────────────────────
 // ORDERS
 // ─────────────────────────────────────────────
-export type OrderStatus = 'pending' | 'confirmed' | 'rejected' | 'completed';
+export type OrderStatus = 'pending' | 'confirmed' | 'rejected' | 'completed' | 'closed';
 
 export interface Order {
   id: string;

@@ -6,15 +6,15 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { playNotificationSound } from '../components/OrderNotifier'
 import StickerPrint from '../components/StickerPrint'
 import toast from 'react-hot-toast'
-import type { Order, OrderItem, OrderStatus } from '../types'
+import type { Order, OrderItem } from '../types'
 import { format } from 'date-fns'
 
-const STATUS_TABS: OrderStatus[] = ['pending', 'confirmed', 'rejected', 'completed']
+const STATUS_TABS = ['pending', 'rejected', 'closed'] as const
 
 export default function Orders() {
   const { t } = useLanguage()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<OrderStatus | 'all'>('pending')
+  const [activeTab, setActiveTab] = useState<string>('pending')
   const [stickerOrder, setStickerOrder] = useState<Order | null>(null)
 
   const { data: orders = [], isLoading } = useQuery({
@@ -37,6 +37,7 @@ export default function Orders() {
     confirmed: 'bg-green-100 text-green-700',
     rejected: 'bg-red-100 text-red-700',
     completed: 'bg-blue-100 text-blue-700',
+    closed: 'bg-gray-100 text-gray-700',
   }
 
   const pendingCount = orders.filter((o: Order) => o.status === 'pending').length
@@ -147,7 +148,11 @@ export default function Orders() {
                     {order.status === 'pending' && (
                       <>
                         <button
-                          onClick={() => updateStatus.mutate({ id: order.id, status: 'confirmed' })}
+                          onClick={() => {
+                            updateStatus.mutate({ id: order.id, status: 'closed' }, {
+                              onSuccess: () => setStickerOrder(order),
+                            })
+                          }}
                           disabled={updateStatus.isPending}
                           className="px-4 py-1.5 rounded-lg bg-green-500 text-white text-sm font-body font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
                         >
@@ -162,20 +167,7 @@ export default function Orders() {
                         </button>
                       </>
                     )}
-                    {order.status === 'confirmed' && (
-                      <button
-                        onClick={() => {
-                          updateStatus.mutate({ id: order.id, status: 'completed' }, {
-                            onSuccess: () => setStickerOrder(order),
-                          })
-                        }}
-                        disabled={updateStatus.isPending}
-                        className="px-4 py-1.5 rounded-lg bg-blue-500 text-white text-sm font-body font-medium hover:bg-blue-600 transition-colors disabled:opacity-50"
-                      >
-                        {t('markComplete')}
-                      </button>
-                    )}
-                    {order.status === 'completed' && (
+                    {(order.status === 'closed' || order.status === 'completed') && (
                       <button
                         onClick={() => setStickerOrder(order)}
                         className="px-4 py-1.5 rounded-lg bg-sheen-gold/20 text-sheen-brown text-sm font-body font-medium hover:bg-sheen-gold/30 transition-colors"
