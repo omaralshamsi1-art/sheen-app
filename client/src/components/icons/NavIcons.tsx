@@ -63,6 +63,10 @@ export function OrdersIcon() {
   return <NavImg src="/images/Receipt-Outline--Streamline-Ionic-Outline.svg" alt="Orders" />
 }
 
+export function AuditLogIcon() {
+  return <NavImg src="/images/assessment.svg" alt="Audit Log" />
+}
+
 export const navIconMap: Record<string, () => React.ReactElement> = {
   '/dashboard': DashboardIcon,
   '/sales': SalesIcon,
@@ -74,4 +78,5 @@ export const navIconMap: Record<string, () => React.ReactElement> = {
   '/ai-monitor': AIMonitorIcon,
   '/reports': ReportsIcon,
   '/users': UsersIcon,
+  '/audit-log': AuditLogIcon,
 }
