@@ -78,17 +78,42 @@ function generateNotificationWAV(): string {
   return 'data:audio/wav;base64,' + btoa(binary)
 }
 
-// Create the audio element once
+// Create the WAV data URL once
 const wavDataUrl = typeof window !== 'undefined' ? generateNotificationWAV() : ''
+
+// Single persistent Audio element — Safari needs the SAME element reused
+if (typeof window !== 'undefined') {
+  notificationAudio = new Audio(wavDataUrl)
+  notificationAudio.volume = 0.8
+  // Preload so it's ready instantly
+  notificationAudio.load()
+}
 
 /** Must be called from a direct user tap/click handler on Safari */
 export async function unlockAndTestAudio(): Promise<boolean> {
   try {
-    // Create and play the audio element — this is what Safari needs from a user gesture
-    notificationAudio = new Audio(wavDataUrl)
-    notificationAudio.volume = 0.8
+    if (!notificationAudio) {
+      notificationAudio = new Audio(wavDataUrl)
+      notificationAudio.volume = 0.8
+    }
+    // Play from user gesture — this permanently unlocks this Audio element on Safari
+    notificationAudio.currentTime = 0
     await notificationAudio.play()
     audioUnlocked = true
+
+    // Also keep it warm with a silent loop that Safari won't suspend
+    // This creates a tiny silent audio context that keeps the audio pipeline active
+    try {
+      const ctx = new AudioContext()
+      await ctx.resume()
+      const silentOsc = ctx.createOscillator()
+      const silentGain = ctx.createGain()
+      silentGain.gain.setValueAtTime(0, ctx.currentTime)
+      silentOsc.connect(silentGain).connect(ctx.destination)
+      silentOsc.start()
+      // Keep it running — don't stop or close
+    } catch { /* ok */ }
+
     return true
   } catch {
     return false
@@ -96,18 +121,18 @@ export async function unlockAndTestAudio(): Promise<boolean> {
 }
 
 export function playNotificationSound() {
-  if (!audioUnlocked) return
+  if (!audioUnlocked || !notificationAudio) return
   try {
-    // Create a fresh Audio element each time (most reliable for Safari)
-    const audio = new Audio(wavDataUrl)
-    audio.volume = 0.8
-    audio.play().catch(() => {})
+    // Reuse the SAME Audio element — Safari only allows play() on elements
+    // that were previously played from a user gesture
+    notificationAudio.currentTime = 0
+    notificationAudio.play().catch(() => {})
   } catch {
     // silent fallback
   }
 }
 
-// Auto-unlock on desktop browsers (works on Chrome/Firefox)
+// Auto-unlock on desktop browsers (works on Chrome/Firefox, not Safari)
 if (typeof window !== 'undefined') {
   const tryUnlock = () => { unlockAndTestAudio() }
   window.addEventListener('click', tryUnlock, { once: true })
