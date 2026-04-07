@@ -4,13 +4,16 @@ import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 import { useLanguage } from '../../i18n/LanguageContext'
 import { useRole } from '../../hooks/useRole'
+import { useAuth } from '../../hooks/useAuth'
 import { navItems } from '../../config/roles'
 import { navIconMap } from '../icons/NavIcons'
 
 export default function HamburgerMenu() {
   const [open, setOpen] = useState(false)
   const { t, lang, setLang } = useLanguage()
+  const { user } = useAuth()
   const { role, allowedPages } = useRole()
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || ''
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -79,10 +82,17 @@ export default function HamburgerMenu() {
             <div>
               <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
               <p className="text-xs text-sheen-muted font-body">{t('coffeeShopManager')}</p>
-              {role && (
-                <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-body font-medium uppercase tracking-wider bg-sheen-gold/15 text-sheen-gold">
-                  {t(role as any)}
-                </span>
+              {(displayName || role) && (
+                <div className="mt-1 flex items-center gap-2">
+                  {displayName && (
+                    <span className="text-xs text-sheen-cream font-body truncate max-w-[120px]">{displayName}</span>
+                  )}
+                  {role && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-body font-medium uppercase tracking-wider bg-sheen-gold/15 text-sheen-gold shrink-0">
+                      {t(role as any)}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>
