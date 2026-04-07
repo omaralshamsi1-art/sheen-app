@@ -20,19 +20,35 @@ router.get('/', async (_req: Request, res: Response) => {
   }
 })
 
-// GET /api/users/role/:userId — get role for a specific user
+// GET /api/users/role/:userId — get or auto-create role for a user
+// Query param: ?email=user@example.com (used to create record if missing)
 router.get('/role/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params
+    const email = req.query.email as string | undefined
+
     const { data, error } = await supabase
       .from('user_roles')
       .select('*')
       .eq('user_id', userId)
       .single()
 
-    if (error) {
-      // No role found — return default customer
-      res.json({ role: 'customer' })
+    if (error || !data) {
+      // No role found — auto-create as customer so admin can manage them
+      const { data: newRecord, error: insertErr } = await supabase
+        .from('user_roles')
+        .upsert(
+          { user_id: userId, email: email ?? '', role: 'customer' },
+          { onConflict: 'user_id' }
+        )
+        .select()
+        .single()
+
+      if (insertErr || !newRecord) {
+        res.json({ role: 'customer' })
+        return
+      }
+      res.json(newRecord)
       return
     }
     res.json(data)

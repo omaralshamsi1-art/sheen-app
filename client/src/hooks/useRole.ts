@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import type { UserRole } from '../types'
+import axios from 'axios'
+
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
 export function useRole() {
   const { user } = useAuth()
@@ -21,20 +23,18 @@ export function useRole() {
 
     const fetchRole = async () => {
       setRoleLoading(true)
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role, allowed_pages, allowed_payment_methods')
-        .eq('user_id', user.id)
-        .single()
-
-      if (error || !data) {
+      try {
+        // Calls server which auto-creates a customer record if none exists
+        const { data } = await api.get(`/api/users/role/${user.id}`, {
+          params: { email: user.email },
+        })
+        setRole((data.role as UserRole) ?? 'customer')
+        setAllowedPages(data.allowed_pages ?? null)
+        setAllowedPaymentMethods(data.allowed_payment_methods ?? null)
+      } catch {
         setRole('customer')
         setAllowedPages(null)
         setAllowedPaymentMethods(null)
-      } else {
-        setRole(data.role as UserRole)
-        setAllowedPages(data.allowed_pages)
-        setAllowedPaymentMethods(data.allowed_payment_methods)
       }
       setRoleLoading(false)
     }
