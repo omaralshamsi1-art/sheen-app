@@ -30,6 +30,14 @@ export async function deleteUser(id: string): Promise<void> {
   await api.delete(`/api/users/${id}`)
 }
 
+export async function changeUserPassword(id: string, password: string): Promise<void> {
+  await api.patch(`/api/users/${id}/password`, { password })
+}
+
+export async function toggleUserBan(id: string, ban: boolean): Promise<void> {
+  await api.patch(`/api/users/${id}/toggle-ban`, { ban })
+}
+
 export async function getDefaultPaymentMethods(): Promise<string[] | null> {
   const { data } = await api.get('/api/users/default-payment-methods')
   return data.allowed_payment_methods

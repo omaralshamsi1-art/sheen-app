@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUsers, addUser, updateUserRole, updateUserPages, updateUserPaymentMethods, deleteUser, getDefaultPaymentMethods, updateDefaultPaymentMethods } from '../services/userService'
+import { getUsers, addUser, updateUserRole, updateUserPages, updateUserPaymentMethods, deleteUser, getDefaultPaymentMethods, updateDefaultPaymentMethods, changeUserPassword, toggleUserBan } from '../services/userService'
 import { navItems } from '../config/roles'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
@@ -34,6 +34,8 @@ export default function Users() {
   const [newRole, setNewRole] = useState<UserRole>('staff')
   const [showAddForm, setShowAddForm] = useState(false)
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+  const [passwordUserId, setPasswordUserId] = useState<string | null>(null)
+  const [newPasswordValue, setNewPasswordValue] = useState('')
 
   const addMutation = useMutation({
     mutationFn: () => addUser(newEmail.trim(), newRole, newPassword || undefined),
@@ -101,6 +103,25 @@ export default function Users() {
       : [...current, methodId]
     paymentMethodsMutation.mutate({ id: user.id, allowed_payment_methods: updated })
   }
+
+  const passwordMutation = useMutation({
+    mutationFn: ({ id, password }: { id: string; password: string }) => changeUserPassword(id, password),
+    onSuccess: () => {
+      toast.success(t('passwordChanged'))
+      setPasswordUserId(null)
+      setNewPasswordValue('')
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Error changing password'),
+  })
+
+  const banMutation = useMutation({
+    mutationFn: ({ id, ban }: { id: string; ban: boolean }) => toggleUserBan(id, ban),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success(t('userUpdated'))
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Error updating account'),
+  })
 
   const handleDelete = (user: UserRoleRecord) => {
     if (window.confirm(`${t('confirmDelete')} ${user.email}`)) {
@@ -264,14 +285,26 @@ export default function Users() {
                   const userPages = user.allowed_pages ?? STAFF_PAGES.map((p) => p.path)
 
                   return (
-                    <tr key={user.id} className="hover:bg-sheen-cream/50 transition-colors">
+                    <tr key={user.id} className={`transition-colors ${user.is_banned ? 'bg-red-50/50' : 'hover:bg-sheen-cream/50'}`}>
                       <td className="px-6 py-4" colSpan={3}>
-                        <div className="flex items-center justify-between">
-                          {/* Email */}
-                          <p className="font-body text-sm text-sheen-black">{user.email}</p>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          {/* Email + status */}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className={`font-body text-sm ${user.is_banned ? 'text-red-400 line-through' : 'text-sheen-black'}`}>{user.email}</p>
+                              {user.is_banned && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-body font-medium bg-red-100 text-red-600">{t('disabled')}</span>
+                              )}
+                            </div>
+                            {user.last_sign_in && (
+                              <p className="font-body text-[10px] text-sheen-muted mt-0.5">
+                                {t('lastLogin')}: {new Date(user.last_sign_in).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
 
                           {/* Role + Actions */}
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <select
                               value={user.role}
                               onChange={(e) => updateMutation.mutate({ id: user.id, role: e.target.value as UserRole })}
@@ -292,14 +325,59 @@ export default function Users() {
                             )}
 
                             <button
+                              onClick={() => setPasswordUserId(passwordUserId === user.id ? null : user.id)}
+                              className="text-sheen-muted hover:text-sheen-black text-xs font-body transition-colors"
+                            >
+                              {t('changePassword')}
+                            </button>
+
+                            <button
+                              onClick={() => banMutation.mutate({ id: user.id, ban: !user.is_banned })}
+                              disabled={banMutation.isPending}
+                              className={`text-xs font-body font-medium transition-colors disabled:opacity-50 ${
+                                user.is_banned
+                                  ? 'text-green-600 hover:text-green-700'
+                                  : 'text-orange-500 hover:text-orange-700'
+                              }`}
+                            >
+                              {user.is_banned ? t('enableAccount') : t('disableAccount')}
+                            </button>
+
+                            <button
                               onClick={() => handleDelete(user)}
                               disabled={deleteMutation.isPending}
-                              className="text-red-500 hover:text-red-700 text-sm font-body transition-colors disabled:opacity-50"
+                              className="text-red-500 hover:text-red-700 text-xs font-body transition-colors disabled:opacity-50"
                             >
                               {t('delete')}
                             </button>
                           </div>
                         </div>
+
+                        {/* Change password form */}
+                        {passwordUserId === user.id && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={newPasswordValue}
+                              onChange={(e) => setNewPasswordValue(e.target.value)}
+                              placeholder={t('newPassword')}
+                              className="flex-1 px-3 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => passwordMutation.mutate({ id: user.id, password: newPasswordValue })}
+                              disabled={!newPasswordValue.trim() || newPasswordValue.length < 6 || passwordMutation.isPending}
+                            >
+                              {passwordMutation.isPending ? t('saving') : t('save')}
+                            </Button>
+                            <button
+                              onClick={() => { setPasswordUserId(null); setNewPasswordValue('') }}
+                              className="text-xs font-body text-sheen-muted hover:text-sheen-black"
+                            >
+                              {t('cancel')}
+                            </button>
+                          </div>
+                        )}
 
                         {/* Page access + Payment method toggles */}
                         {isExpanded && (user.role === 'staff' || user.role === 'customer') && (

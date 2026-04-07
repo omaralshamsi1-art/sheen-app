@@ -265,6 +265,8 @@ export interface UserRoleRecord {
   role: UserRole;
   allowed_pages: string[] | null;
   allowed_payment_methods: string[] | null;
+  is_banned?: boolean;
+  last_sign_in?: string | null;
   created_at: string;
   updated_at: string;
 }

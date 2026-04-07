@@ -56,17 +56,55 @@ router.patch('/default-payment-methods', async (req: Request, res: Response) => 
   }
 })
 
-// GET /api/users — list all user roles
+// GET /api/users — list all users (syncs Supabase Auth → user_roles)
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const { data, error } = await supabase
+    // Fetch all users from Supabase Auth
+    const { data: { users: authUsers }, error: authErr } = await supabase.auth.admin.listUsers()
+    if (authErr) throw authErr
+
+    // Fetch existing user_roles
+    const { data: roles, error: rolesErr } = await supabase
+      .from('user_roles')
+      .select('*')
+      .neq('user_id', DEFAULT_CUSTOMER_ID)
+
+    if (rolesErr) throw rolesErr
+
+    const roleMap = new Map((roles ?? []).map((r: any) => [r.user_id, r]))
+
+    // Auto-create missing role records for auth users
+    const missing = authUsers.filter((u) => !roleMap.has(u.id))
+    if (missing.length > 0) {
+      const inserts = missing.map((u) => ({
+        user_id: u.id,
+        email: u.email ?? '',
+        role: 'customer',
+      }))
+      await supabase.from('user_roles').upsert(inserts, { onConflict: 'user_id' })
+    }
+
+    // Re-fetch after sync
+    const { data: allRoles, error: finalErr } = await supabase
       .from('user_roles')
       .select('*')
       .neq('user_id', DEFAULT_CUSTOMER_ID)
       .order('created_at', { ascending: false })
 
-    if (error) throw error
-    res.json(data ?? [])
+    if (finalErr) throw finalErr
+
+    // Merge auth data (banned status) into role records
+    const authMap = new Map(authUsers.map((u) => [u.id, u]))
+    const merged = (allRoles ?? []).map((r: any) => {
+      const authUser = authMap.get(r.user_id)
+      return {
+        ...r,
+        is_banned: authUser?.banned_until ? new Date(authUser.banned_until) > new Date() : false,
+        last_sign_in: authUser?.last_sign_in_at ?? null,
+      }
+    })
+
+    res.json(merged)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
@@ -205,6 +243,76 @@ router.patch('/:id', async (req: Request, res: Response) => {
     if (error) throw error
     await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: updates })
     res.json(data)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// PATCH /api/users/:id/password — change user password
+router.patch('/:id/password', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { password } = req.body
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      res.status(400).json({ message: 'Password must be at least 6 characters' })
+      return
+    }
+
+    // Get user_id from user_roles record
+    const { data: roleRecord } = await supabase
+      .from('user_roles')
+      .select('user_id, email')
+      .eq('id', id)
+      .single()
+
+    if (!roleRecord) {
+      res.status(404).json({ message: 'User not found' })
+      return
+    }
+
+    const { error } = await supabase.auth.admin.updateUserById(roleRecord.user_id, { password })
+    if (error) throw error
+
+    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: { action: 'password_changed', email: roleRecord.email } })
+    res.json({ message: 'Password updated' })
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// PATCH /api/users/:id/toggle-ban — enable/disable user account
+router.patch('/:id/toggle-ban', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { ban } = req.body // true = disable, false = enable
+
+    const { data: roleRecord } = await supabase
+      .from('user_roles')
+      .select('user_id, email')
+      .eq('id', id)
+      .single()
+
+    if (!roleRecord) {
+      res.status(404).json({ message: 'User not found' })
+      return
+    }
+
+    if (ban) {
+      // Ban until year 2099
+      const { error } = await supabase.auth.admin.updateUserById(roleRecord.user_id, {
+        ban_duration: '876000h',
+      })
+      if (error) throw error
+    } else {
+      const { error } = await supabase.auth.admin.updateUserById(roleRecord.user_id, {
+        ban_duration: 'none',
+      })
+      if (error) throw error
+    }
+
+    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: { action: ban ? 'account_disabled' : 'account_enabled', email: roleRecord.email } })
+    res.json({ message: ban ? 'Account disabled' : 'Account enabled' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
