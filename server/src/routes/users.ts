@@ -56,53 +56,35 @@ router.patch('/default-payment-methods', async (req: Request, res: Response) => 
   }
 })
 
-// GET /api/users — list all users (syncs Supabase Auth → user_roles)
+// GET /api/users — list all user roles
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    // Fetch all users from Supabase Auth
-    const { data: { users: authUsers }, error: authErr } = await supabase.auth.admin.listUsers()
-    if (authErr) throw authErr
-
-    // Fetch existing user_roles
-    const { data: roles, error: rolesErr } = await supabase
-      .from('user_roles')
-      .select('*')
-      .neq('user_id', DEFAULT_CUSTOMER_ID)
-
-    if (rolesErr) throw rolesErr
-
-    const roleMap = new Map((roles ?? []).map((r: any) => [r.user_id, r]))
-
-    // Auto-create missing role records for auth users
-    const missing = authUsers.filter((u) => !roleMap.has(u.id))
-    if (missing.length > 0) {
-      const inserts = missing.map((u) => ({
-        user_id: u.id,
-        email: u.email ?? '',
-        role: 'customer',
-      }))
-      await supabase.from('user_roles').upsert(inserts, { onConflict: 'user_id' })
-    }
-
-    // Re-fetch after sync
-    const { data: allRoles, error: finalErr } = await supabase
+    const { data: roles, error } = await supabase
       .from('user_roles')
       .select('*')
       .neq('user_id', DEFAULT_CUSTOMER_ID)
       .order('created_at', { ascending: false })
 
-    if (finalErr) throw finalErr
+    if (error) throw error
 
-    // Merge auth data (banned status) into role records
-    const authMap = new Map(authUsers.map((u) => [u.id, u]))
-    const merged = (allRoles ?? []).map((r: any) => {
-      const authUser = authMap.get(r.user_id)
-      return {
-        ...r,
-        is_banned: authUser?.banned_until ? new Date(authUser.banned_until) > new Date() : false,
-        last_sign_in: authUser?.last_sign_in_at ?? null,
+    // Try to enrich with auth data (banned status, last login) — non-blocking
+    let merged = roles ?? []
+    try {
+      const { data: { users: authUsers } } = await supabase.auth.admin.listUsers()
+      if (authUsers) {
+        const authMap = new Map(authUsers.map((u) => [u.id, u]))
+        merged = (roles ?? []).map((r: any) => {
+          const authUser = authMap.get(r.user_id)
+          return {
+            ...r,
+            is_banned: authUser?.banned_until ? new Date(authUser.banned_until) > new Date() : false,
+            last_sign_in: authUser?.last_sign_in_at ?? null,
+          }
+        })
       }
-    })
+    } catch {
+      // Auth enrichment failed — return roles without auth data
+    }
 
     res.json(merged)
   } catch (err: any) {

@@ -61,6 +61,8 @@ export const translations = {
   disableAccount: { en: 'Disable', ar: 'تعطيل' },
   disabled: { en: 'Disabled', ar: 'معطّل' },
   lastLogin: { en: 'Last login', ar: 'آخر دخول' },
+  tapToEnableSound: { en: 'Tap to enable order sounds', ar: 'اضغط لتفعيل أصوات الطلبات' },
+  soundEnabled: { en: 'Sound notifications enabled!', ar: 'تم تفعيل الإشعارات الصوتية!' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },
