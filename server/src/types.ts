@@ -262,6 +262,7 @@ export interface UserRoleRecord {
   user_id: string;
   email: string;
   role: UserRole;
+  allowed_pages: string[] | null;
   created_at: string;
   updated_at: string;
 }

@@ -6,11 +6,13 @@ import type { UserRole } from '../types'
 export function useRole() {
   const { user } = useAuth()
   const [role, setRole] = useState<UserRole | null>(null)
+  const [allowedPages, setAllowedPages] = useState<string[] | null>(null)
   const [roleLoading, setRoleLoading] = useState(true)
 
   useEffect(() => {
     if (!user) {
       setRole(null)
+      setAllowedPages(null)
       setRoleLoading(false)
       return
     }
@@ -19,15 +21,16 @@ export function useRole() {
       setRoleLoading(true)
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, allowed_pages')
         .eq('user_id', user.id)
         .single()
 
       if (error || !data) {
-        // No role found — default to customer
         setRole('customer')
+        setAllowedPages(null)
       } else {
         setRole(data.role as UserRole)
+        setAllowedPages(data.allowed_pages)
       }
       setRoleLoading(false)
     }
@@ -39,5 +42,5 @@ export function useRole() {
   const isStaff = role === 'staff'
   const isCustomer = role === 'customer'
 
-  return { role, roleLoading, isAdmin, isStaff, isCustomer }
+  return { role, roleLoading, isAdmin, isStaff, isCustomer, allowedPages }
 }

@@ -10,7 +10,7 @@ import { navIconMap } from '../icons/NavIcons'
 export default function HamburgerMenu() {
   const [open, setOpen] = useState(false)
   const { t, lang, setLang } = useLanguage()
-  const { role } = useRole()
+  const { role, allowedPages } = useRole()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -23,7 +23,15 @@ export default function HamburgerMenu() {
     setOpen(false)
   }
 
-  const visibleItems = navItems.filter((item) => role && item.roles.includes(role))
+  const visibleItems = navItems.filter((item) => {
+    if (!role) return false
+    if (!item.roles.includes(role)) return false
+    if (role === 'admin') return true
+    if (role === 'staff' && allowedPages && allowedPages.length > 0) {
+      return allowedPages.includes(item.to)
+    }
+    return true
+  })
 
   return (
     <>

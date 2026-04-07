@@ -18,6 +18,11 @@ export async function updateUserRole(id: string, role: UserRole): Promise<UserRo
   return data
 }
 
+export async function updateUserPages(id: string, allowed_pages: string[]): Promise<UserRoleRecord> {
+  const { data } = await api.patch(`/api/users/${id}`, { allowed_pages })
+  return data
+}
+
 export async function deleteUser(id: string): Promise<void> {
   await api.delete(`/api/users/${id}`)
 }

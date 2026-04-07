@@ -95,20 +95,33 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
-// PATCH /api/users/:id — update role by record id
+// PATCH /api/users/:id — update role and/or allowed_pages by record id
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { role } = req.body
+    const { role, allowed_pages } = req.body
 
-    if (!role || !VALID_ROLES.includes(role)) {
-      res.status(400).json({ message: `role must be one of: ${VALID_ROLES.join(', ')}` })
-      return
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+
+    if (role !== undefined) {
+      if (!VALID_ROLES.includes(role)) {
+        res.status(400).json({ message: `role must be one of: ${VALID_ROLES.join(', ')}` })
+        return
+      }
+      updates.role = role
+    }
+
+    if (allowed_pages !== undefined) {
+      if (!Array.isArray(allowed_pages)) {
+        res.status(400).json({ message: 'allowed_pages must be an array of strings' })
+        return
+      }
+      updates.allowed_pages = allowed_pages
     }
 
     const { data, error } = await supabase
       .from('user_roles')
-      .update({ role, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('id', id)
       .select()
       .single()

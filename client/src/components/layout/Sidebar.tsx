@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 
 export default function Sidebar() {
   const { t, lang, setLang } = useLanguage()
-  const { role } = useRole()
+  const { role, allowedPages } = useRole()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -17,7 +17,16 @@ export default function Sidebar() {
 
   const toggleLang = () => setLang(lang === 'en' ? 'ar' : 'en')
 
-  const visibleItems = navItems.filter((item) => role && item.roles.includes(role))
+  const visibleItems = navItems.filter((item) => {
+    if (!role) return false
+    if (!item.roles.includes(role)) return false
+    // Admin sees everything; staff filtered by allowed_pages if set
+    if (role === 'admin') return true
+    if (role === 'staff' && allowedPages && allowedPages.length > 0) {
+      return allowedPages.includes(item.to)
+    }
+    return true
+  })
 
   return (
     <aside className="hidden md:flex w-60 bg-sheen-black min-h-screen flex-col shrink-0">

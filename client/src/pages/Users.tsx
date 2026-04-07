@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUsers, addUser, updateUserRole, deleteUser } from '../services/userService'
+import { getUsers, addUser, updateUserRole, updateUserPages, deleteUser } from '../services/userService'
+import { navItems } from '../config/roles'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -8,6 +9,11 @@ import toast from 'react-hot-toast'
 import type { UserRole, UserRoleRecord } from '../types'
 
 const ROLES: UserRole[] = ['admin', 'staff', 'customer']
+
+// Pages that admin can toggle for staff users
+const STAFF_PAGES = navItems
+  .filter((item) => item.roles.includes('staff'))
+  .map((item) => ({ path: item.to, labelKey: item.labelKey }))
 
 export default function Users() {
   const { t } = useLanguage()
@@ -21,6 +27,7 @@ export default function Users() {
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState<UserRole>('staff')
   const [showAddForm, setShowAddForm] = useState(false)
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
 
   const addMutation = useMutation({
     mutationFn: () => addUser(newEmail.trim(), newRole, newPassword || undefined),
@@ -52,6 +59,24 @@ export default function Users() {
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Error deleting user'),
   })
+
+  const pagesMutation = useMutation({
+    mutationFn: ({ id, allowed_pages }: { id: string; allowed_pages: string[] }) =>
+      updateUserPages(id, allowed_pages),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success(t('userUpdated'))
+    },
+    onError: () => toast.error('Error updating page access'),
+  })
+
+  const togglePage = (user: UserRoleRecord, pagePath: string) => {
+    const current = user.allowed_pages ?? STAFF_PAGES.map((p) => p.path)
+    const updated = current.includes(pagePath)
+      ? current.filter((p) => p !== pagePath)
+      : [...current, pagePath]
+    pagesMutation.mutate({ id: user.id, allowed_pages: updated })
+  }
 
   const handleDelete = (user: UserRoleRecord) => {
     if (window.confirm(`${t('confirmDelete')} ${user.email}`)) {
@@ -148,33 +173,85 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-sheen-muted/10">
-                {users.map((user: UserRoleRecord) => (
-                  <tr key={user.id} className="hover:bg-sheen-cream/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="font-body text-sm text-sheen-black">{user.email}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <select
-                        value={user.role}
-                        onChange={(e) => updateMutation.mutate({ id: user.id, role: e.target.value as UserRole })}
-                        className={`px-3 py-1 rounded-full text-xs font-body font-medium border-0 cursor-pointer ${roleBadgeColor[user.role]}`}
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleDelete(user)}
-                        disabled={deleteMutation.isPending}
-                        className="text-red-500 hover:text-red-700 text-sm font-body transition-colors disabled:opacity-50"
-                      >
-                        {t('delete')}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {users.map((user: UserRoleRecord) => {
+                  const isExpanded = expandedUserId === user.id
+                  const userPages = user.allowed_pages ?? STAFF_PAGES.map((p) => p.path)
+
+                  return (
+                    <tr key={user.id} className="hover:bg-sheen-cream/50 transition-colors">
+                      <td className="px-6 py-4" colSpan={3}>
+                        <div className="flex items-center justify-between">
+                          {/* Email */}
+                          <p className="font-body text-sm text-sheen-black">{user.email}</p>
+
+                          {/* Role + Actions */}
+                          <div className="flex items-center gap-3">
+                            <select
+                              value={user.role}
+                              onChange={(e) => updateMutation.mutate({ id: user.id, role: e.target.value as UserRole })}
+                              className={`px-3 py-1 rounded-full text-xs font-body font-medium border-0 cursor-pointer ${roleBadgeColor[user.role]}`}
+                            >
+                              {ROLES.map((r) => (
+                                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                              ))}
+                            </select>
+
+                            {user.role === 'staff' && (
+                              <button
+                                onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
+                                className="text-sheen-gold hover:text-sheen-brown text-xs font-body font-medium transition-colors"
+                              >
+                                {isExpanded ? t('collapse') : t('pageAccess')}
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => handleDelete(user)}
+                              disabled={deleteMutation.isPending}
+                              className="text-red-500 hover:text-red-700 text-sm font-body transition-colors disabled:opacity-50"
+                            >
+                              {t('delete')}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Page access toggles — only for staff */}
+                        {isExpanded && user.role === 'staff' && (
+                          <div className="mt-4 p-4 bg-sheen-cream/50 rounded-lg">
+                            <p className="font-body text-xs text-sheen-muted mb-3 uppercase tracking-wider">
+                              {t('pageAccess')}
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {STAFF_PAGES.map((page) => {
+                                const enabled = userPages.includes(page.path)
+                                return (
+                                  <label
+                                    key={page.path}
+                                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
+                                      enabled
+                                        ? 'bg-sheen-gold/15 border border-sheen-gold/30'
+                                        : 'bg-white border border-sheen-muted/20'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={enabled}
+                                      onChange={() => togglePage(user, page.path)}
+                                      className="h-4 w-4 accent-sheen-gold cursor-pointer"
+                                    />
+                                    <span className={`font-body text-sm ${enabled ? 'text-sheen-black font-medium' : 'text-sheen-muted'}`}>
+                                      {t(page.labelKey)}
+                                    </span>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}

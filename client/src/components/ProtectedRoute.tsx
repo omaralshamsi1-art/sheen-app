@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { session, loading } = useAuth()
-  const { role, roleLoading } = useRole()
+  const { role, roleLoading, allowedPages } = useRole()
   const location = useLocation()
   const { t } = useLanguage()
 
@@ -36,6 +36,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     const allowedRoles = routeRoles[path]
     if (allowedRoles && !allowedRoles.includes(role)) {
       return <Navigate to={defaultRoute[role as UserRole]} replace />
+    }
+    // Staff: check per-user allowed_pages if set
+    if (role === 'staff' && allowedPages && allowedPages.length > 0) {
+      if (!allowedPages.includes(path)) {
+        return <Navigate to={allowedPages[0] || defaultRoute.staff} replace />
+      }
     }
   }
 
