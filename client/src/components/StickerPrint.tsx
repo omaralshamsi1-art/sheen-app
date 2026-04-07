@@ -71,48 +71,55 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     ctx.fillRect(0, 0, w, h)
 
     const cx = w / 2
-    const scale = label.w / 50 // normalize to 50mm
+    // Scale all fonts relative to canvas height for readability
+    const unit = h / 10
 
     // SHEEN logo
     ctx.fillStyle = '#000000'
     ctx.textAlign = 'center'
-    ctx.font = `bold ${Math.round(28 * scale)}px Arial, Helvetica, sans-serif`
-    let y = h * 0.18
+    ctx.textBaseline = 'middle'
+    ctx.font = `bold ${Math.round(unit * 1.8)}px Arial, Helvetica, sans-serif`
+    let y = unit * 1.2
     ctx.fillText('SHEEN', cx, y)
 
     // Customer name
     if (customerName) {
-      y += Math.round(20 * scale)
-      ctx.font = `600 ${Math.round(14 * scale)}px Arial, Helvetica, sans-serif`
+      y += unit * 1.1
+      ctx.font = `600 ${Math.round(unit * 0.85)}px Arial, Helvetica, sans-serif`
       ctx.fillStyle = '#333333'
       ctx.fillText(customerName, cx, y)
     }
 
-    // Arabic message — may need to wrap
-    y += Math.round(22 * scale)
+    // Arabic message — large and clear
+    y += unit * 1.3
     ctx.fillStyle = '#000000'
-    const arFontSize = Math.round(16 * scale)
-    ctx.font = `500 ${arFontSize}px Arial, Helvetica, sans-serif`
+    const arFontSize = Math.round(unit * 1.1)
+    ctx.font = `bold ${arFontSize}px Arial, Helvetica, sans-serif`
 
     const arText = sticker.message_ar
-    const maxWidth = w * 0.88
+    const maxWidth = w * 0.9
     const arLines = wrapText(ctx, arText, maxWidth)
 
     for (const line of arLines) {
       ctx.fillText(line, cx, y)
-      y += arFontSize * 1.3
+      y += arFontSize * 1.25
     }
 
     // English message
-    y += Math.round(4 * scale)
-    ctx.fillStyle = '#888888'
-    ctx.font = `${Math.round(10 * scale)}px Arial, Helvetica, sans-serif`
-    ctx.fillText(sticker.message_en, cx, y)
+    y += unit * 0.3
+    ctx.fillStyle = '#666666'
+    const enFontSize = Math.round(unit * 0.7)
+    ctx.font = `${enFontSize}px Arial, Helvetica, sans-serif`
+    const enLines = wrapText(ctx, sticker.message_en, maxWidth)
+    for (const line of enLines) {
+      ctx.fillText(line, cx, y)
+      y += enFontSize * 1.2
+    }
 
     // @SheenCafe
-    y += Math.round(14 * scale)
-    ctx.fillStyle = '#AAAAAA'
-    ctx.font = `${Math.round(9 * scale)}px Arial, Helvetica, sans-serif`
+    y += unit * 0.2
+    ctx.fillStyle = '#999999'
+    ctx.font = `${Math.round(unit * 0.6)}px Arial, Helvetica, sans-serif`
     ctx.fillText('@SheenCafe', cx, y)
 
     return canvas.toDataURL('image/png')
