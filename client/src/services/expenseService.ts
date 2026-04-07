@@ -1,7 +1,5 @@
-import axios from 'axios'
+import api from '../lib/api'
 import type { Expense, ExpensePayload, Ingredient } from '../types'
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
 export const expenseService = {
   async getExpenses(params?: { start?: string; end?: string; category?: string }): Promise<Expense[]> {

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { getExpensesByDateRange, insertExpense } from '../services/db'
+import { logAudit } from '../lib/audit'
 import { supabase } from '../lib/supabase'
 
 const router = Router()
@@ -71,6 +72,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const expense = await insertExpense(sanitized)
+    await logAudit(req, { action: 'create', entity: 'expense', entity_id: expense.id, details: sanitized })
     res.status(201).json(expense)
   } catch (err: any) {
     res.status(500).json({ message: err.message })

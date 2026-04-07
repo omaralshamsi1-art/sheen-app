@@ -47,6 +47,7 @@ export const translations = {
   pageAccess: { en: 'Page Access', ar: 'صلاحيات الصفحات' },
   paymentMethods: { en: 'Payment Methods', ar: 'طرق الدفع' },
   permissions: { en: 'Permissions', ar: 'الصلاحيات' },
+  auditLog: { en: 'Audit Log', ar: 'سجل المراجعة' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },

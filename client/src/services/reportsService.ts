@@ -1,7 +1,5 @@
-import axios from 'axios'
+import api from '../lib/api'
 import type { PLReport, CategoryBreakdown, TopSeller, DailyRevenue } from '../types'
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
 export const reportsService = {
   async getPL(start: string, end: string): Promise<PLReport> {

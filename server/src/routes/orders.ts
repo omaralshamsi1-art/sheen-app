@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase'
+import { logAudit } from '../lib/audit'
 
 const router = Router()
 
@@ -87,6 +88,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     if (itemsErr) throw itemsErr
 
+    await logAudit(req, { action: 'create', entity: 'order', entity_id: order.id, details: { total_amount: order.total_amount, items_count: orderItems.length } })
     res.status(201).json(order)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -111,6 +113,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
+    await logAudit(req, { action: 'update', entity: 'order', entity_id: req.params.id, details: { status } })
     res.json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -120,12 +123,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
 // DELETE /api/orders/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const { error } = await supabase
-      .from('orders')
-      .delete()
-      .eq('id', req.params.id)
-
+    const { data: existing } = await supabase.from('orders').select('status, total_amount, customer_email').eq('id', req.params.id).single()
+    const { error } = await supabase.from('orders').delete().eq('id', req.params.id)
     if (error) throw error
+    await logAudit(req, { action: 'delete', entity: 'order', entity_id: req.params.id, details: existing ?? undefined })
     res.json({ message: 'Order deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })

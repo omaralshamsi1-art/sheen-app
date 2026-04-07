@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { getSalesByDateRange, insertSale } from '../services/db'
 import { supabase } from '../lib/supabase'
+import { logAudit } from '../lib/audit'
 
 const router = Router()
 
@@ -224,6 +225,7 @@ router.post('/', async (req: Request, res: Response) => {
       { sale_date, recorded_by: recorded_by ? String(recorded_by).trim().slice(0, 100) : undefined },
       sanitizedItems
     )
+    await logAudit(req, { action: 'create', entity: 'sale', entity_id: sale.id, details: { sale_date, items_count: sanitizedItems.length, total: sanitizedItems.reduce((s: number, i: any) => s + i.total, 0) } })
     res.status(201).json(sale)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -233,12 +235,10 @@ router.post('/', async (req: Request, res: Response) => {
 // DELETE /api/sales/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const { error } = await supabase
-      .from('sales')
-      .delete()
-      .eq('id', req.params.id)
-
+    const { data: existing } = await supabase.from('sales').select('*').eq('id', req.params.id).single()
+    const { error } = await supabase.from('sales').delete().eq('id', req.params.id)
     if (error) throw error
+    await logAudit(req, { action: 'delete', entity: 'sale', entity_id: req.params.id, details: existing ?? undefined })
     res.json({ message: 'Sale deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })

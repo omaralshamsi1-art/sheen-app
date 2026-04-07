@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from './useAuth'
 import type { UserRole } from '../types'
-import axios from 'axios'
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
+import api from '../lib/api'
 
 export function useRole() {
   const { user } = useAuth()

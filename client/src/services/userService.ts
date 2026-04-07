@@ -1,7 +1,5 @@
-import axios from 'axios'
+import api from '../lib/api'
 import type { UserRole, UserRoleRecord } from '../types'
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
 export async function getUsers(): Promise<UserRoleRecord[]> {
   const { data } = await api.get('/api/users')

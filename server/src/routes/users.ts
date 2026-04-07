@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase'
+import { logAudit } from '../lib/audit'
 
 const router = Router()
 
@@ -151,6 +152,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
+    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: updates })
     res.json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -161,12 +163,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { error } = await supabase
-      .from('user_roles')
-      .delete()
-      .eq('id', id)
-
+    const { data: existing } = await supabase.from('user_roles').select('email, role').eq('id', id).single()
+    const { error } = await supabase.from('user_roles').delete().eq('id', id)
     if (error) throw error
+    await logAudit(req, { action: 'delete', entity: 'user_role', entity_id: id, details: existing ?? undefined })
     res.json({ message: 'User role deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })

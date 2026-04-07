@@ -1,7 +1,5 @@
-import axios from 'axios'
+import api from '../lib/api'
 import type { Order } from '../types'
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
 export async function getOrders(params?: { status?: string; customer_id?: string }): Promise<Order[]> {
   const { data } = await api.get('/api/orders', { params })

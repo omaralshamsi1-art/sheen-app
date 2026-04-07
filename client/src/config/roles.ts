@@ -19,6 +19,7 @@ export const navItems: NavItem[] = [
   { to: '/ai-monitor', labelKey: 'aiMonitor',  icon: '', roles: ['admin', 'staff'] },
   { to: '/reports',    labelKey: 'reports',    icon: '', roles: ['admin'] },
   { to: '/users',      labelKey: 'users' as TranslationKey, icon: '', roles: ['admin'] },
+  { to: '/audit-log',  labelKey: 'auditLog' as TranslationKey, icon: '', roles: ['admin'] },
 ]
 
 // Which roles can access which routes
@@ -33,6 +34,7 @@ export const routeRoles: Record<string, UserRole[]> = {
   '/ai-monitor':  ['admin', 'staff'],
   '/reports':     ['admin'],
   '/users':       ['admin'],
+  '/audit-log':   ['admin'],
 }
 
 // Default landing page per role

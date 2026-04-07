@@ -12,6 +12,7 @@ import aiRouter from './routes/ai'
 import usersRouter from './routes/users'
 import ordersRouter from './routes/orders'
 import paymentsRouter from './routes/payments'
+import auditRouter from './routes/audit'
 
 const app = express()
 
@@ -28,6 +29,7 @@ app.use('/api/ai', aiRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/orders', ordersRouter)
 app.use('/api/payments', paymentsRouter)
+app.use('/api/audit', auditRouter)
 
 app.get('/health', (_, res) => res.json({ status: 'ok', version: '2.1' }))
 

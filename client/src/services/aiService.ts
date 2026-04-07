@@ -1,7 +1,5 @@
-import axios from 'axios'
+import api from '../lib/api'
 import type { AiContextResponse } from '../types'
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
 export const aiService = {
   async getContext(): Promise<AiContextResponse> {

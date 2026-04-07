@@ -4,6 +4,7 @@ import {
   insertFixedCost,
 } from '../services/db'
 import { supabase } from '../lib/supabase'
+import { logAudit } from '../lib/audit'
 
 const router = Router()
 
@@ -60,6 +61,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const cost = await insertFixedCost(sanitized)
+    await logAudit(req, { action: 'create', entity: 'fixed_cost', entity_id: cost.id, details: sanitized })
     res.status(201).json(cost)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -89,6 +91,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
+    await logAudit(req, { action: 'update', entity: 'fixed_cost', entity_id: req.params.id, details: updates })
     res.json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })

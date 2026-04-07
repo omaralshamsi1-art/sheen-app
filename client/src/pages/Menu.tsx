@@ -6,12 +6,10 @@ import TopBar from '../components/layout/TopBar'
 import { useLanguage } from '../i18n/LanguageContext'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
-import axios from 'axios'
+import api from '../lib/api'
 import toast from 'react-hot-toast'
 import { getItemImage } from '../data/itemImages'
 import { supabase } from '../lib/supabase'
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
 // Gross margin percentage for a menu item
 function grossMarginPct(item: MenuItem): number {

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { getMenuItems } from '../services/db'
 import { supabase } from '../lib/supabase'
+import { logAudit } from '../lib/audit'
 
 const router = Router()
 
@@ -61,6 +62,7 @@ router.post('/', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
+    await logAudit(req, { action: 'create', entity: 'menu_item', entity_id: data.id, details: { name: data.name, category: data.category, selling_price: data.selling_price } })
     res.status(201).json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -70,12 +72,10 @@ router.post('/', async (req: Request, res: Response) => {
 // DELETE /api/menu/:id — delete a menu item
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const { error } = await supabase
-      .from('menu_items')
-      .delete()
-      .eq('id', req.params.id)
-
+    const { data: existing } = await supabase.from('menu_items').select('name, category, selling_price').eq('id', req.params.id).single()
+    const { error } = await supabase.from('menu_items').delete().eq('id', req.params.id)
     if (error) throw error
+    await logAudit(req, { action: 'delete', entity: 'menu_item', entity_id: req.params.id, details: existing ?? undefined })
     res.json({ message: 'Menu item deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -121,6 +121,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
+    await logAudit(req, { action: 'update', entity: 'menu_item', entity_id: req.params.id, details: updates })
     res.json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })

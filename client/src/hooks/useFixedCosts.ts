@@ -1,9 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
+import api from '../lib/api'
 import type { FixedCost, FixedCostPayload, MenuItem } from '../types'
 import toast from 'react-hot-toast'
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '' })
 
 export function useFixedCosts(month?: string) {
   return useQuery({

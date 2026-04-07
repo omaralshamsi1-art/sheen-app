@@ -18,6 +18,7 @@ import Users from './pages/Users'
 import PublicMenu from './pages/PublicMenu'
 import CustomerOrder from './pages/CustomerOrder'
 import Orders from './pages/Orders'
+import AuditLog from './pages/AuditLog'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/users" element={<Users />} />
             <Route path="/order" element={<CustomerOrder />} />
             <Route path="/orders" element={<Orders />} />
+            <Route path="/audit-log" element={<AuditLog />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
