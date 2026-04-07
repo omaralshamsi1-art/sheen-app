@@ -16,8 +16,8 @@ const LABEL_SIZES = [
   { label: '60 \u00d7 40 mm', w: 60, h: 40 },
 ] as const
 
-// DPI for thermal printers (203 DPI is standard for SK 20)
-const DPI = 203
+// Higher DPI for crisp rendering (300 DPI for sharp text)
+const DPI = 300
 const mmToPx = (mm: number) => Math.round((mm / 25.4) * DPI)
 
 interface StickerPrintProps {
@@ -191,7 +191,7 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* Hidden canvas for rendering */}
         <canvas ref={canvasRef} className="hidden" />
 
@@ -215,19 +215,19 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
           </div>
         </div>
 
-        {/* Preview — shows the actual rendered image */}
+        {/* Preview — large readable preview */}
         <div className="px-5 py-3 flex justify-center">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt="Sticker preview"
-              className="border border-sheen-muted/20 rounded-lg"
-              style={{ width: `${label.w * 3}px`, height: `${label.h * 3}px`, objectFit: 'contain' }}
+              className="border border-sheen-muted/20 rounded-lg w-full"
+              style={{ aspectRatio: `${label.w} / ${label.h}` }}
             />
           ) : (
             <div
-              className="border-2 border-dashed border-sheen-gold rounded-xl flex items-center justify-center"
-              style={{ width: `${label.w * 3}px`, height: `${label.h * 3}px` }}
+              className="border-2 border-dashed border-sheen-gold rounded-xl flex items-center justify-center w-full"
+              style={{ aspectRatio: `${label.w} / ${label.h}` }}
             >
               <p className="font-body text-xs text-sheen-muted">{t('loading')}</p>
             </div>
