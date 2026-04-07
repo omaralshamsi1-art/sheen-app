@@ -17,6 +17,7 @@ import {
   endOfWeek,
 } from 'date-fns'
 import { useLanguage } from '../i18n/LanguageContext'
+import StockAlert from '../components/StockAlert'
 
 const EXPENSE_CATEGORIES: IngredientCategory[] = [
   'Coffee',
@@ -203,6 +204,11 @@ export default function Expenses() {
         <h1 className="font-display text-3xl text-sheen-black mb-6">
           {t('expenses')}
         </h1>
+
+        {/* ── Stock Levels ── */}
+        <div className="mb-6">
+          <StockAlert />
+        </div>
 
         {/* ── New Expense Form ── */}
         <form

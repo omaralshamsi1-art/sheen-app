@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useMenuItems } from '../hooks/useFixedCosts'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { MenuItem, RecipeLine, MenuCategory } from '../types'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useIngredients } from '../hooks/useExpenses'
+import type { MenuItem, RecipeLine, MenuCategory, Ingredient } from '../types'
 import TopBar from '../components/layout/TopBar'
 import { useLanguage } from '../i18n/LanguageContext'
 import Button from '../components/ui/Button'
@@ -46,6 +47,11 @@ export default function Menu() {
   const [editActive, setEditActive] = useState(true)
   const [saving, setSaving] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
+  const [addingRecipeTo, setAddingRecipeTo] = useState<string | null>(null)
+  const [newIngredientId, setNewIngredientId] = useState('')
+  const [newQty, setNewQty] = useState('')
+
+  const { data: ingredients = [] } = useIngredients()
 
   // Add item state
   const [showAddForm, setShowAddForm] = useState(false)
@@ -119,6 +125,35 @@ export default function Menu() {
       setRecalculating(false)
     }
   }
+
+  // Recipe mutations
+  const addRecipeLine = useMutation({
+    mutationFn: async ({ menuItemId, ingredient_id, qty }: { menuItemId: string; ingredient_id: string; qty: number }) => {
+      const { data } = await api.post(`/api/menu/${menuItemId}/recipes`, { ingredient_id, qty })
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recipe'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] })
+      toast.success(t('recipeUpdated'))
+      setNewIngredientId('')
+      setNewQty('')
+      setAddingRecipeTo(null)
+    },
+    onError: () => toast.error('Failed to add ingredient'),
+  })
+
+  const removeRecipeLine = useMutation({
+    mutationFn: async ({ menuItemId, lineId }: { menuItemId: string; lineId: string }) => {
+      await api.delete(`/api/menu/${menuItemId}/recipes/${lineId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recipe'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] })
+      toast.success(t('recipeUpdated'))
+    },
+    onError: () => toast.error('Failed to remove ingredient'),
+  })
 
   // Handle image file selection
   function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -435,9 +470,52 @@ export default function Menu() {
                   {/* Expanded recipe section */}
                   {isExpanded && (
                     <div className="border-t border-sheen-cream px-5 py-4 bg-sheen-cream/30">
-                      <h4 className="font-display text-sm text-sheen-black mb-3">
-                        {t('recipeLines')}
-                      </h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-display text-sm text-sheen-black">
+                          {t('recipeLines')}
+                        </h4>
+                        <button
+                          onClick={() => setAddingRecipeTo(addingRecipeTo === item.id ? null : item.id)}
+                          className="text-xs font-body text-sheen-gold hover:text-sheen-brown transition-colors font-medium"
+                        >
+                          {addingRecipeTo === item.id ? t('cancel') : `+ ${t('addIngredient')}`}
+                        </button>
+                      </div>
+
+                      {/* Add ingredient form */}
+                      {addingRecipeTo === item.id && (
+                        <div className="flex gap-2 mb-3 flex-wrap">
+                          <select
+                            value={newIngredientId}
+                            onChange={(e) => setNewIngredientId(e.target.value)}
+                            className="flex-1 min-w-[150px] px-2 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-xs focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                          >
+                            <option value="">{t('selectIngredient')}</option>
+                            {ingredients.map((ing: Ingredient) => (
+                              <option key={ing.id} value={ing.id}>
+                                {ing.name} ({ing.unit}) — {Number(ing.cost_per_unit).toFixed(4)}/unit
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={newQty}
+                            onChange={(e) => setNewQty(e.target.value)}
+                            placeholder={t('quantity')}
+                            className="w-20 px-2 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-xs focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => addRecipeLine.mutate({ menuItemId: item.id, ingredient_id: newIngredientId, qty: Number(newQty) })}
+                            disabled={!newIngredientId || !newQty || Number(newQty) <= 0 || addRecipeLine.isPending}
+                          >
+                            {t('add')}
+                          </Button>
+                        </div>
+                      )}
+
                       {recipeFetching ? (
                         <p className="text-xs font-body text-sheen-muted">{t('loadingRecipe')}</p>
                       ) : recipeLines.length === 0 ? (
@@ -452,13 +530,14 @@ export default function Menu() {
                               <th className="pb-2 text-right">{t('quantity')}</th>
                               <th className="pb-2 text-right">{t('unit')}</th>
                               <th className="pb-2 text-right">{t('cost')}</th>
+                              <th className="pb-2 w-8"></th>
                             </tr>
                           </thead>
                           <tbody>
-                            {recipeLines.map((line, idx) => (
-                              <tr key={idx} className="border-t border-sheen-cream/50">
+                            {recipeLines.map((line: any) => (
+                              <tr key={line.id} className="border-t border-sheen-cream/50">
                                 <td className="py-1.5 text-sheen-black">
-                                  Ingredient #{line.ingredient_id}
+                                  {line.ingredient_name || `#${line.ingredient_id}`}
                                 </td>
                                 <td className="py-1.5 text-right text-sheen-black">
                                   {line.qty}
@@ -469,33 +548,36 @@ export default function Menu() {
                                 <td className="py-1.5 text-right text-sheen-brown">
                                   د.إ {(line.line_cost ?? 0).toFixed(2)}
                                 </td>
+                                <td className="py-1.5 text-right">
+                                  <button
+                                    onClick={() => removeRecipeLine.mutate({ menuItemId: item.id, lineId: line.id })}
+                                    disabled={removeRecipeLine.isPending}
+                                    className="text-red-400 hover:text-red-600 text-xs disabled:opacity-50"
+                                  >
+                                    ✕
+                                  </button>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
                           <tfoot>
                             <tr className="border-t border-sheen-cream">
-                              <td
-                                colSpan={3}
-                                className="pt-2 font-semibold text-sheen-black text-right"
-                              >
+                              <td colSpan={3} className="pt-2 font-semibold text-sheen-black text-right">
                                 {t('totalCOGS')}
                               </td>
                               <td className="pt-2 text-right font-semibold text-sheen-brown">
-                                د.إ {recipeLines
-                                  .reduce((s, l) => s + (l.line_cost ?? 0), 0)
-                                  .toFixed(2)}
+                                د.إ {recipeLines.reduce((s: number, l: any) => s + (l.line_cost ?? 0), 0).toFixed(2)}
                               </td>
+                              <td></td>
                             </tr>
                             <tr>
-                              <td
-                                colSpan={3}
-                                className="pt-1 text-sheen-black text-right"
-                              >
+                              <td colSpan={3} className="pt-1 text-sheen-black text-right">
                                 {t('grossMargin')}
                               </td>
                               <td className="pt-1 text-right font-semibold text-sheen-gold">
                                 د.إ {grossMarginAED.toFixed(2)}
                               </td>
+                              <td></td>
                             </tr>
                           </tfoot>
                         </table>
