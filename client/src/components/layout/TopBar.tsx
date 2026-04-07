@@ -14,12 +14,13 @@ export default function TopBar({ title }: TopBarProps) {
     : format(today, 'EEEE, MMMM d, yyyy')
 
   return (
-    <header
-      className="bg-white border-b border-sheen-cream pl-14 pr-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-20 w-full"
-      style={{ paddingTop: 'max(0.75rem, calc(0.75rem + env(safe-area-inset-top)))' }}
-    >
-      <h1 className="font-display text-lg sm:text-xl font-semibold text-sheen-black">{title}</h1>
-      <div className="hidden sm:block text-sm font-body text-sheen-muted">
+    <header className="bg-white border-b border-sheen-cream px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-20 w-full">
+      {/* Spacer for hamburger button on mobile */}
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-8 h-8 md:hidden shrink-0" aria-hidden="true" />
+        <h1 className="font-display text-lg md:text-xl font-semibold text-sheen-black truncate">{title}</h1>
+      </div>
+      <div className="hidden sm:block text-sm font-body text-sheen-muted shrink-0">
         {dateStr}
       </div>
     </header>

@@ -39,10 +39,9 @@ body {
 .safe-top    { padding-top:    env(safe-area-inset-top); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
-/* Ensure minimum touch target size */
-button, a, [role="button"] {
-  min-height: 44px;
-  min-width: 44px;
+/* Smooth scrolling on iOS */
+main {
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Prevent text size adjustment on iOS rotation */

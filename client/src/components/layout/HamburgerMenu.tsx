@@ -38,22 +38,16 @@ export default function HamburgerMenu() {
 
   return (
     <>
-      {/* Hamburger button — fixed in top-left, inside TopBar area */}
+      {/* Hamburger button — fixed in top-left, aligned with TopBar */}
       <button
         onClick={() => setOpen(true)}
         aria-label="Open menu"
-        className="md:hidden fixed z-30 flex items-center justify-center"
-        style={{
-          top: 'env(safe-area-inset-top)',
-          left: 0,
-          width: '3rem',
-          height: '3.25rem',
-        }}
+        className="md:hidden fixed top-0 left-0 z-30 w-12 h-12 flex items-center justify-center"
       >
-        <svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect y="0"  width="22" height="2" rx="1" fill="#1A1A1A"/>
-          <rect y="7"  width="22" height="2" rx="1" fill="#1A1A1A"/>
-          <rect y="14" width="22" height="2" rx="1" fill="#1A1A1A"/>
+        <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
+          <rect y="0"  width="20" height="2" rx="1" fill="#1A1A1A"/>
+          <rect y="6"  width="20" height="2" rx="1" fill="#1A1A1A"/>
+          <rect y="12" width="20" height="2" rx="1" fill="#1A1A1A"/>
         </svg>
       </button>
 
