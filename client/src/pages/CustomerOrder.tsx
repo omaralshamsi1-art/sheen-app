@@ -304,7 +304,7 @@ export default function CustomerOrder() {
                       <button
                         key={method}
                         onClick={() => setPaymentMethod(method)}
-                        className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl text-xs font-body font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-body font-medium transition-all ${
                           paymentMethod === method
                             ? 'bg-sheen-brown text-white shadow-md'
                             : 'bg-sheen-cream text-sheen-black border border-sheen-muted/20'
