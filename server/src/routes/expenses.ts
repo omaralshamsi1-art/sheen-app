@@ -72,7 +72,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const expense = await insertExpense(sanitized)
-    await logAudit(req, { action: 'create', entity: 'expense', entity_id: expense.id, details: sanitized })
+    await logAudit(req, { action: 'create', entity: 'expense', entity_id: expense.id, details: { page: 'Expenses', ingredient: sanitized.ingredient_name, category: sanitized.category, qty: `${sanitized.qty_bought} ${sanitized.unit ?? ''}`, total_cost: sanitized.total_cost } })
     res.status(201).json(expense)
   } catch (err: any) {
     res.status(500).json({ message: err.message })

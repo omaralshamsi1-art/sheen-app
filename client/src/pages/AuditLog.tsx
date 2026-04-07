@@ -19,31 +19,28 @@ interface AuditEntry {
 }
 
 const fieldLabels: Record<string, string> = {
-  selling_price: 'Selling Price',
-  is_active: 'Active',
-  is_paid: 'Paid',
-  paid_date: 'Paid Date',
-  status: 'Status',
-  role: 'Role',
-  allowed_pages: 'Page Access',
-  allowed_payment_methods: 'Payment Methods',
-  sale_date: 'Sale Date',
-  items_count: 'Items',
-  total: 'Total',
-  total_amount: 'Total Amount',
-  expense_date: 'Date',
-  ingredient_name: 'Ingredient',
+  page: 'Page',
+  item_name: 'Item',
+  changes: 'Changes',
+  items: 'Items',
+  customer: 'Customer',
+  ingredient: 'Ingredient',
   category: 'Category',
   description: 'Description',
-  amount: 'Amount',
-  qty_bought: 'Quantity',
-  unit_cost: 'Unit Cost',
+  qty: 'Quantity',
+  status_changed: 'Status',
+  total_amount: 'Total',
+  total_revenue: 'Revenue',
   total_cost: 'Total Cost',
-  name: 'Name',
+  selling_price: 'Price',
+  amount: 'Amount',
+  month: 'Month',
+  sale_date: 'Date',
+  cups: 'Cups',
   email: 'Email',
-  image_url: 'Image',
+  role: 'Role',
+  status: 'Status',
   action: 'Action',
-  customer_email: 'Customer',
 }
 
 function formatValue(key: string, value: any): string {
@@ -52,7 +49,7 @@ function formatValue(key: string, value: any): string {
   if (value === null || value === undefined) return '—'
   if (Array.isArray(value)) return value.join(', ') || 'None'
   if (typeof value === 'number') {
-    if (key.includes('price') || key.includes('cost') || key.includes('amount') || key === 'total') {
+    if (key.includes('price') || key.includes('cost') || key.includes('amount') || key.includes('revenue')) {
       return `${value.toFixed(2)} AED`
     }
     return String(value)
@@ -61,29 +58,42 @@ function formatValue(key: string, value: any): string {
 }
 
 function formatDetails(action: string, _entity: string, details: Record<string, any>): React.ReactNode {
-  const entries = Object.entries(details).filter(
-    ([k]) => !['updated_at', 'ip_address'].includes(k)
-  )
-
+  // Skip internal fields
+  const skip = ['updated_at', 'ip_address']
+  const entries = Object.entries(details).filter(([k]) => !skip.includes(k))
   if (entries.length === 0) return null
 
-  if (action === 'delete') {
-    return (
-      <p className="text-red-600">
-        Deleted: {entries.map(([k, v]) => `${fieldLabels[k] || k}: ${formatValue(k, v)}`).join(' · ')}
-      </p>
-    )
-  }
+  // Extract page and item_name for the header
+  const page = details.page
+  const itemName = details.item_name
+
+  // Fields to show (excluding page and item_name since they're in the header)
+  const fields = entries.filter(([k]) => k !== 'page' && k !== 'item_name')
 
   return (
-    <ul className="space-y-0.5">
-      {entries.map(([key, value]) => (
-        <li key={key}>
-          <span className="text-sheen-muted">{fieldLabels[key] || key}:</span>{' '}
-          <span className="text-sheen-black font-medium">{formatValue(key, value)}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="mt-1.5">
+      {/* Page + item context */}
+      {(page || itemName) && (
+        <p className="text-xs mb-1">
+          {page && <span className="text-sheen-brown font-medium">{page}</span>}
+          {page && itemName && <span className="text-sheen-muted"> → </span>}
+          {itemName && <span className="text-sheen-black font-medium">{itemName}</span>}
+        </p>
+      )}
+      {/* Detail fields */}
+      {fields.length > 0 && (
+        <ul className="space-y-0.5">
+          {fields.map(([key, value]) => (
+            <li key={key} className="text-xs">
+              <span className="text-sheen-muted">{fieldLabels[key] || key}:</span>{' '}
+              <span className={`font-medium ${action === 'delete' ? 'text-red-600' : 'text-sheen-black'}`}>
+                {formatValue(key, value)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

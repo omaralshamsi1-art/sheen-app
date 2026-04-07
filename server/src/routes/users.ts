@@ -224,7 +224,16 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
-    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: updates })
+    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: {
+      page: 'Users',
+      email: data.email,
+      changes: Object.entries(updates).filter(([k]) => k !== 'updated_at').map(([k, v]) => {
+        if (k === 'role') return `Role → ${v}`
+        if (k === 'allowed_pages') return `Page access → ${Array.isArray(v) ? v.join(', ') : v}`
+        if (k === 'allowed_payment_methods') return `Payment methods → ${Array.isArray(v) ? v.join(', ') : v}`
+        return `${k} → ${v}`
+      }).join('; '),
+    } })
     res.json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -257,7 +266,7 @@ router.patch('/:id/password', async (req: Request, res: Response) => {
     const { error } = await supabase.auth.admin.updateUserById(roleRecord.user_id, { password })
     if (error) throw error
 
-    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: { action: 'password_changed', email: roleRecord.email } })
+    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: { page: 'Users', email: roleRecord.email, changes: 'Password changed' } })
     res.json({ message: 'Password updated' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -294,7 +303,7 @@ router.patch('/:id/toggle-ban', async (req: Request, res: Response) => {
       if (error) throw error
     }
 
-    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: { action: ban ? 'account_disabled' : 'account_enabled', email: roleRecord.email } })
+    await logAudit(req, { action: 'update', entity: 'user_role', entity_id: id, details: { page: 'Users', email: roleRecord.email, changes: ban ? 'Account disabled' : 'Account enabled' } })
     res.json({ message: ban ? 'Account disabled' : 'Account enabled' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -308,7 +317,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { data: existing } = await supabase.from('user_roles').select('email, role').eq('id', id).single()
     const { error } = await supabase.from('user_roles').delete().eq('id', id)
     if (error) throw error
-    await logAudit(req, { action: 'delete', entity: 'user_role', entity_id: id, details: existing ?? undefined })
+    await logAudit(req, { action: 'delete', entity: 'user_role', entity_id: id, details: { page: 'Users', email: existing?.email, role: existing?.role } })
     res.json({ message: 'User role deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })

@@ -62,7 +62,7 @@ router.post('/', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
-    await logAudit(req, { action: 'create', entity: 'menu_item', entity_id: data.id, details: { name: data.name, category: data.category, selling_price: data.selling_price } })
+    await logAudit(req, { action: 'create', entity: 'menu_item', entity_id: data.id, details: { page: 'Menu', item_name: data.name, category: data.category, selling_price: data.selling_price } })
     res.status(201).json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -75,7 +75,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { data: existing } = await supabase.from('menu_items').select('name, category, selling_price').eq('id', req.params.id).single()
     const { error } = await supabase.from('menu_items').delete().eq('id', req.params.id)
     if (error) throw error
-    await logAudit(req, { action: 'delete', entity: 'menu_item', entity_id: req.params.id, details: existing ?? undefined })
+    await logAudit(req, { action: 'delete', entity: 'menu_item', entity_id: req.params.id, details: { page: 'Menu', item_name: existing?.name, category: existing?.category, selling_price: existing?.selling_price } })
     res.json({ message: 'Menu item deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -113,6 +113,9 @@ router.patch('/:id', async (req: Request, res: Response) => {
       return
     }
 
+    // Get old values for audit
+    const { data: before } = await supabase.from('menu_items').select('name, selling_price, is_active').eq('id', req.params.id).single()
+
     const { data, error } = await supabase
       .from('menu_items')
       .update(updates)
@@ -121,7 +124,11 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
-    await logAudit(req, { action: 'update', entity: 'menu_item', entity_id: req.params.id, details: updates })
+    await logAudit(req, { action: 'update', entity: 'menu_item', entity_id: req.params.id, details: {
+      page: 'Menu',
+      item_name: before?.name ?? data.name,
+      changes: Object.entries(updates).map(([k, v]) => `${k}: ${(before as any)?.[k] ?? '?'} → ${v}`).join(', '),
+    } })
     res.json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -224,7 +231,10 @@ router.post('/:id/recipes', async (req: Request, res: Response) => {
     // Auto-recalculate COGS for this menu item
     await recalculateCOGS(menu_item_id)
 
-    await logAudit(req, { action: 'create', entity: 'menu_item', entity_id: menu_item_id, details: { action: 'recipe_line_added', ingredient_id, qty } })
+    // Get names for audit
+    const { data: menuItem } = await supabase.from('menu_items').select('name').eq('id', menu_item_id).single()
+    const { data: ingInfo } = await supabase.from('ingredients').select('name, unit').eq('id', ingredient_id).single()
+    await logAudit(req, { action: 'create', entity: 'menu_item', entity_id: menu_item_id, details: { page: 'Menu → Recipe', item_name: menuItem?.name, action: 'Added ingredient', ingredient: ingInfo?.name, qty: `${qty} ${ingInfo?.unit ?? ''}` } })
     res.status(201).json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -244,7 +254,8 @@ router.delete('/:id/recipes/:lineId', async (req: Request, res: Response) => {
     // Auto-recalculate COGS for this menu item
     await recalculateCOGS(req.params.id as string)
 
-    await logAudit(req, { action: 'delete', entity: 'menu_item', entity_id: req.params.id, details: { action: 'recipe_line_removed', line_id: req.params.lineId } })
+    const { data: menuItem2 } = await supabase.from('menu_items').select('name').eq('id', req.params.id).single()
+    await logAudit(req, { action: 'delete', entity: 'menu_item', entity_id: req.params.id, details: { page: 'Menu → Recipe', item_name: menuItem2?.name, action: 'Removed ingredient' } })
     res.json({ message: 'Recipe line removed' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })

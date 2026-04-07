@@ -88,7 +88,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     if (itemsErr) throw itemsErr
 
-    await logAudit(req, { action: 'create', entity: 'order', entity_id: order.id, details: { total_amount: order.total_amount, items_count: orderItems.length } })
+    await logAudit(req, { action: 'create', entity: 'order', entity_id: order.id, details: { page: 'Customer Order', customer: order.customer_name || order.customer_email, items: orderItems.map((i: any) => `${i.name} x${i.qty}`).join(', '), total_amount: order.total_amount } })
     res.status(201).json(order)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -113,7 +113,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
-    await logAudit(req, { action: 'update', entity: 'order', entity_id: req.params.id, details: { status } })
+    await logAudit(req, { action: 'update', entity: 'order', entity_id: req.params.id, details: { page: 'Orders', customer: data.customer_name || data.customer_email, status_changed: `→ ${status}`, total_amount: data.total_amount } })
     res.json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -126,7 +126,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { data: existing } = await supabase.from('orders').select('status, total_amount, customer_email').eq('id', req.params.id).single()
     const { error } = await supabase.from('orders').delete().eq('id', req.params.id)
     if (error) throw error
-    await logAudit(req, { action: 'delete', entity: 'order', entity_id: req.params.id, details: existing ?? undefined })
+    await logAudit(req, { action: 'delete', entity: 'order', entity_id: req.params.id, details: { page: 'Orders', customer: existing?.customer_email, status: existing?.status, total_amount: existing?.total_amount } })
     res.json({ message: 'Order deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })

@@ -61,7 +61,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const cost = await insertFixedCost(sanitized)
-    await logAudit(req, { action: 'create', entity: 'fixed_cost', entity_id: cost.id, details: sanitized })
+    await logAudit(req, { action: 'create', entity: 'fixed_cost', entity_id: cost.id, details: { page: 'Fixed Costs', description: sanitized.description, category: sanitized.category, amount: sanitized.amount, month: sanitized.month } })
     res.status(201).json(cost)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -91,7 +91,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
-    await logAudit(req, { action: 'update', entity: 'fixed_cost', entity_id: req.params.id, details: updates })
+    await logAudit(req, { action: 'update', entity: 'fixed_cost', entity_id: req.params.id, details: { page: 'Fixed Costs', description: data.description, changes: updates.is_paid ? `Marked as ${updates.is_paid ? 'paid' : 'unpaid'}` : JSON.stringify(updates) } })
     res.json(data)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
