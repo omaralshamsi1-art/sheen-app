@@ -74,6 +74,7 @@ export const translations = {
   remaining: { en: 'Remaining', ar: 'متبقي' },
   lowStock: { en: 'Low Stock', ar: 'مخزون منخفض' },
   restockNeeded: { en: 'Restock Needed', ar: 'يحتاج إعادة تخزين' },
+  ingredients: { en: 'Ingredients', ar: 'المكوّنات' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },
