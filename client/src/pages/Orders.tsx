@@ -1,134 +1,25 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOrders, updateOrderStatus } from '../services/orderService'
 import TopBar from '../components/layout/TopBar'
 import { useLanguage } from '../i18n/LanguageContext'
+import { playNotificationSound } from '../components/OrderNotifier'
 import toast from 'react-hot-toast'
 import type { Order, OrderItem, OrderStatus } from '../types'
 import { format } from 'date-fns'
 
 const STATUS_TABS: OrderStatus[] = ['pending', 'confirmed', 'rejected', 'completed']
 
-// Shared AudioContext — unlocked on first user interaction
-let sharedAudioCtx: AudioContext | null = null
-
-function getAudioCtx(): AudioContext {
-  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
-    sharedAudioCtx = new AudioContext()
-  }
-  if (sharedAudioCtx.state === 'suspended') {
-    sharedAudioCtx.resume()
-  }
-  return sharedAudioCtx
-}
-
-// Unlock audio on any user interaction (required by browsers)
-function unlockAudio() {
-  try { getAudioCtx() } catch { /* ignore */ }
-}
-if (typeof window !== 'undefined') {
-  window.addEventListener('click', unlockAudio, { once: true })
-  window.addEventListener('touchstart', unlockAudio, { once: true })
-}
-
-// Generate a notification chime using Web Audio API
-function playNotificationSound() {
-  try {
-    const ctx = getAudioCtx()
-    const now = ctx.currentTime
-
-    // First tone
-    const osc1 = ctx.createOscillator()
-    const gain1 = ctx.createGain()
-    osc1.type = 'sine'
-    osc1.frequency.setValueAtTime(880, now)
-    gain1.gain.setValueAtTime(0.4, now)
-    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.3)
-    osc1.connect(gain1).connect(ctx.destination)
-    osc1.start(now)
-    osc1.stop(now + 0.3)
-
-    // Second tone (delayed)
-    const osc2 = ctx.createOscillator()
-    const gain2 = ctx.createGain()
-    osc2.type = 'sine'
-    osc2.frequency.setValueAtTime(1175, now + 0.15)
-    gain2.gain.setValueAtTime(0, now)
-    gain2.gain.setValueAtTime(0.4, now + 0.15)
-    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.5)
-    osc2.connect(gain2).connect(ctx.destination)
-    osc2.start(now + 0.15)
-    osc2.stop(now + 0.5)
-
-    // Third tone (highest)
-    const osc3 = ctx.createOscillator()
-    const gain3 = ctx.createGain()
-    osc3.type = 'sine'
-    osc3.frequency.setValueAtTime(1318, now + 0.3)
-    gain3.gain.setValueAtTime(0, now)
-    gain3.gain.setValueAtTime(0.35, now + 0.3)
-    gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.7)
-    osc3.connect(gain3).connect(ctx.destination)
-    osc3.start(now + 0.3)
-    osc3.stop(now + 0.7)
-  } catch {
-    // Audio not available — silent fallback
-  }
-}
-
 export default function Orders() {
   const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<OrderStatus | 'all'>('pending')
-  const [soundEnabled, setSoundEnabled] = useState(true)
-  const prevPendingIdsRef = useRef<Set<string>>(new Set())
-  const initialLoadRef = useRef(true)
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders', activeTab],
     queryFn: () => getOrders(activeTab !== 'all' ? { status: activeTab } : undefined),
-    refetchInterval: 10000, // Poll every 10s for new orders
-  })
-
-  // Also poll all pending orders for sound detection
-  const { data: allPending = [] } = useQuery({
-    queryKey: ['orders', 'pending-sound'],
-    queryFn: () => getOrders({ status: 'pending' }),
     refetchInterval: 10000,
   })
-
-  // Detect new pending orders and play sound
-  useEffect(() => {
-    const currentIds = new Set(allPending.map((o: Order) => o.id))
-
-    if (initialLoadRef.current) {
-      // First load — just record current IDs, don't alert
-      prevPendingIdsRef.current = currentIds
-      initialLoadRef.current = false
-      return
-    }
-
-    if (!soundEnabled) {
-      prevPendingIdsRef.current = currentIds
-      return
-    }
-
-    // Check if any order IDs are new (not seen before)
-    let hasNew = false
-    for (const id of currentIds) {
-      if (!prevPendingIdsRef.current.has(id)) {
-        hasNew = true
-        break
-      }
-    }
-
-    if (hasNew) {
-      playNotificationSound()
-      toast(t('newOrderReceived'), { icon: '\u{1F514}', duration: 4000 })
-    }
-
-    prevPendingIdsRef.current = currentIds
-  }, [allPending, soundEnabled, t])
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => updateOrderStatus(id, status),
@@ -162,30 +53,15 @@ export default function Orders() {
               </span>
             )}
             <button
-              onClick={() => {
-                setSoundEnabled(!soundEnabled)
-                if (!soundEnabled) playNotificationSound()
-              }}
-              title={soundEnabled ? t('soundOn') : t('soundOff')}
-              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
-                soundEnabled
-                  ? 'bg-sheen-gold/15 text-sheen-gold'
-                  : 'bg-sheen-muted/10 text-sheen-muted'
-              }`}
+              onClick={() => playNotificationSound()}
+              title={t('testSound')}
+              className="w-9 h-9 flex items-center justify-center rounded-lg bg-sheen-gold/15 text-sheen-gold transition-colors hover:bg-sheen-gold/25"
             >
-              {soundEnabled ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                </svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                  <line x1="23" y1="9" x2="17" y2="15" />
-                  <line x1="17" y1="9" x2="23" y2="15" />
-                </svg>
-              )}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              </svg>
             </button>
           </div>
         </div>

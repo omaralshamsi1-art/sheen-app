@@ -51,6 +51,7 @@ export const translations = {
   newOrderReceived: { en: 'New order received!', ar: 'طلب جديد وصل!' },
   soundOn: { en: 'Sound notifications on', ar: 'إشعارات صوتية مفعّلة' },
   soundOff: { en: 'Sound notifications off', ar: 'إشعارات صوتية معطّلة' },
+  testSound: { en: 'Test notification sound', ar: 'تجربة صوت الإشعار' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },

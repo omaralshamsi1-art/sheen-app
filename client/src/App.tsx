@@ -19,6 +19,7 @@ import PublicMenu from './pages/PublicMenu'
 import CustomerOrder from './pages/CustomerOrder'
 import Orders from './pages/Orders'
 import AuditLog from './pages/AuditLog'
+import OrderNotifier from './components/OrderNotifier'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +37,7 @@ function AppLayout() {
         </main>
       </div>
       <HamburgerMenu />
+      <OrderNotifier />
     </ProtectedRoute>
   )
 }
