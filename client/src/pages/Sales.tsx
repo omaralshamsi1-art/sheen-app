@@ -34,18 +34,18 @@ export default function Sales() {
 
   // Fetch commission rates from database
   const DEFAULT_SOURCES = [
-    { id: 'POS', commission: 0 },
-    { id: 'Talabat', commission: 15 },
-    { id: 'Beanz', commission: 2.5 },
-    { id: 'App', commission: 0 },
-    { id: 'Other', commission: 0 },
+    { id: 'POS', commission: 0, vat: false },
+    { id: 'Talabat', commission: 15, vat: false },
+    { id: 'Beanz', commission: 2.5, vat: true },
+    { id: 'App', commission: 0, vat: false },
+    { id: 'Other', commission: 0, vat: false },
   ]
 
   const { data: orderSources } = useQuery({
     queryKey: ['settings', 'order_sources'],
     queryFn: async () => {
       const { data } = await api.get('/api/settings/order_sources')
-      return data as { id: string; commission: number }[] | null
+      return data as { id: string; commission: number; vat?: boolean }[] | null
     },
     staleTime: 60_000,
   })
@@ -130,7 +130,9 @@ export default function Sales() {
     return total
   }, [quantities, menuItems])
 
-  const commissionAmount = subtotal * (currentSource.commission / 100)
+  const commissionBase = subtotal * (currentSource.commission / 100)
+  const vatOnCommission = (currentSource as any).vat ? commissionBase * 0.05 : 0
+  const commissionAmount = commissionBase + vatOnCommission
   const netRevenue = subtotal - commissionAmount
 
   const hasItems = Object.values(quantities).some((q) => q > 0)
@@ -356,23 +358,33 @@ export default function Sales() {
                 ))}
               </div>
             </div>
-            {/* Subtotal + Commission + Record */}
+            {/* Subtotal + Commission + VAT + Record */}
             <div>
               <div className="flex items-center justify-between">
                 <p className="font-body text-sm text-sheen-black">
                   {t('subtotal')}: <span className="font-semibold">{subtotal.toFixed(2)} د.إ</span>
                 </p>
-                {currentSource.commission > 0 && (
-                  <p className="font-body text-sm text-red-500">
-                    {t('commission')} ({currentSource.commission}%): -{commissionAmount.toFixed(2)} د.إ
-                  </p>
-                )}
               </div>
               {currentSource.commission > 0 && (
-                <div className="flex items-center justify-between mt-1">
-                  <p className="font-body text-lg text-sheen-black">
-                    {t('netRevenue')}: <span className="font-display font-semibold text-sheen-brown">{netRevenue.toFixed(2)} د.إ</span>
-                  </p>
+                <div className="space-y-0.5 mt-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-body text-xs text-red-500">
+                      {t('commission')} ({currentSource.commission}%)
+                    </p>
+                    <p className="font-body text-xs text-red-500">-{commissionBase.toFixed(2)} د.إ</p>
+                  </div>
+                  {vatOnCommission > 0 && (
+                    <div className="flex items-center justify-between">
+                      <p className="font-body text-xs text-red-400">VAT 5% {t('onCommission')}</p>
+                      <p className="font-body text-xs text-red-400">-{vatOnCommission.toFixed(2)} د.إ</p>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between border-t border-sheen-muted/20 pt-1 mt-1">
+                    <p className="font-body text-lg text-sheen-black">
+                      {t('netRevenue')}:
+                    </p>
+                    <p className="font-display text-lg font-semibold text-sheen-brown">{netRevenue.toFixed(2)} د.إ</p>
+                  </div>
                 </div>
               )}
               {currentSource.commission === 0 && (

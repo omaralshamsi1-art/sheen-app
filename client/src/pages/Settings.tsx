@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 interface OrderSource {
   id: string
   commission: number
+  vat: boolean  // apply 5% VAT on commission
 }
 
 export default function Settings() {
@@ -49,7 +50,7 @@ export default function Settings() {
 
   const addSource = () => {
     if (!newName.trim()) return
-    const updated = [...sources, { id: newName.trim(), commission: Number(newCommission) || 0 }]
+    const updated = [...sources, { id: newName.trim(), commission: Number(newCommission) || 0, vat: false }]
     setSources(updated)
     saveMut.mutate(updated)
     setNewName('')
@@ -77,8 +78,8 @@ export default function Settings() {
           ) : (
             <div className="space-y-2">
               {sources.map((src) => (
-                <div key={src.id} className="flex items-center gap-3 bg-sheen-cream/50 rounded-lg px-4 py-3">
-                  <span className="font-body text-sm text-sheen-black font-medium flex-1">{src.id}</span>
+                <div key={src.id} className="flex items-center gap-3 bg-sheen-cream/50 rounded-lg px-4 py-3 flex-wrap">
+                  <span className="font-body text-sm text-sheen-black font-medium flex-1 min-w-[80px]">{src.id}</span>
                   <div className="flex items-center gap-1.5">
                     <input
                       type="number"
@@ -91,6 +92,19 @@ export default function Settings() {
                     />
                     <span className="font-body text-xs text-sheen-muted">%</span>
                   </div>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={src.vat ?? false}
+                      onChange={(e) => {
+                        const updated = sources.map(s => s.id === src.id ? { ...s, vat: e.target.checked } : s)
+                        setSources(updated)
+                        saveMut.mutate(updated)
+                      }}
+                      className="h-4 w-4 accent-sheen-gold cursor-pointer"
+                    />
+                    <span className="font-body text-xs text-sheen-muted">VAT 5%</span>
+                  </label>
                   <button
                     onClick={() => removeSource(src.id)}
                     className="text-red-400 hover:text-red-600 text-xs transition-colors"
