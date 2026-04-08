@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Allow: /public-menu
+Disallow: /dashboard
+Disallow: /sales
+Disallow: /expenses
+Disallow: /fixed-costs
+Disallow: /menu
+Disallow: /ai-monitor
+Disallow: /reports
+Disallow: /users
+Disallow: /orders
+Disallow: /audit-log
+Disallow: /ingredients
+Disallow: /stickers
+Disallow: /settings
+
+Sitemap: https://sheencafe.ae/sitemap.xml
