@@ -2,6 +2,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { format } from 'date-fns'
 import type { Sale, SaleItem } from '../types'
+import { LOGO_BASE64 } from './logoBase64'
 
 interface OrderSource {
   id: string
@@ -21,37 +22,42 @@ export function generateDailyReport(
 
   // ── Header (cream background) ──
   doc.setFillColor(245, 240, 232)
-  doc.rect(0, 0, pageWidth, 42, 'F')
+  doc.rect(0, 0, pageWidth, 46, 'F')
 
   // Gold line
   doc.setFillColor(212, 168, 67)
-  doc.rect(0, 42, pageWidth, 1.5, 'F')
+  doc.rect(0, 46, pageWidth, 1.5, 'F')
+
+  // Logo image
+  try {
+    doc.addImage(LOGO_BASE64, 'PNG', pageWidth / 2 - 8, 4, 16, 16)
+  } catch { /* logo failed, skip */ }
 
   // Logo text
   doc.setTextColor(139, 69, 19)
-  doc.setFontSize(28)
+  doc.setFontSize(24)
   doc.setFont('helvetica', 'bold')
-  doc.text('SHEEN', pageWidth / 2, 18, { align: 'center' })
-
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(160, 120, 90)
-  doc.text('Coffee Shop', pageWidth / 2, 26, { align: 'center' })
+  doc.text('SHEEN', pageWidth / 2, 28, { align: 'center' })
 
   doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(160, 120, 90)
+  doc.text('Coffee Shop', pageWidth / 2, 34, { align: 'center' })
+
+  doc.setFontSize(8)
   doc.setTextColor(139, 69, 19)
-  doc.text('Daily Sales Report', pageWidth / 2, 34, { align: 'center' })
+  doc.text('Daily Sales Report', pageWidth / 2, 40, { align: 'center' })
 
   // ── Date ──
   doc.setTextColor(60, 60, 60)
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
-  doc.text(`Date: ${dateStr}`, 14, 54)
+  doc.text(`Date: ${dateStr}`, 14, 58)
 
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(140, 140, 140)
-  doc.text(`Generated: ${format(new Date(), 'hh:mm a')}`, pageWidth - 14, 54, { align: 'right' })
+  doc.text(`Generated: ${format(new Date(), 'hh:mm a')}`, pageWidth - 14, 58, { align: 'right' })
 
   // ── Summary by Source ──
   const sourceMap: Record<string, { count: number; cups: number; gross: number; commission: number; vat: number; net: number }> = {}
@@ -72,7 +78,7 @@ export function generateDailyReport(
     sourceMap[src].net += sale.total_revenue - commBase - vatAmt
   }
 
-  let y = 62
+  let y = 66
 
   // Source summary table
   doc.setFontSize(11)
