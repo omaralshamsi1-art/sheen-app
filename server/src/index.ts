@@ -14,6 +14,7 @@ import ordersRouter from './routes/orders'
 import paymentsRouter from './routes/payments'
 import auditRouter from './routes/audit'
 import stickersRouter from './routes/stickers'
+import loyaltyRouter from './routes/loyalty'
 
 const app = express()
 
@@ -32,6 +33,7 @@ app.use('/api/orders', ordersRouter)
 app.use('/api/payments', paymentsRouter)
 app.use('/api/audit', auditRouter)
 app.use('/api/stickers', stickersRouter)
+app.use('/api/loyalty', loyaltyRouter)
 
 app.get('/health', (_, res) => res.json({ status: 'ok', version: '2.1' }))
 
