@@ -47,6 +47,8 @@ export default function Menu() {
   const [editActive, setEditActive] = useState(true)
   const [saving, setSaving] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
+  const [editImageFile, setEditImageFile] = useState<File | null>(null)
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
   const [addingRecipeTo, setAddingRecipeTo] = useState<string | null>(null)
   const [newIngredientId, setNewIngredientId] = useState('')
   const [newQty, setNewQty] = useState('')
@@ -91,6 +93,15 @@ export default function Menu() {
     setEditItem(item)
     setEditPrice(String(item.selling_price ?? ''))
     setEditActive(item.is_active ?? true)
+    setEditImageFile(null)
+    setEditImagePreview(null)
+  }
+
+  function handleEditImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setEditImageFile(file)
+    setEditImagePreview(URL.createObjectURL(file))
   }
 
   // Save edit via PATCH
@@ -98,9 +109,30 @@ export default function Menu() {
     if (!editItem) return
     setSaving(true)
     try {
+      let image_url: string | undefined
+
+      // Upload new image if selected
+      if (editImageFile) {
+        const ext = editImageFile.name.split('.').pop() || 'jpg'
+        const filePath = `${editItem.id}.${ext}`
+
+        const { error: uploadErr } = await supabase.storage
+          .from('menu-images')
+          .upload(filePath, editImageFile, { upsert: true })
+
+        if (uploadErr) throw uploadErr
+
+        const { data: urlData } = supabase.storage
+          .from('menu-images')
+          .getPublicUrl(filePath)
+
+        image_url = urlData.publicUrl
+      }
+
       await api.patch(`/api/menu/${editItem.id}`, {
         selling_price: Number(editPrice),
         is_active: editActive,
+        ...(image_url ? { image_url } : {}),
       })
       toast.success(t('menuItemUpdated'))
       queryClient.invalidateQueries({ queryKey: ['menu-items'] })
@@ -621,6 +653,26 @@ export default function Menu() {
               <label htmlFor="edit-active" className="text-sm font-body text-sheen-black">
                 {t('activeOnMenu')}
               </label>
+            </div>
+
+            {/* Image upload */}
+            <div>
+              <label className="block text-sm font-body text-sheen-muted mb-1">{t('itemImage')}</label>
+              <div className="flex items-center gap-3">
+                {(editImagePreview || getItemImage(editItem.name, (editItem as any).image_url)) && (
+                  <img
+                    src={editImagePreview || getItemImage(editItem.name, (editItem as any).image_url) || ''}
+                    alt={editItem.name}
+                    className="w-16 h-16 rounded-lg object-cover border border-sheen-muted/20"
+                  />
+                )}
+                <label className="flex-1 cursor-pointer">
+                  <div className="px-3 py-2 rounded-lg border border-dashed border-sheen-muted/40 text-center hover:border-sheen-gold hover:bg-sheen-gold/5 transition-colors">
+                    <p className="font-body text-xs text-sheen-muted">{editImageFile ? editImageFile.name : t('tapToChangeImage')}</p>
+                  </div>
+                  <input type="file" accept="image/*" onChange={handleEditImageSelect} className="hidden" />
+                </label>
+              </div>
             </div>
 
             {/* Preview updated margin */}
