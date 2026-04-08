@@ -10,6 +10,7 @@ import api from '../lib/api'
 import { format } from 'date-fns'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
+import { generateDailyReport } from '../utils/dailyReport'
 
 const CATEGORIES: MenuCategory[] = [
   'Coffee',
@@ -404,7 +405,22 @@ export default function Sales() {
           </div>
         </div>
 
-        {/* ── Daily Summary Cards ── */}
+        {/* ── Daily Summary + PDF Report ── */}
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={() => generateDailyReport(todaySales, ORDER_SOURCES as any)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sheen-black text-sheen-gold font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+            {t('downloadReport')}
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="bg-sheen-white rounded-xl shadow-sm p-5 text-center">
             <p className="font-body text-sm text-sheen-muted mb-1">

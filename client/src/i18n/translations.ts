@@ -117,6 +117,7 @@ export const translations = {
   orderSourcesDesc: { en: 'Set commission % for each delivery platform', ar: 'حدد نسبة العمولة لكل منصة توصيل' },
   sourceName: { en: 'Source name', ar: 'اسم المصدر' },
   onCommission: { en: 'on commission', ar: 'على العمولة' },
+  downloadReport: { en: 'Download Report', ar: 'تحميل التقرير' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },
