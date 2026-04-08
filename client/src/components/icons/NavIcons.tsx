@@ -67,6 +67,10 @@ export function IngredientsIcon() {
   return <NavImg src="/images/recipe.svg" alt="Ingredients" />
 }
 
+export function LoyaltyScanIcon() {
+  return <NavImg src="/images/users-loyalty.svg" alt="Loyalty Scan" />
+}
+
 export function AuditLogIcon() {
   return <NavImg src="/images/assessment.svg" alt="Audit Log" />
 }
@@ -82,6 +86,7 @@ export const navIconMap: Record<string, () => React.ReactElement> = {
   '/ai-monitor': AIMonitorIcon,
   '/reports': ReportsIcon,
   '/users': UsersIcon,
+  '/loyalty-scan': LoyaltyScanIcon,
   '/ingredients': IngredientsIcon,
   '/audit-log': AuditLogIcon,
 }
