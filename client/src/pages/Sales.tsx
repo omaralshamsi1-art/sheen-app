@@ -37,6 +37,9 @@ export default function Sales() {
   const [reportLoading, setReportLoading] = useState(false)
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null)
   const [previewSalesData, setPreviewSalesData] = useState<any[]>([])
+  const [emailTo, setEmailTo] = useState('')
+  const [showEmailInput, setShowEmailInput] = useState(false)
+  const [emailSending, setEmailSending] = useState(false)
 
   // Fetch commission rates from database
   const DEFAULT_SOURCES = [
@@ -166,6 +169,29 @@ export default function Sales() {
 
   const handleDownloadFromPreview = () => {
     downloadDailyReport(previewSalesData, ORDER_SOURCES as any, new Date(reportDate + 'T00:00:00'))
+  }
+
+  const handleSendEmail = async () => {
+    if (!emailTo.trim()) return
+    setEmailSending(true)
+    try {
+      const { generateDailyReport: gen } = await import('../utils/dailyReport')
+      const { doc, filename } = gen(previewSalesData, ORDER_SOURCES as any, new Date(reportDate + 'T00:00:00'))
+      const pdfBase64 = doc.output('datauristring').split(',')[1]
+
+      await api.post('/api/email/send-report', {
+        to: emailTo.trim(),
+        subject: `SHEEN Daily Report — ${reportDate}`,
+        pdfBase64,
+        filename,
+      })
+      toast.success(t('emailSent'))
+      setShowEmailInput(false)
+      setEmailTo('')
+    } catch {
+      toast.error(t('emailFailed'))
+    }
+    setEmailSending(false)
   }
 
   // Record sale handler
@@ -556,6 +582,28 @@ export default function Sales() {
               />
             </div>
 
+            {/* Email input */}
+            {showEmailInput && (
+              <div className="flex gap-2 px-5 pt-3 border-t border-sheen-cream">
+                <input
+                  type="email"
+                  value={emailTo}
+                  onChange={e => setEmailTo(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSendEmail()}
+                  placeholder={t('emailPlaceholder')}
+                  className="flex-1 px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSendEmail}
+                  disabled={emailSending || !emailTo.trim()}
+                  className="px-4 py-2 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors disabled:opacity-50"
+                >
+                  {emailSending ? '...' : t('send')}
+                </button>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex gap-2 px-5 py-3 border-t border-sheen-cream">
               <button
@@ -570,7 +618,17 @@ export default function Sales() {
                 {t('downloadReport')}
               </button>
               <button
-                onClick={() => setPdfPreviewUrl(null)}
+                onClick={() => setShowEmailInput(!showEmailInput)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                  <polyline points="22,6 12,13 2,6" />
+                </svg>
+                {t('sendByEmail')}
+              </button>
+              <button
+                onClick={() => { setPdfPreviewUrl(null); setShowEmailInput(false) }}
                 className="px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-muted font-body text-sm font-medium hover:bg-sheen-muted/20 transition-colors"
               >
                 {t('cancel')}
