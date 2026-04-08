@@ -21,6 +21,7 @@ import Orders from './pages/Orders'
 import AuditLog from './pages/AuditLog'
 import Ingredients from './pages/Ingredients'
 import Stickers from './pages/Stickers'
+import Settings from './pages/Settings'
 import MyCard from './pages/MyCard'
 import LoyaltyScan from './pages/LoyaltyScan'
 import OrderNotifier from './components/OrderNotifier'
@@ -71,6 +72,7 @@ export default function App() {
             <Route path="/stickers" element={<Stickers />} />
             <Route path="/my-card" element={<MyCard />} />
             <Route path="/loyalty-scan" element={<LoyaltyScan />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/audit-log" element={<AuditLog />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

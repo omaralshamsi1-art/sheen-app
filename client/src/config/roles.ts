@@ -23,6 +23,7 @@ export const navItems: NavItem[] = [
   { to: '/loyalty-scan', labelKey: 'loyaltyScan' as TranslationKey, icon: '', roles: ['admin', 'staff'] },
   { to: '/ingredients', labelKey: 'ingredients' as TranslationKey, icon: '', roles: ['admin'] },
   { to: '/stickers',    labelKey: 'stickerMessages' as TranslationKey, icon: '', roles: ['admin'] },
+  { to: '/settings',   labelKey: 'settings' as TranslationKey, icon: '', roles: ['admin'] },
   { to: '/audit-log',  labelKey: 'auditLog' as TranslationKey, icon: '', roles: ['admin'] },
 ]
 
@@ -42,6 +43,7 @@ export const routeRoles: Record<string, UserRole[]> = {
   '/loyalty-scan':  ['admin', 'staff'],
   '/ingredients':  ['admin'],
   '/stickers':     ['admin'],
+  '/settings':     ['admin'],
   '/audit-log':   ['admin'],
 }
 

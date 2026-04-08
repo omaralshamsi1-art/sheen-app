@@ -5,7 +5,8 @@ import type { MenuCategory, SalePayload, MenuItem, Sale, SaleItem } from '../typ
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import api from '../lib/api'
 import { format } from 'date-fns'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
@@ -31,16 +32,26 @@ export default function Sales() {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [orderSource, setOrderSource] = useState('POS')
 
-  // Commission % per source (0 = no commission)
-  const ORDER_SOURCES = [
+  // Fetch commission rates from database
+  const DEFAULT_SOURCES = [
     { id: 'POS', commission: 0 },
     { id: 'Talabat', commission: 15 },
     { id: 'Beanz', commission: 2.5 },
     { id: 'App', commission: 0 },
     { id: 'Other', commission: 0 },
-  ] as const
+  ]
 
-  const currentSource = ORDER_SOURCES.find(s => s.id === orderSource) ?? ORDER_SOURCES[0]
+  const { data: orderSources } = useQuery({
+    queryKey: ['settings', 'order_sources'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/order_sources')
+      return data as { id: string; commission: number }[] | null
+    },
+    staleTime: 60_000,
+  })
+
+  const ORDER_SOURCES = orderSources ?? DEFAULT_SOURCES
+  const currentSource = ORDER_SOURCES.find((s: { id: string }) => s.id === orderSource) ?? ORDER_SOURCES[0]
 
   // Realtime subscription for live updates
   useEffect(() => {
