@@ -233,31 +233,44 @@ export default function Expenses() {
               />
             </div>
 
-            {/* Ingredient Name (dropdown) */}
-            <div>
+            {/* Ingredient Name (with autocomplete) */}
+            <div className="relative">
               <label className="block font-body text-sm text-sheen-muted mb-1">
                 {t('ingredient')}
               </label>
-              <select
+              <input
+                type="text"
                 value={form.ingredient_name}
                 onChange={(e) => {
-                  const selected = ingredients.find((ing: { name: string }) => ing.name === e.target.value)
                   updateField('ingredient_name', e.target.value)
-                  if (selected) {
-                    updateField('unit', (selected as any).unit ?? '')
-                    updateField('unit_cost', (selected as any).cost_per_unit ?? '')
-                    updateField('category', (selected as any).category ?? 'Other')
-                  }
+                  setShowSuggestions(true)
                 }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="e.g. Oat Milk"
                 className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-              >
-                <option value="">{t('selectIngredient')}</option>
-                {ingredients.map((ing: { id: string; name: string; category: string; unit: string }) => (
-                  <option key={ing.id} value={ing.name}>
-                    {ing.name} ({ing.unit})
-                  </option>
-                ))}
-              </select>
+              />
+              {showSuggestions && suggestions.length > 0 && (
+                <ul className="absolute z-10 left-0 right-0 top-full mt-1 bg-sheen-white border border-sheen-muted/30 rounded-lg shadow-md max-h-40 overflow-y-auto">
+                  {suggestions.map((ing: { id: string; name: string }) => (
+                    <li
+                      key={ing.id}
+                      onMouseDown={() => {
+                        updateField('ingredient_name', ing.name)
+                        // Auto-fill unit, cost, category
+                        const full = ing as any
+                        if (full.unit) updateField('unit', full.unit)
+                        if (full.cost_per_unit) updateField('unit_cost', full.cost_per_unit)
+                        if (full.category) updateField('category', full.category)
+                        setShowSuggestions(false)
+                      }}
+                      className="px-3 py-2 font-body text-sm text-sheen-black hover:bg-sheen-gold/10 cursor-pointer"
+                    >
+                      {ing.name}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* Supplier */}
