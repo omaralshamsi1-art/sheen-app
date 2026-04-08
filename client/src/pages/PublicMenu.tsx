@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -11,6 +11,34 @@ export default function PublicMenu() {
   const { t, lang, setLang } = useLanguage()
   const { data: menuItems = [], isLoading } = useMenuItems()
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
+  const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
+  const isSwiping = useRef(false)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+    isSwiping.current = false
+  }
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = Math.abs(e.touches[0].clientX - touchStartX.current)
+    const dy = Math.abs(e.touches[0].clientY - touchStartY.current)
+    if (dx > dy && dx > 8) isSwiping.current = true
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isSwiping.current) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    if (Math.abs(dx) < 30) return
+    const idx = CATEGORIES.indexOf(activeCategory)
+    if (dx < 0 && idx < CATEGORIES.length - 1) {
+      setSlideDir('left')
+      setTimeout(() => { setActiveCategory(CATEGORIES[idx + 1]); setSlideDir(null) }, 150)
+    } else if (dx > 0 && idx > 0) {
+      setSlideDir('right')
+      setTimeout(() => { setActiveCategory(CATEGORIES[idx - 1]); setSlideDir(null) }, 150)
+    }
+  }
 
   const activeItems = useMemo(
     () => menuItems.filter((item: MenuItem) => item.category === activeCategory && item.is_active),
@@ -72,7 +100,15 @@ export default function PublicMenu() {
         ) : activeItems.length === 0 ? (
           <p className="text-center py-12 text-sheen-muted font-body">{t('noItemsInCategory')}</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 transition-all duration-150 ${
+              slideDir === 'left' ? 'opacity-0 -translate-x-8' :
+              slideDir === 'right' ? 'opacity-0 translate-x-8' : 'opacity-100 translate-x-0'
+            }`}
+          >
             {activeItems.map((item: MenuItem) => (
               <div
                 key={item.id}

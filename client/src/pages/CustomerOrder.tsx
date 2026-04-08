@@ -58,10 +58,12 @@ export default function CustomerOrder() {
     }
   }, [activeCategory])
 
-  // Swipe logic
+  // Swipe logic with slide animation
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const isSwiping = useRef(false)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
@@ -72,16 +74,21 @@ export default function CustomerOrder() {
   const handleTouchMove = (e: React.TouchEvent) => {
     const dx = Math.abs(e.touches[0].clientX - touchStartX.current)
     const dy = Math.abs(e.touches[0].clientY - touchStartY.current)
-    if (dx > dy && dx > 10) isSwiping.current = true
+    if (dx > dy && dx > 8) isSwiping.current = true
   }
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!isSwiping.current) return
     const dx = e.changedTouches[0].clientX - touchStartX.current
-    if (Math.abs(dx) < 50) return
+    if (Math.abs(dx) < 30) return
     const idx = CATEGORIES.indexOf(activeCategory)
-    if (dx < 0 && idx < CATEGORIES.length - 1) setActiveCategory(CATEGORIES[idx + 1])
-    else if (dx > 0 && idx > 0) setActiveCategory(CATEGORIES[idx - 1])
+    if (dx < 0 && idx < CATEGORIES.length - 1) {
+      setSlideDir('left')
+      setTimeout(() => { setActiveCategory(CATEGORIES[idx + 1]); setSlideDir(null) }, 150)
+    } else if (dx > 0 && idx > 0) {
+      setSlideDir('right')
+      setTimeout(() => { setActiveCategory(CATEGORIES[idx - 1]); setSlideDir(null) }, 150)
+    }
   }
 
   // Fetch customer's orders
@@ -219,10 +226,14 @@ export default function CustomerOrder() {
 
         {/* Menu Items Grid (swipeable) */}
         <div
+          ref={gridRef}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6"
+          className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 transition-all duration-150 ${
+            slideDir === 'left' ? 'opacity-0 -translate-x-8' :
+            slideDir === 'right' ? 'opacity-0 translate-x-8' : 'opacity-100 translate-x-0'
+          }`}
         >
           {menuLoading ? (
             <p className="col-span-full text-center text-sheen-muted font-body py-12">{t('loadingMenu')}</p>
