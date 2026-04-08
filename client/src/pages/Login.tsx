@@ -293,7 +293,7 @@ export default function Login() {
           </button>
         </div>
 
-        <Link to="/" className="block text-center mt-4 text-sm font-body text-sheen-gold hover:text-sheen-brown transition-colors">
+        <Link to="/" className="block text-center mt-4 text-lg font-body font-semibold text-sheen-gold hover:text-sheen-brown transition-colors">
           &larr; {t('backToMenu')}
         </Link>
         <p className="text-center mt-3 text-xs font-body text-sheen-muted">
