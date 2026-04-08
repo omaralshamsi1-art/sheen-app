@@ -11,9 +11,13 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const { status, customer_id } = req.query
 
+    const today = new Date().toISOString().slice(0, 10)
+
     let query = supabase
       .from('orders')
       .select('*, order_items(*)')
+      .gte('created_at', `${today}T00:00:00`)
+      .lte('created_at', `${today}T23:59:59`)
       .order('created_at', { ascending: false })
 
     if (status && typeof status === 'string' && VALID_STATUSES.includes(status)) {
@@ -24,7 +28,7 @@ router.get('/', async (req: Request, res: Response) => {
       query = query.eq('customer_id', customer_id)
     }
 
-    const { data, error } = await query.limit(100)
+    const { data, error } = await query.limit(200)
     if (error) throw error
     res.json(data ?? [])
   } catch (err: any) {
