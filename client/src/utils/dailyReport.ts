@@ -12,9 +12,10 @@ interface OrderSource {
 export function generateDailyReport(
   sales: (Sale & { sale_items?: SaleItem[] })[],
   orderSources: OrderSource[],
+  reportDate?: Date,
 ) {
   const doc = new jsPDF()
-  const today = new Date()
+  const today = reportDate ?? new Date()
   const dateStr = format(today, 'dd MMMM yyyy')
   const pageWidth = doc.internal.pageSize.getWidth()
 

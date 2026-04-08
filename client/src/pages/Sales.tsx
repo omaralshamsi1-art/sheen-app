@@ -11,6 +11,7 @@ import { format } from 'date-fns'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
 import { generateDailyReport } from '../utils/dailyReport'
+import toast from 'react-hot-toast'
 
 const CATEGORIES: MenuCategory[] = [
   'Coffee',
@@ -32,6 +33,8 @@ export default function Sales() {
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [orderSource, setOrderSource] = useState('POS')
+  const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [reportLoading, setReportLoading] = useState(false)
 
   // Fetch commission rates from database
   const DEFAULT_SOURCES = [
@@ -137,6 +140,26 @@ export default function Sales() {
   const netRevenue = subtotal - commissionAmount
 
   const hasItems = Object.values(quantities).some((q) => q > 0)
+
+  // Download report for selected date
+  const handleDownloadReport = async () => {
+    setReportLoading(true)
+    try {
+      const isToday = reportDate === format(new Date(), 'yyyy-MM-dd')
+      let salesData = todaySales
+
+      if (!isToday) {
+        // Fetch sales for the selected date
+        const { data } = await api.get(`/api/sales?from=${reportDate}&to=${reportDate}`)
+        salesData = data
+      }
+
+      generateDailyReport(salesData, ORDER_SOURCES as any, new Date(reportDate + 'T00:00:00'))
+    } catch {
+      toast.error('Failed to generate report')
+    }
+    setReportLoading(false)
+  }
 
   // Record sale handler
   const handleRecordSale = () => {
@@ -405,11 +428,21 @@ export default function Sales() {
           </div>
         </div>
 
-        {/* ── Daily Summary + PDF Report ── */}
-        <div className="flex justify-end mb-2">
+        {/* ── PDF Report ── */}
+        <div className="flex items-center gap-3 justify-end mb-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="font-body text-xs text-sheen-muted">{t('reportDate')}:</label>
+            <input
+              type="date"
+              value={reportDate}
+              onChange={(e) => setReportDate(e.target.value)}
+              className="px-2 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+            />
+          </div>
           <button
-            onClick={() => generateDailyReport(todaySales, ORDER_SOURCES as any)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sheen-black text-sheen-gold font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors"
+            onClick={handleDownloadReport}
+            disabled={reportLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sheen-black text-sheen-gold font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors disabled:opacity-50"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -418,7 +451,7 @@ export default function Sales() {
               <line x1="16" y1="17" x2="8" y2="17" />
               <polyline points="10 9 9 9 8 9" />
             </svg>
-            {t('downloadReport')}
+            {reportLoading ? '...' : t('downloadReport')}
           </button>
         </div>
         <div className="grid grid-cols-2 gap-4 mb-8">

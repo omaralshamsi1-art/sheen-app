@@ -118,6 +118,7 @@ export const translations = {
   sourceName: { en: 'Source name', ar: 'اسم المصدر' },
   onCommission: { en: 'on commission', ar: 'على العمولة' },
   downloadReport: { en: 'Download Report', ar: 'تحميل التقرير' },
+  reportDate: { en: 'Report Date', ar: 'تاريخ التقرير' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },
