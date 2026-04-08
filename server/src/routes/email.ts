@@ -22,7 +22,7 @@ router.post('/send-report', async (req: Request, res: Response) => {
     const resend = new Resend(process.env.RESEND_API_KEY)
 
     const { error } = await resend.emails.send({
-      from: 'SHEEN Coffee <onboarding@resend.dev>',
+      from: 'SHEEN Coffee <report@sheencafe.ae>',
       to: [to],
       subject: subject || 'SHEEN Daily Sales Report',
       html: `
