@@ -110,6 +110,8 @@ export const translations = {
   closeCamera: { en: 'Close Camera', ar: 'إغلاق الكاميرا' },
   cameraError: { en: 'Could not access camera', ar: 'تعذر الوصول للكاميرا' },
   orderSource: { en: 'Order Source', ar: 'مصدر الطلب' },
+  commission: { en: 'Commission', ar: 'العمولة' },
+  netRevenue: { en: 'Net Revenue', ar: 'صافي الإيراد' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },

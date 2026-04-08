@@ -31,7 +31,16 @@ export default function Sales() {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [orderSource, setOrderSource] = useState('POS')
 
-  const ORDER_SOURCES = ['POS', 'Talabat', 'Beanz', 'App', 'Other'] as const
+  // Commission % per source (0 = no commission)
+  const ORDER_SOURCES = [
+    { id: 'POS', commission: 0 },
+    { id: 'Talabat', commission: 15 },
+    { id: 'Beanz', commission: 2.5 },
+    { id: 'App', commission: 0 },
+    { id: 'Other', commission: 0 },
+  ] as const
+
+  const currentSource = ORDER_SOURCES.find(s => s.id === orderSource) ?? ORDER_SOURCES[0]
 
   // Realtime subscription for live updates
   useEffect(() => {
@@ -109,6 +118,9 @@ export default function Sales() {
     }
     return total
   }, [quantities, menuItems])
+
+  const commissionAmount = subtotal * (currentSource.commission / 100)
+  const netRevenue = subtotal - commissionAmount
 
   const hasItems = Object.values(quantities).some((q) => q > 0)
 
@@ -320,27 +332,45 @@ export default function Sales() {
               <div className="flex gap-1.5 flex-wrap">
                 {ORDER_SOURCES.map((src) => (
                   <button
-                    key={src}
-                    onClick={() => setOrderSource(src)}
+                    key={src.id}
+                    onClick={() => setOrderSource(src.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-body font-medium transition-colors ${
-                      orderSource === src
+                      orderSource === src.id
                         ? 'bg-sheen-brown text-white'
                         : 'bg-sheen-cream text-sheen-muted border border-sheen-muted/20'
                     }`}
                   >
-                    {src}
+                    {src.id}{src.commission > 0 ? ` (${src.commission}%)` : ''}
                   </button>
                 ))}
               </div>
             </div>
-            {/* Subtotal + Record */}
-            <div className="flex items-center justify-between">
-              <p className="font-body text-lg text-sheen-black">
-                {t('subtotal')}:{' '}
-                <span className="font-display font-semibold text-sheen-brown">
-                  {subtotal.toFixed(2)} د.إ
-                </span>
-              </p>
+            {/* Subtotal + Commission + Record */}
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="font-body text-sm text-sheen-black">
+                  {t('subtotal')}: <span className="font-semibold">{subtotal.toFixed(2)} د.إ</span>
+                </p>
+                {currentSource.commission > 0 && (
+                  <p className="font-body text-sm text-red-500">
+                    {t('commission')} ({currentSource.commission}%): -{commissionAmount.toFixed(2)} د.إ
+                  </p>
+                )}
+              </div>
+              {currentSource.commission > 0 && (
+                <div className="flex items-center justify-between mt-1">
+                  <p className="font-body text-lg text-sheen-black">
+                    {t('netRevenue')}: <span className="font-display font-semibold text-sheen-brown">{netRevenue.toFixed(2)} د.إ</span>
+                  </p>
+                </div>
+              )}
+              {currentSource.commission === 0 && (
+                <p className="font-body text-lg text-sheen-black mt-1">
+                  {t('total')}: <span className="font-display font-semibold text-sheen-brown">{subtotal.toFixed(2)} د.إ</span>
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end">
               <Button
                 onClick={handleRecordSale}
                 disabled={!hasItems || recordSale.isPending}
