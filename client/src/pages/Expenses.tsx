@@ -61,6 +61,7 @@ export default function Expenses() {
   // Form state
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false)
 
   // Filter state
   const [filterStart, setFilterStart] = useState(
@@ -107,6 +108,17 @@ export default function Expenses() {
       )
       .slice(0, 8)
   }, [form.ingredient_name, ingredients])
+
+  // Supplier autocomplete from past expenses
+  const supplierSuggestions = useMemo(() => {
+    const allSuppliers = expenses
+      .map((exp: { supplier: string | null }) => exp.supplier)
+      .filter(Boolean) as string[]
+    const unique = [...new Set(allSuppliers)]
+    if (!form.supplier.trim()) return unique.slice(0, 8)
+    const query = form.supplier.toLowerCase()
+    return unique.filter(s => s.toLowerCase().includes(query)).slice(0, 8)
+  }, [form.supplier, expenses])
 
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
@@ -273,18 +285,39 @@ export default function Expenses() {
               )}
             </div>
 
-            {/* Supplier */}
-            <div>
+            {/* Supplier (with autocomplete) */}
+            <div className="relative">
               <label className="block font-body text-sm text-sheen-muted mb-1">
                 {t('supplier')}
               </label>
               <input
                 type="text"
                 value={form.supplier}
-                onChange={(e) => updateField('supplier', e.target.value)}
+                onChange={(e) => {
+                  updateField('supplier', e.target.value)
+                  setShowSupplierSuggestions(true)
+                }}
+                onFocus={() => setShowSupplierSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSupplierSuggestions(false), 150)}
                 placeholder="e.g. Al Shaya"
                 className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
               />
+              {showSupplierSuggestions && supplierSuggestions.length > 0 && (
+                <ul className="absolute z-10 left-0 right-0 top-full mt-1 bg-sheen-white border border-sheen-muted/30 rounded-lg shadow-md max-h-40 overflow-y-auto">
+                  {supplierSuggestions.map((name: string) => (
+                    <li
+                      key={name}
+                      onMouseDown={() => {
+                        updateField('supplier', name)
+                        setShowSupplierSuggestions(false)
+                      }}
+                      className="px-3 py-2 font-body text-sm text-sheen-black hover:bg-sheen-gold/10 cursor-pointer"
+                    >
+                      {name}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* Category */}
