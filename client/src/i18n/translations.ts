@@ -109,6 +109,7 @@ export const translations = {
   scanWithCamera: { en: 'Scan with Camera', ar: 'مسح بالكاميرا' },
   closeCamera: { en: 'Close Camera', ar: 'إغلاق الكاميرا' },
   cameraError: { en: 'Could not access camera', ar: 'تعذر الوصول للكاميرا' },
+  orderSource: { en: 'Order Source', ar: 'مصدر الطلب' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },

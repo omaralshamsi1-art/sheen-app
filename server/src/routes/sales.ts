@@ -229,16 +229,17 @@ router.post('/', async (req: Request, res: Response) => {
     // Also create a completed order so it shows on the Orders page
     const totalAmount = sanitizedItems.reduce((s: number, i: any) => s + i.total, 0)
     const staffEmail = req.headers['x-user-email'] as string | undefined
+    const source = recorded_by ? String(recorded_by).trim() : 'POS'
 
     const { data: order } = await supabase
       .from('orders')
       .insert({
         customer_id: req.headers['x-user-id'] ?? null,
         customer_email: staffEmail ?? null,
-        customer_name: `Staff: ${staffEmail?.split('@')[0] ?? 'POS'}`,
+        customer_name: `${source}: ${staffEmail?.split('@')[0] ?? 'Staff'}`,
         status: 'completed',
         total_amount: totalAmount,
-        notes: `[POS Sale — ${sale_date}]`,
+        notes: `[${source} — ${sale_date}]`,
       })
       .select()
       .single()

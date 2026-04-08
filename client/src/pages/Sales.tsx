@@ -29,6 +29,9 @@ export default function Sales() {
 
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [orderSource, setOrderSource] = useState('POS')
+
+  const ORDER_SOURCES = ['POS', 'Talabat', 'Beanz', 'App', 'Other'] as const
 
   // Realtime subscription for live updates
   useEffect(() => {
@@ -128,11 +131,12 @@ export default function Sales() {
         }
       })
 
-    const payload: SalePayload = { sale_date: today, items }
+    const payload: SalePayload = { sale_date: today, items, recorded_by: orderSource }
 
     recordSale.mutate(payload, {
       onSuccess: () => {
         setQuantities({})
+        setOrderSource('POS')
       },
     })
   }
@@ -308,20 +312,42 @@ export default function Sales() {
             </div>
           )}
 
-          {/* Subtotal bar + Record button */}
-          <div className="mt-6 flex items-center justify-between border-t border-sheen-muted/20 pt-4">
-            <p className="font-body text-lg text-sheen-black">
-              {t('subtotal')}:{' '}
-              <span className="font-display font-semibold text-sheen-brown">
-                {subtotal.toFixed(2)} د.إ
-              </span>
-            </p>
-            <Button
-              onClick={handleRecordSale}
-              disabled={!hasItems || recordSale.isPending}
-            >
-              {recordSale.isPending ? t('recording') : t('recordSale')}
-            </Button>
+          {/* Order source + Subtotal + Record button */}
+          <div className="mt-6 border-t border-sheen-muted/20 pt-4 space-y-3">
+            {/* Order Source */}
+            <div>
+              <p className="font-body text-xs text-sheen-muted mb-1.5">{t('orderSource')}</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {ORDER_SOURCES.map((src) => (
+                  <button
+                    key={src}
+                    onClick={() => setOrderSource(src)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-body font-medium transition-colors ${
+                      orderSource === src
+                        ? 'bg-sheen-brown text-white'
+                        : 'bg-sheen-cream text-sheen-muted border border-sheen-muted/20'
+                    }`}
+                  >
+                    {src}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Subtotal + Record */}
+            <div className="flex items-center justify-between">
+              <p className="font-body text-lg text-sheen-black">
+                {t('subtotal')}:{' '}
+                <span className="font-display font-semibold text-sheen-brown">
+                  {subtotal.toFixed(2)} د.إ
+                </span>
+              </p>
+              <Button
+                onClick={handleRecordSale}
+                disabled={!hasItems || recordSale.isPending}
+              >
+                {recordSale.isPending ? t('recording') : t('recordSale')}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -367,8 +393,11 @@ export default function Sales() {
                   className="p-4 flex items-start justify-between gap-4"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-body text-xs text-sheen-muted mb-1">
+                    <p className="font-body text-xs text-sheen-muted mb-1 flex items-center gap-2">
                       {format(new Date(sale.recorded_at), 'hh:mm a')}
+                      {sale.recorded_by && (
+                        <span className="px-1.5 py-0.5 rounded bg-sheen-cream text-sheen-brown text-[10px] font-medium">{sale.recorded_by}</span>
+                      )}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {saleItems.map((si: SaleItem, idx: number) => (
