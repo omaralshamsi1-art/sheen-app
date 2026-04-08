@@ -234,5 +234,5 @@ export function previewDailyReport(
   reportDate?: Date,
 ): string {
   const { doc } = generateDailyReport(sales, orderSources, reportDate)
-  return doc.output('bloburl') as string
+  return String(doc.output('bloburl'))
 }
