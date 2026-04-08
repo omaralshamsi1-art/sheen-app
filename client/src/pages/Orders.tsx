@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import type { Order, OrderItem } from '../types'
 import { format } from 'date-fns'
 
-const STATUS_TABS = ['pending', 'rejected', 'completed'] as const
+const STATUS_TABS = ['pending', 'rejected'] as const
 
 export default function Orders() {
   const { t } = useLanguage()
@@ -147,13 +147,8 @@ export default function Orders() {
                     {order.status === 'pending' && (
                       <>
                         <button
-                          onClick={() => {
-                            updateStatus.mutate({ id: order.id, status: 'completed' }, {
-                              onSuccess: () => setStickerOrder(order),
-                            })
-                          }}
-                          disabled={updateStatus.isPending}
-                          className="px-4 py-1.5 rounded-lg bg-green-500 text-white text-sm font-body font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+                          onClick={() => setStickerOrder(order)}
+                          className="px-4 py-1.5 rounded-lg bg-green-500 text-white text-sm font-body font-medium hover:bg-green-600 transition-colors"
                         >
                           {t('confirm')}
                         </button>
@@ -164,15 +159,13 @@ export default function Orders() {
                         >
                           {t('reject')}
                         </button>
+                        <button
+                          onClick={() => setStickerOrder(order)}
+                          className="px-4 py-1.5 rounded-lg bg-sheen-gold/20 text-sheen-brown text-sm font-body font-medium hover:bg-sheen-gold/30 transition-colors"
+                        >
+                          {t('printSticker')}
+                        </button>
                       </>
-                    )}
-                    {order.status === 'completed' && (
-                      <button
-                        onClick={() => setStickerOrder(order)}
-                        className="px-4 py-1.5 rounded-lg bg-sheen-gold/20 text-sheen-brown text-sm font-body font-medium hover:bg-sheen-gold/30 transition-colors"
-                      >
-                        {t('printSticker')}
-                      </button>
                     )}
                   </div>
                 </div>
