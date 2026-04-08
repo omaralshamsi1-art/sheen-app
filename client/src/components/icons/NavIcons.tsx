@@ -71,6 +71,10 @@ export function LoyaltyScanIcon() {
   return <NavImg src="/images/users-loyalty.svg" alt="Loyalty Scan" />
 }
 
+export function StickersIcon() {
+  return <NavImg src="/images/sticker.svg" alt="Stickers" />
+}
+
 export function AuditLogIcon() {
   return <NavImg src="/images/assessment.svg" alt="Audit Log" />
 }
@@ -87,6 +91,7 @@ export const navIconMap: Record<string, () => React.ReactElement> = {
   '/reports': ReportsIcon,
   '/users': UsersIcon,
   '/loyalty-scan': LoyaltyScanIcon,
+  '/stickers': StickersIcon,
   '/ingredients': IngredientsIcon,
   '/audit-log': AuditLogIcon,
 }
