@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import type { Order, OrderItem } from '../types'
 import { format } from 'date-fns'
 
-const STATUS_TABS = ['pending', 'rejected', 'closed'] as const
+const STATUS_TABS = ['pending', 'rejected', 'completed'] as const
 
 export default function Orders() {
   const { t } = useLanguage()
@@ -37,7 +37,6 @@ export default function Orders() {
     confirmed: 'bg-green-100 text-green-700',
     rejected: 'bg-red-100 text-red-700',
     completed: 'bg-blue-100 text-blue-700',
-    closed: 'bg-gray-100 text-gray-700',
   }
 
   const pendingCount = orders.filter((o: Order) => o.status === 'pending').length
@@ -149,7 +148,7 @@ export default function Orders() {
                       <>
                         <button
                           onClick={() => {
-                            updateStatus.mutate({ id: order.id, status: 'closed' }, {
+                            updateStatus.mutate({ id: order.id, status: 'completed' }, {
                               onSuccess: () => setStickerOrder(order),
                             })
                           }}
@@ -167,7 +166,7 @@ export default function Orders() {
                         </button>
                       </>
                     )}
-                    {(order.status === 'closed' || order.status === 'completed') && (
+                    {order.status === 'completed' && (
                       <button
                         onClick={() => setStickerOrder(order)}
                         className="px-4 py-1.5 rounded-lg bg-sheen-gold/20 text-sheen-brown text-sm font-body font-medium hover:bg-sheen-gold/30 transition-colors"
