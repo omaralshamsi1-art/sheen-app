@@ -293,7 +293,10 @@ export default function Login() {
           </button>
         </div>
 
-        <p className="text-center mt-6 text-xs font-body text-sheen-muted">
+        <Link to="/" className="block text-center mt-4 text-sm font-body text-sheen-gold hover:text-sheen-brown transition-colors">
+          &larr; {t('backToMenu')}
+        </Link>
+        <p className="text-center mt-3 text-xs font-body text-sheen-muted">
           &copy; {new Date().getFullYear()} {t('allRightsReserved')}
         </p>
       </div>

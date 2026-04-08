@@ -91,9 +91,17 @@ export default function PublicMenu() {
                 )}
                 <div className="p-3">
                   <h3 className="font-body font-medium text-sheen-black text-sm truncate">{item.name}</h3>
-                  <p className="font-display text-lg font-semibold text-sheen-brown mt-1">
-                    {item.selling_price} <span className="text-sm">AED</span>
-                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="font-display text-lg font-semibold text-sheen-brown">
+                      {item.selling_price} <span className="text-sm">AED</span>
+                    </p>
+                    <Link
+                      to="/login"
+                      className="px-3 py-1 rounded-lg bg-sheen-brown text-white text-xs font-body font-medium hover:bg-sheen-brown/90 transition-colors"
+                    >
+                      {t('orderNow')}
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}

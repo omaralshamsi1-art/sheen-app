@@ -51,6 +51,7 @@ export default function App() {
       <BrowserRouter>
         <ToastProvider />
         <Routes>
+          <Route path="/" element={<PublicMenu />} />
           <Route path="/login" element={<Login />} />
           <Route path="/public-menu" element={<PublicMenu />} />
           <Route element={<AppLayout />}>
@@ -68,7 +69,7 @@ export default function App() {
             <Route path="/stickers" element={<Stickers />} />
             <Route path="/audit-log" element={<AuditLog />} />
           </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
