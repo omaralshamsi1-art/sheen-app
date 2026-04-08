@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import type { Order, OrderItem } from '../types'
 import { format } from 'date-fns'
 
-const STATUS_TABS = ['pending', 'rejected'] as const
+const STATUS_TABS = ['pending', 'rejected', 'completed'] as const
 
 export default function Orders() {
   const { t } = useLanguage()
@@ -17,11 +17,16 @@ export default function Orders() {
   const [activeTab, setActiveTab] = useState<string>('pending')
   const [stickerOrder, setStickerOrder] = useState<Order | null>(null)
 
-  const { data: orders = [], isLoading } = useQuery({
+  // Pending tab shows both 'pending' and 'confirmed' orders
+  const fetchStatus = activeTab === 'pending' ? undefined : activeTab === 'all' ? undefined : activeTab
+  const { data: rawOrders = [], isLoading } = useQuery({
     queryKey: ['orders', activeTab],
-    queryFn: () => getOrders(activeTab !== 'all' ? { status: activeTab } : undefined),
+    queryFn: () => getOrders(fetchStatus ? { status: fetchStatus } : undefined),
     refetchInterval: 10000,
   })
+  const orders = activeTab === 'pending'
+    ? rawOrders.filter((o: Order) => o.status === 'pending' || o.status === 'confirmed')
+    : rawOrders
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => updateOrderStatus(id, status),
@@ -144,11 +149,17 @@ export default function Orders() {
                 <div className="flex items-center justify-between border-t border-sheen-cream pt-3">
                   <p className="font-display text-lg font-bold text-sheen-brown">{order.total_amount.toFixed(2)} AED</p>
                   <div className="flex gap-2">
+                    {/* New order — Confirm or Reject */}
                     {order.status === 'pending' && (
                       <>
                         <button
-                          onClick={() => setStickerOrder(order)}
-                          className="px-4 py-1.5 rounded-lg bg-green-500 text-white text-sm font-body font-medium hover:bg-green-600 transition-colors"
+                          onClick={() => {
+                            updateStatus.mutate({ id: order.id, status: 'confirmed' }, {
+                              onSuccess: () => setStickerOrder(order),
+                            })
+                          }}
+                          disabled={updateStatus.isPending}
+                          className="px-4 py-1.5 rounded-lg bg-green-500 text-white text-sm font-body font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
                         >
                           {t('confirm')}
                         </button>
@@ -159,6 +170,18 @@ export default function Orders() {
                         >
                           {t('reject')}
                         </button>
+                      </>
+                    )}
+                    {/* Confirmed — Complete or Print Sticker */}
+                    {order.status === 'confirmed' && (
+                      <>
+                        <button
+                          onClick={() => updateStatus.mutate({ id: order.id, status: 'completed' })}
+                          disabled={updateStatus.isPending}
+                          className="px-4 py-1.5 rounded-lg bg-blue-500 text-white text-sm font-body font-medium hover:bg-blue-600 transition-colors disabled:opacity-50"
+                        >
+                          {t('markComplete')}
+                        </button>
                         <button
                           onClick={() => setStickerOrder(order)}
                           className="px-4 py-1.5 rounded-lg bg-sheen-gold/20 text-sheen-brown text-sm font-body font-medium hover:bg-sheen-gold/30 transition-colors"
@@ -166,6 +189,15 @@ export default function Orders() {
                           {t('printSticker')}
                         </button>
                       </>
+                    )}
+                    {/* Completed — Print Sticker only */}
+                    {order.status === 'completed' && (
+                      <button
+                        onClick={() => setStickerOrder(order)}
+                        className="px-4 py-1.5 rounded-lg bg-sheen-gold/20 text-sheen-brown text-sm font-body font-medium hover:bg-sheen-gold/30 transition-colors"
+                      >
+                        {t('printSticker')}
+                      </button>
                     )}
                   </div>
                 </div>
