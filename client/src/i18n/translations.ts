@@ -119,6 +119,7 @@ export const translations = {
   onCommission: { en: 'on commission', ar: 'على العمولة' },
   downloadReport: { en: 'Download Report', ar: 'تحميل التقرير' },
   reportDate: { en: 'Report Date', ar: 'تاريخ التقرير' },
+  reportPreview: { en: 'Report Preview', ar: 'معاينة التقرير' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },
   orders: { en: 'Orders', ar: 'الطلبات' },

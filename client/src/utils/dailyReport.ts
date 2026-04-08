@@ -216,6 +216,23 @@ export function generateDailyReport(
   doc.text('SHEEN Coffee Shop \u2014 Daily Sales Report', pageWidth / 2, footerY + 2, { align: 'center' })
   doc.text(`@SheenCafe \u2014 Generated ${format(new Date(), 'dd/MM/yyyy hh:mm a')}`, pageWidth / 2, footerY + 7, { align: 'center' })
 
-  // Save
-  doc.save(`SHEEN-Daily-Report-${format(today, 'yyyy-MM-dd')}.pdf`)
+  return { doc, filename: `SHEEN-Daily-Report-${format(today, 'yyyy-MM-dd')}.pdf` }
+}
+
+export function downloadDailyReport(
+  sales: (Sale & { sale_items?: SaleItem[] })[],
+  orderSources: OrderSource[],
+  reportDate?: Date,
+) {
+  const { doc, filename } = generateDailyReport(sales, orderSources, reportDate)
+  doc.save(filename)
+}
+
+export function previewDailyReport(
+  sales: (Sale & { sale_items?: SaleItem[] })[],
+  orderSources: OrderSource[],
+  reportDate?: Date,
+): string {
+  const { doc } = generateDailyReport(sales, orderSources, reportDate)
+  return doc.output('bloburl') as string
 }

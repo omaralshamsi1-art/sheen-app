@@ -10,7 +10,7 @@ import api from '../lib/api'
 import { format } from 'date-fns'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
-import { generateDailyReport } from '../utils/dailyReport'
+import { downloadDailyReport, previewDailyReport } from '../utils/dailyReport'
 import toast from 'react-hot-toast'
 
 const CATEGORIES: MenuCategory[] = [
@@ -35,6 +35,8 @@ export default function Sales() {
   const [orderSource, setOrderSource] = useState('POS')
   const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [reportLoading, setReportLoading] = useState(false)
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null)
+  const [previewSalesData, setPreviewSalesData] = useState<any[]>([])
 
   // Fetch commission rates from database
   const DEFAULT_SOURCES = [
@@ -141,24 +143,29 @@ export default function Sales() {
 
   const hasItems = Object.values(quantities).some((q) => q > 0)
 
-  // Download report for selected date
-  const handleDownloadReport = async () => {
+  // Preview report for selected date
+  const handlePreviewReport = async () => {
     setReportLoading(true)
     try {
       const isToday = reportDate === format(new Date(), 'yyyy-MM-dd')
       let salesData = todaySales
 
       if (!isToday) {
-        // Fetch sales for the selected date
         const { data } = await api.get(`/api/sales?from=${reportDate}&to=${reportDate}`)
         salesData = data
       }
 
-      generateDailyReport(salesData, ORDER_SOURCES as any, new Date(reportDate + 'T00:00:00'))
+      setPreviewSalesData(salesData)
+      const url = previewDailyReport(salesData, ORDER_SOURCES as any, new Date(reportDate + 'T00:00:00'))
+      setPdfPreviewUrl(url)
     } catch {
       toast.error('Failed to generate report')
     }
     setReportLoading(false)
+  }
+
+  const handleDownloadFromPreview = () => {
+    downloadDailyReport(previewSalesData, ORDER_SOURCES as any, new Date(reportDate + 'T00:00:00'))
   }
 
   // Record sale handler
@@ -440,9 +447,9 @@ export default function Sales() {
             />
           </div>
           <button
-            onClick={handleDownloadReport}
+            onClick={handlePreviewReport}
             disabled={reportLoading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sheen-black text-sheen-gold font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors disabled:opacity-50"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -451,7 +458,7 @@ export default function Sales() {
               <line x1="16" y1="17" x2="8" y2="17" />
               <polyline points="10 9 9 9 8 9" />
             </svg>
-            {reportLoading ? '...' : t('downloadReport')}
+            {reportLoading ? '...' : t('reportPreview')}
           </button>
         </div>
         <div className="grid grid-cols-2 gap-4 mb-8">
@@ -529,6 +536,49 @@ export default function Sales() {
           )}
         </div>
       </main>
+
+      {/* PDF Preview Modal */}
+      {pdfPreviewUrl && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setPdfPreviewUrl(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-sheen-cream">
+              <h3 className="font-display text-lg font-semibold text-sheen-black">{t('reportPreview')}</h3>
+              <button onClick={() => setPdfPreviewUrl(null)} className="text-sheen-muted hover:text-sheen-black text-xl">&times;</button>
+            </div>
+
+            {/* PDF Viewer */}
+            <div className="flex-1 min-h-0">
+              <iframe
+                src={pdfPreviewUrl}
+                className="w-full h-full min-h-[60vh]"
+                title="PDF Preview"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 px-5 py-3 border-t border-sheen-cream">
+              <button
+                onClick={handleDownloadFromPreview}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                {t('downloadReport')}
+              </button>
+              <button
+                onClick={() => setPdfPreviewUrl(null)}
+                className="px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-muted font-body text-sm font-medium hover:bg-sheen-muted/20 transition-colors"
+              >
+                {t('cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
