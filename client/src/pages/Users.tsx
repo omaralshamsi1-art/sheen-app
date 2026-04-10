@@ -291,12 +291,31 @@ export default function Users() {
                         <div className="flex items-center justify-between flex-wrap gap-2">
                           {/* Email + status */}
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <p className={`font-body text-sm ${user.is_banned ? 'text-red-400 line-through' : 'text-sheen-black'}`}>{user.email}</p>
                               {user.is_banned && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-body font-medium bg-red-100 text-red-600">{t('disabled')}</span>
                               )}
                             </div>
+                            {user.role === 'customer' && (
+                              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                {user.full_name && (
+                                  <span className="font-body text-xs text-sheen-black">{user.full_name}</span>
+                                )}
+                                {user.phone && (
+                                  <span className="font-body text-xs text-sheen-muted flex items-center gap-1">
+                                    📞 {user.phone}
+                                  </span>
+                                )}
+                                {user.plate_number ? (
+                                  <span className="px-2 py-0.5 rounded bg-sheen-gold/20 text-sheen-black text-xs font-body font-semibold tracking-wider">
+                                    🚗 {user.plate_number}
+                                  </span>
+                                ) : (
+                                  <span className="font-body text-[10px] text-sheen-muted italic">No plate number</span>
+                                )}
+                              </div>
+                            )}
                             {user.last_sign_in && (
                               <p className="font-body text-[10px] text-sheen-muted mt-0.5">
                                 {t('lastLogin')}: {new Date(user.last_sign_in).toLocaleDateString()}
