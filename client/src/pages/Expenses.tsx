@@ -523,7 +523,7 @@ export default function Expenses() {
               disabled={
                 createExpense.isPending ||
                 !form.ingredient_name.trim() ||
-                !form.quantity ||
+                (!form.quantity && !form.packs) ||
                 !form.unit.trim() ||
                 form.unit_cost === ''
               }
