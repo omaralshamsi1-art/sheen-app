@@ -511,15 +511,6 @@ export default function Sales() {
 
         {/* ── PDF Report ── */}
         <div className="flex items-center gap-3 justify-end mb-2 flex-wrap">
-          <button
-            onClick={() => printZReport(todaySales, new Date())}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sheen-black text-white font-body text-sm font-medium hover:bg-sheen-black/80 transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-            </svg>
-            End of Day
-          </button>
           <div className="flex items-center gap-2">
             <label className="font-body text-xs text-sheen-muted">{t('reportDate')}:</label>
             <input
@@ -562,6 +553,17 @@ export default function Sales() {
             </p>
           </div>
         </div>
+
+        {/* ── End of Day ── */}
+        <button
+          onClick={() => printZReport(todaySales, new Date())}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-sheen-black text-white font-body text-base font-semibold hover:bg-sheen-black/80 transition-colors mb-6"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          End of Day (Z Report)
+        </button>
 
         {/* ── Today's Sales Log ── */}
         <h2 className="font-display text-2xl text-sheen-black mb-4">
