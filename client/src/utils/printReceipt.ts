@@ -42,22 +42,22 @@ export function printReceipt(data: ReceiptData) {
   body {
     width: 80mm;
     font-family: Arial, sans-serif;
-    font-size: 12px;
+    font-size: 14px;
     color: #000;
     padding: 4mm;
   }
   .center { text-align: center; }
   .right { text-align: right; }
   .bold { font-weight: normal; }
-  .logo { font-size: 16px; font-weight: bold; letter-spacing: 2px; margin-bottom: 2px; }
-  .sub { font-size: 10px; color: #555; }
+  .logo { font-size: 20px; font-weight: bold; letter-spacing: 2px; margin-bottom: 2px; }
+  .sub { font-size: 13px; color: #000; }
   .line { border-top: 1px dashed #000; margin: 4px 0; }
   .double-line { border-top: 2px solid #000; margin: 4px 0; }
   table { width: 100%; border-collapse: collapse; }
-  td { padding: 2px 0; font-size: 12px; }
-  .total-row td { font-size: 14px; font-weight: bold; padding-top: 4px; }
-  .info { font-size: 10px; }
-  .footer { font-size: 9px; color: #555; margin-top: 8px; }
+  td { padding: 2px 0; font-size: 14px; }
+  .total-row td { font-size: 16px; font-weight: bold; padding-top: 4px; }
+  .info { font-size: 13px; }
+  .footer { font-size: 13px; color: #000; margin-top: 8px; }
   @media print {
     body { width: 80mm; }
   }
