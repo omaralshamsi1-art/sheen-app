@@ -53,7 +53,7 @@ const INITIAL_FORM: FormState = {
   supplier: '',
   quantity: '',
   packs: '',
-  unit: '',
+  unit: 'grams',
   unit_cost: '',
   category: 'Coffee',
 }
