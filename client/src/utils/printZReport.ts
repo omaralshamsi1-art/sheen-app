@@ -19,7 +19,7 @@ export function printZReport(sales: SaleWithItems[], date: Date) {
   }
   const grandTotal = Object.values(bySource).reduce((s, v) => s + v, 0)
 
-  // ── Items by category ──
+  // ── Items by category and product ──
   const byCategory: Record<string, number> = {}
   const byProduct: Record<string, number> = {}
   for (const sale of sales) {
@@ -41,19 +41,13 @@ export function printZReport(sales: SaleWithItems[], date: Date) {
   const categoryRows = Object.entries(byCategory)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([cat, qty]) => `
-      <tr>
-        <td>${cat}</td>
-        <td class="right">${qty}</td>
-      </tr>`)
+      <tr><td>${cat}</td><td class="right">${qty}</td></tr>`)
     .join('')
 
   const productRows = Object.entries(byProduct)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([name, qty]) => `
-      <tr>
-        <td>${name}</td>
-        <td class="right">${qty}</td>
-      </tr>`)
+      <tr><td>${name}</td><td class="right">${qty}</td></tr>`)
     .join('')
 
   win.document.write(`<!DOCTYPE html>
@@ -62,6 +56,7 @@ export function printZReport(sales: SaleWithItems[], date: Date) {
 <meta charset="utf-8" />
 <title>End of Day Report</title>
 <style>
+  /* ── Screen: preview ── */
   @media screen {
     body { background: #e8e8e8; margin: 0; padding: 0; min-height: 100vh; }
     .toolbar {
@@ -84,35 +79,36 @@ export function printZReport(sales: SaleWithItems[], date: Date) {
       font-weight: 700; font-family: Arial, sans-serif; cursor: pointer;
     }
     .btn-print:hover { background: #27ae60; }
-    .preview-container { margin-top: 65px; padding: 30px 20px 40px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+    .preview-container { margin-top: 65px; padding: 30px 20px 40px; display: flex; justify-content: center; }
     .receipt-card {
       background: #fff; width: 80mm; padding: 4mm;
       box-shadow: 0 6px 24px rgba(0,0,0,0.18); border-radius: 4px;
     }
   }
+
+  /* ── Print: continuous thermal roll ── */
   @page { size: 80mm auto; margin: 0; }
   @media print {
     .toolbar { display: none !important; }
-    .preview-container { margin: 0; padding: 0; gap: 0; }
-    .receipt-card { box-shadow: none; border-radius: 0; width: 80mm; padding: 4mm; page-break-after: always; }
-    .receipt-card:last-child { page-break-after: avoid; }
+    .preview-container { margin: 0; padding: 0; }
+    .receipt-card { box-shadow: none; border-radius: 0; width: 80mm; padding: 4mm; }
     body { background: #fff; }
   }
+
+  /* ── Shared receipt styles ── */
   * { margin: 0; padding: 0; box-sizing: border-box; }
   .receipt-card { font-family: Arial, sans-serif; font-size: 13px; color: #000; }
   .center { text-align: center; }
   .right { text-align: right; }
   .logo { font-size: 18px; font-weight: bold; letter-spacing: 2px; margin-bottom: 2px; }
   .sub { font-size: 12px; color: #000; }
-  .report-title { font-size: 16px; font-weight: bold; margin: 6px 0 4px; }
-  .line { border-top: 1px dashed #000; margin: 4px 0; }
-  .double-line { border-top: 2px solid #000; margin: 4px 0; }
-  .section-title { font-size: 12px; font-weight: bold; margin: 4px 0 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .report-title { font-size: 15px; font-weight: bold; margin: 4px 0; }
+  .line { border-top: 1px dashed #000; margin: 5px 0; }
+  .double-line { border-top: 3px double #000; margin: 6px 0; }
+  .section-title { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 2px; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 2px 0; font-size: 13px; }
-  .total-row td { font-weight: bold; font-size: 14px; border-top: 1px solid #000; padding-top: 3px; margin-top: 2px; }
-  .info { font-size: 12px; }
-  .footer { font-size: 12px; color: #000; margin-top: 8px; }
+  .total-row td { font-weight: bold; font-size: 14px; border-top: 1px solid #000; padding-top: 3px; }
 </style>
 </head>
 <body>
@@ -126,9 +122,9 @@ export function printZReport(sales: SaleWithItems[], date: Date) {
   </div>
 
   <div class="preview-container">
-
-    <!-- ── Z REPORT ── -->
     <div class="receipt-card">
+
+      <!-- Shared header -->
       <div class="center">
         <div class="logo">SHEEN SPECIALITY COFFEE</div>
         <div class="sub">0557306030</div>
@@ -137,17 +133,14 @@ export function printZReport(sales: SaleWithItems[], date: Date) {
 
       <div class="line"></div>
 
-      <div class="center">
-        <div class="report-title">Z REPORT</div>
-      </div>
+      <!-- ── Z REPORT ── -->
+      <div class="center"><div class="report-title">Z REPORT</div></div>
 
-      <div class="info">
-        <table>
-          <tr><td>Date:</td><td class="right">${dateStr}</td></tr>
-          <tr><td>Time:</td><td class="right">${timeStr}</td></tr>
-          <tr><td>Report #:</td><td class="right">${reportNum}</td></tr>
-        </table>
-      </div>
+      <table style="font-size:12px; margin-top:4px">
+        <tr><td>Date:</td><td class="right">${dateStr}</td></tr>
+        <tr><td>Time:</td><td class="right">${timeStr}</td></tr>
+        <tr><td>Report #:</td><td class="right">${reportNum}</td></tr>
+      </table>
 
       <div class="line"></div>
 
@@ -173,32 +166,17 @@ export function printZReport(sales: SaleWithItems[], date: Date) {
         <tr class="total-row"><td>Total</td><td class="right">AED ${grandTotal.toFixed(2)}</td></tr>
       </table>
 
-      <div class="line"></div>
-      <div class="center footer"><p>@SheenCafe</p></div>
-      <div style="margin-bottom:8mm"></div>
-    </div>
+      <!-- Separator between reports -->
+      <div class="double-line"></div>
 
-    <!-- ── ITEMS REPORT ── -->
-    <div class="receipt-card">
-      <div class="center">
-        <div class="logo">SHEEN SPECIALITY COFFEE</div>
-        <div class="sub">0557306030</div>
-        <div class="sub">sheencafe.ae</div>
-      </div>
+      <!-- ── ITEMS REPORT ── -->
+      <div class="center"><div class="report-title">ITEMS REPORT</div></div>
 
-      <div class="line"></div>
-
-      <div class="center">
-        <div class="report-title">ITEMS REPORT</div>
-      </div>
-
-      <div class="info">
-        <table>
-          <tr><td>Date:</td><td class="right">${dateStr}</td></tr>
-          <tr><td>Time:</td><td class="right">${timeStr}</td></tr>
-          <tr><td>Report #:</td><td class="right">${reportNum}</td></tr>
-        </table>
-      </div>
+      <table style="font-size:12px; margin-top:4px">
+        <tr><td>Date:</td><td class="right">${dateStr}</td></tr>
+        <tr><td>Time:</td><td class="right">${timeStr}</td></tr>
+        <tr><td>Report #:</td><td class="right">${reportNum}</td></tr>
+      </table>
 
       <div class="line"></div>
 
@@ -217,11 +195,14 @@ export function printZReport(sales: SaleWithItems[], date: Date) {
       </table>
 
       <div class="line"></div>
-      <div class="center footer"><p>@SheenCafe</p></div>
-      <div style="margin-bottom:8mm"></div>
-    </div>
+      <div class="center" style="font-size:12px; margin-top:6px">
+        <p>@SheenCafe</p>
+      </div>
+      <div style="margin-bottom: 10mm;"></div>
 
+    </div>
   </div>
+
 </body>
 </html>`)
   win.document.close()
