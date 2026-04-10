@@ -21,6 +21,7 @@ const CATEGORIES: MenuCategory[] = [
   'Açaí',
   'Desserts',
   'Bites',
+  'Beans',
 ]
 
 export default function Sales() {

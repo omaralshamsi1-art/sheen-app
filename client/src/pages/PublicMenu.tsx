@@ -5,7 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
 import type { MenuItem, MenuCategory } from '../types'
 
-const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites']
+const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
 
 export default function PublicMenu() {
   const { t, lang, setLang } = useLanguage()

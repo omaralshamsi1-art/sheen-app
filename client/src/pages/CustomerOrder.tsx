@@ -15,7 +15,7 @@ import toast from 'react-hot-toast'
 import type { MenuItem, MenuCategory, Order, OrderItem } from '../types'
 import { format } from 'date-fns'
 
-const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites']
+const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
 const PAYMENT_METHODS = ['cash', 'card'] as const
 type PaymentMethod = typeof PAYMENT_METHODS[number]
 

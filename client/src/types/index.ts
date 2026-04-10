@@ -20,7 +20,8 @@ export type MenuCategory =
   | 'Cold Drinks'
   | 'Açaí'
   | 'Desserts'
-  | 'Bites';
+  | 'Bites'
+  | 'Beans';
 
 // ─────────────────────────────────────────────
 // INGREDIENTS

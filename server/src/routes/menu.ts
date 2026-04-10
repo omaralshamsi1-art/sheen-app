@@ -25,7 +25,7 @@ router.post('/', async (req: Request, res: Response) => {
       return
     }
 
-    const validCategories = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites']
+    const validCategories = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
     if (!category || !validCategories.includes(category)) {
       res.status(400).json({ message: `category must be one of: ${validCategories.join(', ')}` })
       return

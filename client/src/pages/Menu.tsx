@@ -319,7 +319,7 @@ export default function Menu() {
                   onChange={(e) => setNewCategory(e.target.value as MenuCategory)}
                   className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
                 >
-                  {(['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites'] as MenuCategory[]).map((c) => (
+                  {(['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans'] as MenuCategory[]).map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
