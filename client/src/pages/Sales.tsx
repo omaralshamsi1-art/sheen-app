@@ -13,6 +13,7 @@ import { getItemImage } from '../data/itemImages'
 import { downloadDailyReport, previewDailyReport } from '../utils/dailyReport'
 import toast from 'react-hot-toast'
 import { printReceipt } from '../utils/printReceipt'
+import { printZReport } from '../utils/printZReport'
 
 const CATEGORIES: MenuCategory[] = [
   'Coffee',
@@ -510,6 +511,15 @@ export default function Sales() {
 
         {/* ── PDF Report ── */}
         <div className="flex items-center gap-3 justify-end mb-2 flex-wrap">
+          <button
+            onClick={() => printZReport(todaySales, new Date())}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sheen-black text-white font-body text-sm font-medium hover:bg-sheen-black/80 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+            End of Day
+          </button>
           <div className="flex items-center gap-2">
             <label className="font-body text-xs text-sheen-muted">{t('reportDate')}:</label>
             <input
