@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   useExpenses,
   useCreateExpense,
@@ -18,6 +19,7 @@ import {
 } from 'date-fns'
 import { useLanguage } from '../i18n/LanguageContext'
 import StockAlert from '../components/StockAlert'
+import api from '../lib/api'
 
 const EXPENSE_CATEGORIES: IngredientCategory[] = [
   'Coffee',
@@ -54,6 +56,7 @@ const INITIAL_FORM: FormState = {
 
 export default function Expenses() {
   const { t } = useLanguage()
+  const queryClient = useQueryClient()
   const { data: ingredients = [] } = useIngredients()
   const createExpense = useCreateExpense()
   const deleteExpense = useDeleteExpense()
@@ -137,7 +140,7 @@ export default function Expenses() {
   }
 
   // Submit handler
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (
@@ -149,9 +152,25 @@ export default function Expenses() {
       return
     }
 
+    // Auto-create ingredient if it doesn't exist
+    const ingredientName = form.ingredient_name.trim()
+    const exists = ingredients.some((ing: { name: string }) => ing.name.toLowerCase() === ingredientName.toLowerCase())
+    if (!exists) {
+      try {
+        await api.post('/api/ingredients', {
+          name: ingredientName,
+          category: form.category,
+          unit: form.unit.trim(),
+          pack_cost: 0,
+          cost_per_unit: Number(form.unit_cost) || 0,
+        })
+        queryClient.invalidateQueries({ queryKey: ['ingredients'] })
+      } catch { /* ignore — expense still records */ }
+    }
+
     const payload: ExpensePayload = {
       expense_date: form.date,
-      ingredient_name: form.ingredient_name.trim(),
+      ingredient_name: ingredientName,
       supplier: form.supplier.trim(),
       qty_bought: Number(form.quantity),
       unit: form.unit.trim(),
@@ -262,14 +281,13 @@ export default function Expenses() {
                 placeholder="e.g. Oat Milk"
                 className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
               />
-              {showSuggestions && suggestions.length > 0 && (
+              {showSuggestions && form.ingredient_name.trim() && (
                 <ul className="absolute z-10 left-0 right-0 top-full mt-1 bg-sheen-white border border-sheen-muted/30 rounded-lg shadow-md max-h-40 overflow-y-auto">
                   {suggestions.map((ing: { id: string; name: string }) => (
                     <li
                       key={ing.id}
                       onMouseDown={() => {
                         updateField('ingredient_name', ing.name)
-                        // Auto-fill unit, cost, category
                         const full = ing as any
                         if (full.unit) updateField('unit', full.unit)
                         if (full.cost_per_unit) updateField('unit_cost', full.cost_per_unit)
@@ -281,6 +299,14 @@ export default function Expenses() {
                       {ing.name}
                     </li>
                   ))}
+                  {!ingredients.some((ing: { name: string }) => ing.name.toLowerCase() === form.ingredient_name.trim().toLowerCase()) && (
+                    <li
+                      onMouseDown={() => setShowSuggestions(false)}
+                      className="px-3 py-2 font-body text-xs text-sheen-gold border-t border-sheen-cream"
+                    >
+                      + "{form.ingredient_name.trim()}" {t('willBeCreated')}
+                    </li>
+                  )}
                 </ul>
               )}
             </div>

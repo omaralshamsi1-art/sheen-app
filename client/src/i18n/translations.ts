@@ -330,6 +330,7 @@ export const translations = {
   catBites: { en: 'Bites', ar: 'وجبات خفيفة' },
   catBeans: { en: 'Beans', ar: 'بُن' },
   beanDetails: { en: 'Bean Details', ar: 'تفاصيل البُن' },
+  willBeCreated: { en: 'will be added as new ingredient', ar: 'سيتم إضافته كمكوّن جديد' },
 
   // ── Categories (expenses) ──
   catDairy: { en: 'Dairy', ar: 'ألبان' },
