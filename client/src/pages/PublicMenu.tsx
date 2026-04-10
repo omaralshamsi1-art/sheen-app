@@ -12,6 +12,7 @@ export default function PublicMenu() {
   const { data: menuItems = [], isLoading } = useMenuItems()
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const isSwiping = useRef(false)
@@ -115,7 +116,10 @@ export default function PublicMenu() {
                 className={`bg-sheen-white rounded-xl shadow-sm overflow-hidden transition-all hover:shadow-lg ${activeCategory === 'Beans' ? 'group' : ''}`}
               >
                 {getItemImage(item.name, (item as any).image_url) ? (
-                  <div className={`overflow-hidden ${activeCategory === 'Beans' ? 'h-64' : 'h-36'}`}>
+                  <div
+                    className={`overflow-hidden ${activeCategory === 'Beans' ? 'h-64 cursor-pointer' : 'h-36'}`}
+                    onClick={() => activeCategory === 'Beans' && setLightboxImg(getItemImage(item.name, (item as any).image_url) || null)}
+                  >
                     <img
                       src={getItemImage(item.name, (item as any).image_url)}
                       alt={item.name}
@@ -183,6 +187,13 @@ export default function PublicMenu() {
           </div>
         )}
       </main>
+
+      {/* Image Lightbox */}
+      {lightboxImg && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
+          <img src={lightboxImg} alt="" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="text-center py-6 border-t border-sheen-muted/20 mt-8">

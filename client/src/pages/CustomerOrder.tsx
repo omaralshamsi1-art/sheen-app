@@ -44,6 +44,7 @@ export default function CustomerOrder() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [showCart, setShowCart] = useState(false)
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null)
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [stripeLoading, setStripeLoading] = useState(false)
 
   // Refs
@@ -245,7 +246,10 @@ export default function CustomerOrder() {
               return (
                 <div key={item.id} className={`bg-sheen-white rounded-xl shadow-sm overflow-hidden ${activeCategory === 'Beans' ? 'group hover:shadow-lg' : ''}`}>
                   {getItemImage(item.name, item.image_url) ? (
-                    <div className={`overflow-hidden ${activeCategory === 'Beans' ? 'h-56' : 'h-32'}`}>
+                    <div
+                      className={`overflow-hidden ${activeCategory === 'Beans' ? 'h-56 cursor-pointer' : 'h-32'}`}
+                      onClick={() => activeCategory === 'Beans' && setLightboxImg(getItemImage(item.name, item.image_url) || null)}
+                    >
                       <img src={getItemImage(item.name, item.image_url)} alt={item.name} className={`w-full h-full object-cover transition-transform duration-300 ${activeCategory === 'Beans' ? 'group-hover:scale-110' : ''}`} />
                     </div>
                   ) : (
@@ -295,6 +299,13 @@ export default function CustomerOrder() {
             })
           )}
         </div>
+
+        {/* Image Lightbox */}
+        {lightboxImg && (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
+            <img src={lightboxImg} alt="" className="max-w-full max-h-[85vh] object-contain rounded-lg" />
+          </div>
+        )}
 
         {/* Floating Cart Button */}
         {cartCount > 0 && !showCart && (
