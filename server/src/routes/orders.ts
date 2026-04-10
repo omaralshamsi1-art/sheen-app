@@ -118,8 +118,8 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
     if (error) throw error
 
-    // Auto-add loyalty visit when order is confirmed or completed
-    if ((status === 'confirmed' || status === 'completed') && data.customer_id) {
+    // Auto-add loyalty visit only when order is completed (customer got their coffee)
+    if (status === 'completed' && data.customer_id) {
       try {
         // Find or create loyalty card
         const { data: card } = await supabase
