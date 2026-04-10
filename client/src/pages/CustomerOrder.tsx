@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMenuItems } from '../hooks/useFixedCosts'
+import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useRole } from '../hooks/useRole'
 import { getDefaultPaymentMethods } from '../services/userService'
@@ -22,7 +23,40 @@ type PaymentMethod = typeof PAYMENT_METHODS[number]
 export default function CustomerOrder() {
   const { t } = useLanguage()
   const { user } = useAuth()
-  const { allowedPaymentMethods } = useRole()
+  const { allowedPaymentMethods, plateNumber, phone, fullName, roleLoading } = useRole()
+
+  // Profile completion state
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [profileName, setProfileName] = useState('')
+  const [profilePhone, setProfilePhone] = useState('')
+  const [profilePlate, setProfilePlate] = useState('')
+  const [profileSaving, setProfileSaving] = useState(false)
+
+  // Show profile modal if plate number is missing (after role loads)
+  useEffect(() => {
+    if (!roleLoading && user && plateNumber === null) {
+      setProfileName(fullName || user.user_metadata?.full_name || user.user_metadata?.name || '')
+      setProfilePhone(phone || '')
+      setProfilePlate('')
+      setShowProfileModal(true)
+    }
+  }, [roleLoading, plateNumber, user, fullName, phone])
+
+  const handleSaveProfile = async () => {
+    if (!profilePlate.trim() || !user) return
+    setProfileSaving(true)
+    try {
+      await api.patch(`/api/users/profile/${user.id}`, {
+        full_name: profileName.trim() || undefined,
+        phone: profilePhone.trim() || undefined,
+        plate_number: profilePlate.trim(),
+      })
+      setShowProfileModal(false)
+    } catch {
+      toast.error('Failed to save profile')
+    }
+    setProfileSaving(false)
+  }
   const queryClient = useQueryClient()
 
   // Fetch default payment methods (for any customer)
@@ -143,7 +177,7 @@ export default function CustomerOrder() {
         price: i.selling_price,
         qty: i.qty,
       })),
-      notes: notes ? `${notes}\n${paymentNote}` : paymentNote,
+      notes: [plateNumber ? `Plate: ${plateNumber}` : null, notes || null, paymentNote].filter(Boolean).join('\n'),
     })
     toast.success(t('orderSubmitted'))
     setQuantities({})
@@ -469,6 +503,58 @@ export default function CustomerOrder() {
           </section>
         )}
       </main>
+
+      {/* ── Profile Completion Modal ── */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <h3 className="font-display text-xl font-bold text-sheen-black mb-1">Complete Your Profile</h3>
+            <p className="font-body text-sm text-sheen-muted mb-5">We need a few details to serve you better at our drive-through.</p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block font-body text-xs text-sheen-muted mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={profileName}
+                  onChange={e => setProfileName(e.target.value)}
+                  placeholder="Your name"
+                  className="w-full px-3 py-2.5 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              </div>
+              <div>
+                <label className="block font-body text-xs text-sheen-muted mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={profilePhone}
+                  onChange={e => setProfilePhone(e.target.value)}
+                  placeholder="e.g. 0501234567"
+                  className="w-full px-3 py-2.5 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              </div>
+              <div>
+                <label className="block font-body text-xs text-sheen-muted mb-1">UAE Plate Number <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={profilePlate}
+                  onChange={e => setProfilePlate(e.target.value.toUpperCase())}
+                  placeholder="e.g. A 12345"
+                  autoFocus
+                  className="w-full px-3 py-2.5 rounded-lg border border-sheen-gold font-body text-sm focus:outline-none focus:ring-2 focus:ring-sheen-gold uppercase tracking-widest"
+                />
+              </div>
+
+              <button
+                onClick={handleSaveProfile}
+                disabled={!profilePlate.trim() || profileSaving}
+                className="w-full py-3 rounded-xl bg-sheen-brown text-white font-body font-semibold text-sm hover:bg-sheen-brown/90 transition-colors disabled:opacity-50 mt-2"
+              >
+                {profileSaving ? 'Saving...' : 'Save & Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

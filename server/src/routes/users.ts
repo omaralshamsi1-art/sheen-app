@@ -184,6 +184,31 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
+// PATCH /api/users/profile/:userId — customer updates their own profile
+router.patch('/profile/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params
+    const { full_name, phone, plate_number } = req.body
+
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+    if (full_name !== undefined) updates.full_name = String(full_name).trim().slice(0, 100)
+    if (phone !== undefined) updates.phone = String(phone).trim().slice(0, 20)
+    if (plate_number !== undefined) updates.plate_number = String(plate_number).trim().toUpperCase().slice(0, 20)
+
+    const { data, error } = await supabase
+      .from('user_roles')
+      .update(updates)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+    res.json(data)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // PATCH /api/users/:id — update role and/or allowed_pages by record id
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
