@@ -41,15 +41,15 @@ export function printReceipt(data: ReceiptData) {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     width: 80mm;
-    font-family: 'Courier New', monospace;
+    font-family: Arial, sans-serif;
     font-size: 12px;
     color: #000;
     padding: 4mm;
   }
   .center { text-align: center; }
   .right { text-align: right; }
-  .bold { font-weight: bold; }
-  .logo { font-size: 20px; font-weight: bold; letter-spacing: 3px; margin-bottom: 2px; }
+  .bold { font-weight: normal; }
+  .logo { font-size: 16px; font-weight: bold; letter-spacing: 2px; margin-bottom: 2px; }
   .sub { font-size: 10px; color: #555; }
   .line { border-top: 1px dashed #000; margin: 4px 0; }
   .double-line { border-top: 2px solid #000; margin: 4px 0; }
@@ -66,8 +66,8 @@ export function printReceipt(data: ReceiptData) {
 <body>
   <!-- Header -->
   <div class="center">
-    <div class="logo">SHEEN</div>
-    <div class="sub">Speciality Coffee</div>
+    <div class="logo">SHEEN SPECIALITY COFFEE</div>
+    <div class="sub">0557306030</div>
     <div class="sub">sheencafe.ae</div>
   </div>
 
@@ -92,7 +92,7 @@ export function printReceipt(data: ReceiptData) {
 
   <!-- Items -->
   <table>
-    <tr class="bold" style="font-size:11px">
+    <tr style="font-size:11px">
       <td>Item</td>
       <td style="text-align:center">Qty</td>
       <td style="text-align:right">AED</td>
