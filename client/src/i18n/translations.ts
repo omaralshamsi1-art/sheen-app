@@ -122,6 +122,7 @@ export const translations = {
   reportPreview: { en: 'Report Preview', ar: 'معاينة التقرير' },
   sendByEmail: { en: 'Send by Email', ar: 'إرسال بالبريد' },
   emailSent: { en: 'Email sent!', ar: 'تم إرسال البريد!' },
+  printReceipt: { en: 'Receipt', ar: 'إيصال' },
   emailFailed: { en: 'Failed to send email', ar: 'فشل إرسال البريد' },
   viewMenu: { en: 'View Our Menu', ar: 'عرض القائمة' },
   orderNow: { en: 'Order', ar: 'اطلب الآن' },

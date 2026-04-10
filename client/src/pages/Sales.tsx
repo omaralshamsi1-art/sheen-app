@@ -12,6 +12,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
 import { downloadDailyReport, previewDailyReport } from '../utils/dailyReport'
 import toast from 'react-hot-toast'
+import { printReceipt } from '../utils/printReceipt'
 
 const CATEGORIES: MenuCategory[] = [
   'Coffee',
@@ -549,13 +550,31 @@ export default function Sales() {
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => deleteSale.mutate(sale.id)}
-                    disabled={deleteSale.isPending}
-                    className="shrink-0 text-red-500 hover:text-red-700 text-sm font-body transition-colors disabled:opacity-50"
-                  >
-                    {t('delete')}
-                  </button>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <button
+                      onClick={() => {
+                        const items = saleItems.map((si: SaleItem) => ({ name: si.name, qty: si.qty, total: si.total }))
+                        printReceipt({
+                          orderNumber: sale.id.slice(0, 8).toUpperCase(),
+                          date: new Date(sale.recorded_at),
+                          source: sale.recorded_by || 'POS',
+                          items,
+                          subtotal: sale.total_revenue,
+                          total: sale.total_revenue,
+                        })
+                      }}
+                      className="text-sheen-brown hover:text-sheen-gold text-xs font-body transition-colors"
+                    >
+                      {t('printReceipt')}
+                    </button>
+                    <button
+                      onClick={() => deleteSale.mutate(sale.id)}
+                      disabled={deleteSale.isPending}
+                      className="text-red-500 hover:text-red-700 text-xs font-body transition-colors disabled:opacity-50"
+                    >
+                      {t('delete')}
+                    </button>
+                  </div>
                 </div>
               )
             })

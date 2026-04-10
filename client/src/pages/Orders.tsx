@@ -8,6 +8,7 @@ import StickerPrint from '../components/StickerPrint'
 import toast from 'react-hot-toast'
 import type { Order, OrderItem } from '../types'
 import { format } from 'date-fns'
+import { printReceipt } from '../utils/printReceipt'
 
 const STATUS_TABS = ['pending', 'rejected', 'completed'] as const
 
@@ -45,6 +46,19 @@ export default function Orders() {
   }
 
   const pendingCount = orders.filter((o: Order) => o.status === 'pending').length
+
+  const handlePrintReceipt = (order: Order) => {
+    const items = (order.order_items ?? []).map((i: OrderItem) => ({ name: i.name, qty: i.qty, total: i.total }))
+    printReceipt({
+      orderNumber: order.id.slice(0, 8).toUpperCase(),
+      date: new Date(order.created_at),
+      customerName: (order.customer_name ?? '').replace('Staff: ', '').replace('POS: ', '') || undefined,
+      source: order.notes?.match(/\[(\w+)/)?.[1] || undefined,
+      items,
+      subtotal: order.total_amount,
+      total: order.total_amount,
+    })
+  }
 
   return (
     <div className="min-h-screen bg-sheen-cream">
@@ -199,6 +213,13 @@ export default function Orders() {
                         {t('printSticker')}
                       </button>
                     )}
+                    {/* Print Receipt — always available */}
+                    <button
+                      onClick={() => handlePrintReceipt(order)}
+                      className="px-4 py-1.5 rounded-lg bg-sheen-cream text-sheen-black text-sm font-body font-medium hover:bg-sheen-muted/20 transition-colors"
+                    >
+                      {t('printReceipt')}
+                    </button>
                   </div>
                 </div>
               </div>
