@@ -129,7 +129,44 @@ export default function PublicMenu() {
                 )}
                 <div className={activeCategory === 'Beans' ? 'p-4' : 'p-3'}>
                   <h3 className={`font-body font-medium text-sheen-black ${activeCategory === 'Beans' ? 'text-base' : 'text-sm'} truncate`}>{item.name}</h3>
-                  <div className="flex items-center justify-between mt-1">
+                  {/* Bean details */}
+                  {activeCategory === 'Beans' && item.description && (
+                    <div className="mt-2 space-y-2">
+                      {(() => {
+                        const parts = item.description.split(' | ')
+                        const roastType = parts[0] || ''
+                        const tastingLine = parts.find(p => p.startsWith('Tasting Notes:'))
+                        const tastingNotes = tastingLine ? tastingLine.replace('Tasting Notes: ', '').split(', ') : []
+                        const details = parts.filter(p => !p.startsWith('Tasting Notes:') && p !== roastType)
+                        return (
+                          <>
+                            <p className="font-body text-xs text-sheen-gold uppercase tracking-wider font-medium">{roastType}</p>
+                            {tastingNotes.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {tastingNotes.map(note => (
+                                  <span key={note} className="px-2 py-0.5 rounded-full bg-sheen-cream text-sheen-brown text-[10px] font-body font-medium border border-sheen-muted/20">
+                                    {note}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                              {details.map(d => {
+                                const [label, ...val] = d.split(': ')
+                                return (
+                                  <div key={label}>
+                                    <p className="font-body text-[9px] text-sheen-muted uppercase tracking-wider">{label}</p>
+                                    <p className="font-body text-xs text-sheen-black font-medium">{val.join(': ')}</p>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mt-2">
                     <p className={`font-display font-semibold text-sheen-brown ${activeCategory === 'Beans' ? 'text-xl' : 'text-lg'}`}>
                       {item.selling_price} <span className="text-sm">AED</span>
                     </p>

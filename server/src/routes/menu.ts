@@ -108,6 +108,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
       updates.image_url = image_url
     }
 
+    if (req.body.description !== undefined) {
+      updates.description = req.body.description
+    }
+
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ message: 'No valid fields to update' })
       return

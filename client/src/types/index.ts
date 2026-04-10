@@ -11,6 +11,7 @@ export interface MenuItem {
   packaging_cost: number;
   gross_margin: number;
   image_url: string | null;
+  description: string | null;
   created_at: string;
 }
 

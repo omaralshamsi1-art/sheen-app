@@ -251,9 +251,33 @@ export default function CustomerOrder() {
                   ) : (
                     <div className={`w-full ${activeCategory === 'Beans' ? 'h-56 bg-sheen-black' : 'h-32 bg-sheen-cream'} flex items-center justify-center text-3xl`}>☕</div>
                   )}
-                  <div className="p-3">
-                    <h3 className="font-body font-medium text-sheen-black text-sm leading-tight">{item.name}</h3>
-                    <p className="font-display text-base font-semibold text-sheen-brown mt-1">{item.selling_price} AED</p>
+                  <div className={activeCategory === 'Beans' ? 'p-4' : 'p-3'}>
+                    <h3 className={`font-body font-medium text-sheen-black leading-tight ${activeCategory === 'Beans' ? 'text-base' : 'text-sm'}`}>{item.name}</h3>
+                    {activeCategory === 'Beans' && item.description && (
+                      <div className="mt-2 space-y-1.5">
+                        {(() => {
+                          const parts = item.description.split(' | ')
+                          const roastType = parts[0] || ''
+                          const tastingLine = parts.find(p => p.startsWith('Tasting Notes:'))
+                          const tastingNotes = tastingLine ? tastingLine.replace('Tasting Notes: ', '').split(', ') : []
+                          return (
+                            <>
+                              <p className="font-body text-[10px] text-sheen-gold uppercase tracking-wider font-medium">{roastType}</p>
+                              {tastingNotes.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {tastingNotes.map(note => (
+                                    <span key={note} className="px-1.5 py-0.5 rounded-full bg-sheen-cream text-sheen-brown text-[9px] font-body font-medium">
+                                      {note}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
+                    <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>{item.selling_price} AED</p>
                     <div className="flex items-center gap-1 mt-2">
                       {qty > 0 ? (
                         <>
