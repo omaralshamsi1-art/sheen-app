@@ -7,6 +7,7 @@ import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
 import type { UserRole, UserRoleRecord } from '../types'
+import api from '../lib/api'
 
 const ROLES: UserRole[] = ['admin', 'staff', 'customer']
 
@@ -37,6 +38,22 @@ export default function Users() {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
   const [passwordUserId, setPasswordUserId] = useState<string | null>(null)
   const [newPasswordValue, setNewPasswordValue] = useState('')
+  const [editProfileUserId, setEditProfileUserId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editPlate, setEditPlate] = useState('')
+
+  const editProfileMutation = useMutation({
+    mutationFn: async ({ userId, full_name, phone, plate_number }: { userId: string; full_name: string; phone: string; plate_number: string }) => {
+      await api.patch(`/api/users/profile/${userId}`, { full_name, phone, plate_number })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success('Profile updated')
+      setEditProfileUserId(null)
+    },
+    onError: () => toast.error('Failed to update profile'),
+  })
 
   const addMutation = useMutation({
     mutationFn: () => addUser(newEmail.trim(), newRole, newPassword || undefined),
@@ -297,15 +314,13 @@ export default function Users() {
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-body font-medium bg-red-100 text-red-600">{t('disabled')}</span>
                               )}
                             </div>
-                            {user.role === 'customer' && (
+                            {user.role === 'customer' && editProfileUserId !== user.id && (
                               <div className="flex items-center gap-3 mt-1 flex-wrap">
                                 {user.full_name && (
                                   <span className="font-body text-xs text-sheen-black">{user.full_name}</span>
                                 )}
                                 {user.phone && (
-                                  <span className="font-body text-xs text-sheen-muted flex items-center gap-1">
-                                    📞 {user.phone}
-                                  </span>
+                                  <span className="font-body text-xs text-sheen-muted">📞 {user.phone}</span>
                                 )}
                                 {user.plate_number ? (
                                   <span className="px-2 py-0.5 rounded bg-sheen-gold/20 text-sheen-black text-xs font-body font-semibold tracking-wider">
@@ -314,6 +329,69 @@ export default function Users() {
                                 ) : (
                                   <span className="font-body text-[10px] text-sheen-muted italic">No plate number</span>
                                 )}
+                                <button
+                                  onClick={() => {
+                                    setEditProfileUserId(user.id)
+                                    setEditName(user.full_name || '')
+                                    setEditPhone(user.phone || '')
+                                    setEditPlate(user.plate_number || '')
+                                  }}
+                                  className="text-sheen-gold hover:text-sheen-brown text-[10px] font-body font-medium transition-colors"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            )}
+
+                            {user.role === 'customer' && editProfileUserId === user.id && (
+                              <div className="mt-2 p-3 bg-sheen-cream/60 rounded-lg space-y-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                  <div>
+                                    <label className="block font-body text-[10px] text-sheen-muted mb-1">Full Name</label>
+                                    <input
+                                      type="text"
+                                      value={editName}
+                                      onChange={e => setEditName(e.target.value)}
+                                      placeholder="Full name"
+                                      className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-xs focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block font-body text-[10px] text-sheen-muted mb-1">Phone</label>
+                                    <input
+                                      type="text"
+                                      value={editPhone}
+                                      onChange={e => setEditPhone(e.target.value)}
+                                      placeholder="Phone number"
+                                      className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-xs focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block font-body text-[10px] text-sheen-muted mb-1">Plate Number</label>
+                                    <input
+                                      type="text"
+                                      value={editPlate}
+                                      onChange={e => setEditPlate(e.target.value.toUpperCase())}
+                                      placeholder="e.g. A 12345"
+                                      className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-xs focus:outline-none focus:ring-1 focus:ring-sheen-gold uppercase tracking-wider"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => editProfileMutation.mutate({ userId: user.user_id, full_name: editName, phone: editPhone, plate_number: editPlate })}
+                                    disabled={editProfileMutation.isPending}
+                                    className="px-3 py-1.5 rounded-lg bg-sheen-brown text-white font-body text-xs font-medium hover:bg-sheen-brown/90 disabled:opacity-50 transition-colors"
+                                  >
+                                    {editProfileMutation.isPending ? 'Saving...' : 'Save'}
+                                  </button>
+                                  <button
+                                    onClick={() => setEditProfileUserId(null)}
+                                    className="px-3 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-xs text-sheen-muted hover:bg-sheen-cream transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
                               </div>
                             )}
                             {user.last_sign_in && (
