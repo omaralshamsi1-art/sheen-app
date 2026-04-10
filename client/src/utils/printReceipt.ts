@@ -18,6 +18,7 @@ interface ReceiptData {
   total: number
   customerName?: string
   paymentMethod?: string
+  plateNumber?: string
 }
 
 export function printReceipt(data: ReceiptData) {
@@ -169,6 +170,7 @@ export function printReceipt(data: ReceiptData) {
           ${data.source && data.source !== 'POS' ? `<tr><td>Source:</td><td class="right">${data.source}</td></tr>` : ''}
           ${data.customerName ? `<tr><td>Customer:</td><td class="right">${data.customerName}</td></tr>` : ''}
           ${data.paymentMethod ? `<tr><td>Payment:</td><td class="right">${data.paymentMethod}</td></tr>` : ''}
+          ${data.plateNumber ? `<tr><td>Plate #:</td><td class="right"><strong>${data.plateNumber}</strong></td></tr>` : ''}
         </table>
       </div>
 

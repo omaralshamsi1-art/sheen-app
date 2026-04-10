@@ -610,6 +610,7 @@ export default function Sales() {
                           items,
                           subtotal: sale.total_revenue,
                           total: sale.total_revenue,
+                          plateNumber: sale.notes || undefined,
                         })
                       }}
                       className="text-sheen-brown hover:text-sheen-gold text-xs font-body transition-colors"
