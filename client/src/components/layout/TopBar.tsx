@@ -14,7 +14,10 @@ export default function TopBar({ title }: TopBarProps) {
     : format(today, 'EEEE, MMMM d, yyyy')
 
   return (
-    <header className="bg-white border-b border-sheen-cream px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-20 w-full">
+    <header
+      className="bg-white border-b border-sheen-cream px-4 md:px-6 pb-3 md:pb-4 flex items-center justify-between sticky top-0 z-20 w-full"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+    >
       {/* Spacer for hamburger button on mobile */}
       <div className="flex items-center gap-2 min-w-0">
         <div className="w-8 h-8 md:hidden shrink-0" aria-hidden="true" />

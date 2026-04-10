@@ -53,7 +53,8 @@ export default function HamburgerMenu() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Open menu"
-        className="md:hidden fixed top-0 left-0 z-30 w-12 h-12 flex items-center justify-center"
+        className="md:hidden fixed left-0 z-30 w-12 h-12 flex items-center justify-center"
+        style={{ top: 'env(safe-area-inset-top)' }}
       >
         <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
           <rect y="0"  width="20" height="2" rx="1" fill="#1A1A1A"/>
