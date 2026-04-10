@@ -329,6 +329,7 @@ export const translations = {
   catDesserts: { en: 'Desserts', ar: 'حلويات' },
   catBites: { en: 'Bites', ar: 'وجبات خفيفة' },
   catBeans: { en: 'Beans', ar: 'بُن' },
+  beanDetails: { en: 'Bean Details', ar: 'تفاصيل البُن' },
 
   // ── Categories (expenses) ──
   catDairy: { en: 'Dairy', ar: 'ألبان' },

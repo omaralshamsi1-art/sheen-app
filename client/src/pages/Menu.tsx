@@ -49,6 +49,7 @@ export default function Menu() {
   const [recalculating, setRecalculating] = useState(false)
   const [editImageFile, setEditImageFile] = useState<File | null>(null)
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
+  const [editDescription, setEditDescription] = useState('')
   const [addingRecipeTo, setAddingRecipeTo] = useState<string | null>(null)
   const [newIngredientId, setNewIngredientId] = useState('')
   const [newQty, setNewQty] = useState('')
@@ -95,6 +96,7 @@ export default function Menu() {
     setEditActive(item.is_active ?? true)
     setEditImageFile(null)
     setEditImagePreview(null)
+    setEditDescription(item.description ?? '')
   }
 
   function handleEditImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -132,6 +134,7 @@ export default function Menu() {
       await api.patch(`/api/menu/${editItem.id}`, {
         selling_price: Number(editPrice),
         is_active: editActive,
+        description: editDescription || null,
         ...(image_url ? { image_url } : {}),
       })
       toast.success(t('menuItemUpdated'))
@@ -674,6 +677,71 @@ export default function Menu() {
                 </label>
               </div>
             </div>
+
+            {/* Description — especially for Beans */}
+            {editItem.category === 'Beans' ? (
+              <div className="space-y-3 border border-sheen-muted/20 rounded-lg p-3">
+                <p className="font-body text-xs text-sheen-muted uppercase tracking-wider font-medium">{t('beanDetails')}</p>
+                {(() => {
+                  const parts = editDescription.split(' | ')
+                  const getValue = (key: string) => {
+                    const p = parts.find(p => p.startsWith(key + ':'))
+                    return p ? p.split(': ').slice(1).join(': ') : ''
+                  }
+                  const setField = (key: string, val: string) => {
+                    const newParts = parts.filter(p => !p.startsWith(key + ':') && p.trim())
+                    if (key === parts[0]?.split(' |')[0] && !parts[0]?.includes(':')) {
+                      // roast type is first part without colon
+                      newParts[0] = val
+                    } else {
+                      newParts.push(`${key}: ${val}`)
+                    }
+                    setEditDescription(newParts.join(' | '))
+                  }
+                  const roastType = parts[0]?.includes(':') ? '' : (parts[0] ?? '')
+                  const fields = [
+                    { key: 'Region', val: getValue('Region') },
+                    { key: 'Variety', val: getValue('Variety') },
+                    { key: 'Process', val: getValue('Process') },
+                    { key: 'Producer', val: getValue('Producer') },
+                    { key: 'Altitude', val: getValue('Altitude') },
+                    { key: 'Net Weight', val: getValue('Net Weight') },
+                  ]
+                  const tastingNotes = getValue('Tasting Notes')
+                  return (
+                    <>
+                      <div>
+                        <label className="block text-[10px] font-body text-sheen-muted uppercase mb-0.5">Roast Type</label>
+                        <input type="text" value={roastType} onChange={e => { const newParts = [...parts]; newParts[0] = e.target.value; setEditDescription(newParts.join(' | ')) }} placeholder="e.g. Espresso Roast" className="w-full px-2 py-1.5 rounded border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {fields.map(f => (
+                          <div key={f.key}>
+                            <label className="block text-[10px] font-body text-sheen-muted uppercase mb-0.5">{f.key}</label>
+                            <input type="text" value={f.val} onChange={e => setField(f.key, e.target.value)} className="w-full px-2 py-1.5 rounded border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-body text-sheen-muted uppercase mb-0.5">Tasting Notes (comma separated)</label>
+                        <input type="text" value={tastingNotes} onChange={e => setField('Tasting Notes', e.target.value)} placeholder="e.g. Chocolate, Vanilla, Caramel" className="w-full px-2 py-1.5 rounded border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-1">{t('description')}</label>
+                <textarea
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  rows={2}
+                  placeholder={t('description')}
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm resize-none focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              </div>
+            )}
 
             {/* Preview updated margin */}
             {editPrice && (
