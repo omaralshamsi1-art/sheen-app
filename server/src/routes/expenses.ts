@@ -79,6 +79,36 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
+// PATCH /api/expenses/:id — update an expense
+router.patch('/:id', async (req: Request, res: Response) => {
+  try {
+    const updates: Record<string, any> = {}
+    const fields = ['expense_date', 'ingredient_name', 'category', 'supplier', 'unit', 'qty_bought', 'unit_cost', 'total_cost', 'notes']
+    for (const f of fields) {
+      if (req.body[f] !== undefined) updates[f] = req.body[f]
+    }
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ message: 'No fields to update' })
+      return
+    }
+
+    const { data: before } = await supabase.from('expenses').select('ingredient_name, total_cost').eq('id', req.params.id).single()
+    const { data, error } = await supabase
+      .from('expenses')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single()
+
+    if (error) throw error
+    await logAudit(req, { action: 'update', entity: 'expense', entity_id: req.params.id as string, details: { page: 'Expenses', ingredient: before?.ingredient_name, changes: Object.entries(updates).map(([k, v]) => `${k}: ${v}`).join(', ') } })
+    res.json(data)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // DELETE /api/expenses/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   try {

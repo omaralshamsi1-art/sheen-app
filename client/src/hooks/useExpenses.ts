@@ -24,6 +24,18 @@ export function useCreateExpense() {
   })
 }
 
+export function useUpdateExpense() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Record<string, any> }) => expenseService.updateExpense(id, updates),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] })
+      toast.success('Expense updated')
+    },
+    onError: () => toast.error('Failed to update expense'),
+  })
+}
+
 export function useDeleteExpense() {
   const qc = useQueryClient()
   return useMutation({

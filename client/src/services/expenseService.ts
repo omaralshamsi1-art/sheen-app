@@ -14,6 +14,11 @@ export const expenseService = {
     return data
   },
 
+  async updateExpense(id: string, updates: Partial<ExpensePayload>): Promise<Expense> {
+    const { data } = await api.patch(`/api/expenses/${id}`, updates)
+    return data
+  },
+
   async deleteExpense(id: string): Promise<void> {
     await api.delete(`/api/expenses/${id}`)
   },

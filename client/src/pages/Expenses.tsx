@@ -3,12 +3,14 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   useExpenses,
   useCreateExpense,
+  useUpdateExpense,
   useDeleteExpense,
   useIngredients,
   useExpenseSummary,
 } from '../hooks/useExpenses'
-import type { IngredientCategory, ExpensePayload } from '../types'
+import type { IngredientCategory, ExpensePayload, Expense } from '../types'
 import TopBar from '../components/layout/TopBar'
+import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 import {
   format,
@@ -59,7 +61,10 @@ export default function Expenses() {
   const queryClient = useQueryClient()
   const { data: ingredients = [] } = useIngredients()
   const createExpense = useCreateExpense()
+  const updateExpense = useUpdateExpense()
   const deleteExpense = useDeleteExpense()
+  const [editExpense, setEditExpense] = useState<Expense | null>(null)
+  const [editForm, setEditForm] = useState({ ingredient_name: '', qty_bought: '', unit_cost: '', total_cost: '', supplier: '', notes: '' })
 
   // Form state
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
@@ -670,13 +675,31 @@ export default function Expenses() {
                           {Number(exp.total_cost).toFixed(2)}
                         </td>
                         <td className="py-2.5">
-                          <button
-                            onClick={() => deleteExpense.mutate(exp.id)}
-                            disabled={deleteExpense.isPending}
-                            className="text-red-500 hover:text-red-700 text-xs font-body transition-colors disabled:opacity-50"
-                          >
-                            {t('delete')}
-                          </button>
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => {
+                                setEditExpense(exp)
+                                setEditForm({
+                                  ingredient_name: exp.ingredient_name,
+                                  qty_bought: String(exp.qty_bought),
+                                  unit_cost: String(exp.unit_cost),
+                                  total_cost: String(exp.total_cost),
+                                  supplier: exp.supplier ?? '',
+                                  notes: exp.notes ?? '',
+                                })
+                              }}
+                              className="text-sheen-gold hover:text-sheen-brown text-xs font-body font-medium transition-colors"
+                            >
+                              {t('edit')}
+                            </button>
+                            <button
+                              onClick={() => deleteExpense.mutate(exp.id)}
+                              disabled={deleteExpense.isPending}
+                              className="text-red-500 hover:text-red-700 text-xs font-body transition-colors disabled:opacity-50"
+                            >
+                              {t('delete')}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ),
@@ -707,6 +730,75 @@ export default function Expenses() {
           )}
         </div>
       </main>
+
+      {/* Edit Expense Modal */}
+      {editExpense && (
+        <Modal open={true} title={`${t('edit')}: ${editExpense.ingredient_name}`} onClose={() => setEditExpense(null)}>
+          <div className="space-y-3">
+            <div>
+              <label className="block font-body text-xs text-sheen-muted mb-1">{t('ingredient')}</label>
+              <input type="text" value={editForm.ingredient_name} onChange={e => setEditForm({ ...editForm, ingredient_name: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-body text-xs text-sheen-muted mb-1">{t('quantity')}</label>
+                <input type="number" min="0" step="any" value={editForm.qty_bought} onChange={e => {
+                  const qty = e.target.value
+                  const total = (Number(qty) * Number(editForm.unit_cost)).toFixed(2)
+                  setEditForm({ ...editForm, qty_bought: qty, total_cost: total })
+                }}
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+              </div>
+              <div>
+                <label className="block font-body text-xs text-sheen-muted mb-1">{t('unitCost')}</label>
+                <input type="number" min="0" step="any" value={editForm.unit_cost} onChange={e => {
+                  const cost = e.target.value
+                  const total = (Number(editForm.qty_bought) * Number(cost)).toFixed(2)
+                  setEditForm({ ...editForm, unit_cost: cost, total_cost: total })
+                }}
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+              </div>
+            </div>
+            <div>
+              <label className="block font-body text-xs text-sheen-muted mb-1">{t('totalCost')}</label>
+              <div className="px-3 py-2 rounded-lg bg-sheen-cream/50 font-body text-sm text-sheen-brown font-semibold">
+                {Number(editForm.total_cost).toFixed(2)} د.إ
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-body text-xs text-sheen-muted mb-1">{t('supplier')}</label>
+                <input type="text" value={editForm.supplier} onChange={e => setEditForm({ ...editForm, supplier: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+              </div>
+              <div>
+                <label className="block font-body text-xs text-sheen-muted mb-1">{t('notes')}</label>
+                <input type="text" value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button onClick={() => {
+                updateExpense.mutate({
+                  id: editExpense.id,
+                  updates: {
+                    ingredient_name: editForm.ingredient_name.trim(),
+                    qty_bought: Number(editForm.qty_bought),
+                    unit_cost: Number(editForm.unit_cost),
+                    total_cost: Number(editForm.total_cost),
+                    supplier: editForm.supplier.trim() || null,
+                    notes: editForm.notes.trim() || null,
+                  },
+                }, { onSuccess: () => setEditExpense(null) })
+              }} disabled={updateExpense.isPending}>
+                {updateExpense.isPending ? t('saving') : t('saveChanges')}
+              </Button>
+              <button onClick={() => setEditExpense(null)} className="text-sm font-body text-sheen-muted hover:text-sheen-black">{t('cancel')}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
