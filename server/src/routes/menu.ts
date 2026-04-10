@@ -112,6 +112,14 @@ router.patch('/:id', async (req: Request, res: Response) => {
       updates.description = req.body.description
     }
 
+    if (req.body.estimated_cogs !== undefined) {
+      updates.estimated_cogs = Number(req.body.estimated_cogs)
+    }
+
+    if (req.body.packaging_cost !== undefined) {
+      updates.packaging_cost = Number(req.body.packaging_cost)
+    }
+
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ message: 'No valid fields to update' })
       return
