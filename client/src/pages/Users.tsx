@@ -11,8 +11,9 @@ import type { UserRole, UserRoleRecord } from '../types'
 const ROLES: UserRole[] = ['admin', 'staff', 'customer']
 
 // Pages that admin can toggle for staff users
+// All pages that admin can toggle for staff (excludes customer-only pages)
 const STAFF_PAGES = navItems
-  .filter((item) => item.roles.includes('staff'))
+  .filter((item) => !item.roles.every(r => r === 'customer'))
   .map((item) => ({ path: item.to, labelKey: item.labelKey }))
 
 // Payment methods that admin can toggle

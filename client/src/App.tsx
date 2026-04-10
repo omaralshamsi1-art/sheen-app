@@ -22,6 +22,7 @@ import AuditLog from './pages/AuditLog'
 import Ingredients from './pages/Ingredients'
 import Stickers from './pages/Stickers'
 import Settings from './pages/Settings'
+import PettyCash from './pages/PettyCash'
 import MyCard from './pages/MyCard'
 import LoyaltyScan from './pages/LoyaltyScan'
 import OrderNotifier from './components/OrderNotifier'
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="/orders" element={<Orders />} />
             <Route path="/ingredients" element={<Ingredients />} />
             <Route path="/stickers" element={<Stickers />} />
+            <Route path="/petty-cash" element={<PettyCash />} />
             <Route path="/my-card" element={<MyCard />} />
             <Route path="/loyalty-scan" element={<LoyaltyScan />} />
             <Route path="/settings" element={<Settings />} />

@@ -331,6 +331,9 @@ export const translations = {
   catBeans: { en: 'Beans', ar: 'بُن' },
   beanDetails: { en: 'Bean Details', ar: 'تفاصيل البُن' },
   willBeCreated: { en: 'will be added as new ingredient', ar: 'سيتم إضافته كمكوّن جديد' },
+  pettyCash: { en: 'Petty Cash', ar: 'المصروفات النثرية' },
+  addPettyCash: { en: 'Add Petty Cash', ar: 'إضافة مصروف نثري' },
+  pettyCashPlaceholder: { en: 'e.g. Taxi, cleaning supplies, paper towels...', ar: 'مثال: تاكسي، مواد تنظيف، مناديل...' },
 
   // ── Categories (expenses) ──
   catDairy: { en: 'Dairy', ar: 'ألبان' },
