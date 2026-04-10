@@ -101,13 +101,13 @@ export default function Login() {
   )
 
   return (
-    <div className="min-h-screen bg-sheen-cream flex items-center justify-center px-4">
+    <div className="min-h-screen bg-sheen-cream px-4 py-8 flex flex-col items-center justify-start sm:justify-center overflow-y-auto">
       <div className="w-full max-w-md">
-        <div className="bg-sheen-white rounded-xl shadow-sm p-8">
+        <div className="bg-sheen-white rounded-xl shadow-sm p-6 sm:p-8">
           {/* Branding */}
-          <div className="text-center mb-8">
-            <img src="/images/logo.png" alt="SHEEN" className="w-20 h-20 mx-auto mb-3 rounded-full" />
-            <h1 className="font-display text-4xl text-sheen-black tracking-wide">SHEEN</h1>
+          <div className="text-center mb-6">
+            <img src="/images/logo.png" alt="SHEEN" className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 rounded-full" />
+            <h1 className="font-display text-3xl sm:text-4xl text-sheen-black tracking-wide">SHEEN</h1>
             <Link
               to="/public-menu"
               className="inline-block mt-2 font-body font-semibold text-sm transition-opacity hover:opacity-75"
