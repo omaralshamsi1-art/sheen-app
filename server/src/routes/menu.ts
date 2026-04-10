@@ -125,6 +125,17 @@ router.patch('/:id', async (req: Request, res: Response) => {
       return
     }
 
+    // Auto-recalculate margin if price/cogs/packaging changed
+    if (updates.selling_price !== undefined || updates.estimated_cogs !== undefined || updates.packaging_cost !== undefined) {
+      const { data: current } = await supabase.from('menu_items').select('selling_price, estimated_cogs, packaging_cost').eq('id', req.params.id).single()
+      if (current) {
+        const sp = updates.selling_price ?? current.selling_price
+        const cogs = updates.estimated_cogs ?? current.estimated_cogs
+        const pkg = updates.packaging_cost ?? current.packaging_cost
+        updates.gross_margin = sp > 0 ? Math.round(((sp - cogs - pkg) / sp) * 10000) / 100 : 0
+      }
+    }
+
     // Get old values for audit
     const { data: before } = await supabase.from('menu_items').select('name, selling_price, is_active').eq('id', req.params.id).single()
 
