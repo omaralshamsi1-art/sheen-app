@@ -334,6 +334,8 @@ export const translations = {
   pettyCash: { en: 'Petty Cash', ar: 'المصروفات النثرية' },
   addPettyCash: { en: 'Add Petty Cash', ar: 'إضافة مصروف نثري' },
   pettyCashPlaceholder: { en: 'e.g. Taxi, cleaning supplies, paper towels...', ar: 'مثال: تاكسي، مواد تنظيف، مناديل...' },
+  packs: { en: 'Packs', ar: 'عبوات' },
+  packCost: { en: 'Pack Cost', ar: 'سعر العبوة' },
 
   // ── Categories (expenses) ──
   catDairy: { en: 'Dairy', ar: 'ألبان' },

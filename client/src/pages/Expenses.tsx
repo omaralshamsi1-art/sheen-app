@@ -44,6 +44,7 @@ interface FormState {
   unit: string
   unit_cost: number | ''
   category: IngredientCategory
+  packs: number | ''
 }
 
 const INITIAL_FORM: FormState = {
@@ -51,6 +52,7 @@ const INITIAL_FORM: FormState = {
   ingredient_name: '',
   supplier: '',
   quantity: '',
+  packs: '',
   unit: '',
   unit_cost: '',
   category: 'Coffee',
@@ -99,12 +101,19 @@ export default function Expenses() {
     end: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
   })
 
+  // Auto-calculate quantity from packs if ingredient has pack_size
+  const effectiveQty = useMemo(() => {
+    if (form.packs && packSizeNum > 0) {
+      return Number(form.packs) * packSizeNum
+    }
+    return typeof form.quantity === 'number' ? form.quantity : 0
+  }, [form.packs, form.quantity, packSizeNum])
+
   // Auto-calculated total cost
   const totalCost = useMemo(() => {
-    const qty = typeof form.quantity === 'number' ? form.quantity : 0
     const cost = typeof form.unit_cost === 'number' ? form.unit_cost : 0
-    return qty * cost
-  }, [form.quantity, form.unit_cost])
+    return effectiveQty * cost
+  }, [effectiveQty, form.unit_cost])
 
   // Ingredient name autocomplete suggestions
   const suggestions = useMemo(() => {
@@ -116,6 +125,20 @@ export default function Expenses() {
       )
       .slice(0, 8)
   }, [form.ingredient_name, ingredients])
+
+  // Selected ingredient info (for pack conversion)
+  const selectedIngredient = useMemo(() => {
+    return ingredients.find((ing: { name: string }) =>
+      ing.name.toLowerCase() === form.ingredient_name.trim().toLowerCase()
+    ) as any | undefined
+  }, [form.ingredient_name, ingredients])
+
+  // Parse pack size number from string like "1000g bag" → 1000
+  const packSizeNum = useMemo(() => {
+    if (!selectedIngredient?.pack_size) return 0
+    const match = String(selectedIngredient.pack_size).match(/(\d+)/)
+    return match ? Number(match[1]) : 0
+  }, [selectedIngredient])
 
   // Supplier autocomplete from past expenses
   const supplierSuggestions = useMemo(() => {
@@ -150,7 +173,7 @@ export default function Expenses() {
 
     if (
       !form.ingredient_name.trim() ||
-      !form.quantity ||
+      (!form.quantity && !form.packs) ||
       !form.unit.trim() ||
       form.unit_cost === ''
     ) {
@@ -177,7 +200,7 @@ export default function Expenses() {
       expense_date: form.date,
       ingredient_name: ingredientName,
       supplier: form.supplier.trim(),
-      qty_bought: Number(form.quantity),
+      qty_bought: effectiveQty,
       unit: form.unit.trim(),
       unit_cost: Number(form.unit_cost),
       total_cost: totalCost,
@@ -371,26 +394,43 @@ export default function Expenses() {
               </select>
             </div>
 
-            {/* Quantity */}
-            <div>
-              <label className="block font-body text-sm text-sheen-muted mb-1">
-                {t('quantity')}
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                value={form.quantity}
-                onChange={(e) =>
-                  updateField(
-                    'quantity',
-                    e.target.value === '' ? '' : Number(e.target.value),
-                  )
-                }
-                placeholder="0"
-                className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-              />
-            </div>
+            {/* Packs or Quantity */}
+            {selectedIngredient && packSizeNum > 0 ? (
+              <div>
+                <label className="block font-body text-sm text-sheen-muted mb-1">
+                  {t('packs')} <span className="text-sheen-gold text-xs">({selectedIngredient.pack_size})</span>
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={form.packs}
+                  onChange={(e) => updateField('packs', e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="0"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+                {form.packs && packSizeNum > 0 && (
+                  <p className="font-body text-[10px] text-sheen-gold mt-1">
+                    = {effectiveQty.toLocaleString()} {selectedIngredient.unit}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <label className="block font-body text-sm text-sheen-muted mb-1">
+                  {t('quantity')}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.quantity}
+                  onChange={(e) => updateField('quantity', e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="0"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              </div>
+            )}
 
             {/* Unit */}
             <div>
@@ -406,25 +446,35 @@ export default function Expenses() {
               />
             </div>
 
-            {/* Unit Cost */}
+            {/* Unit Cost or Pack Cost */}
             <div>
               <label className="block font-body text-sm text-sheen-muted mb-1">
-                {t('unitCost')} (د.إ)
+                {selectedIngredient && packSizeNum > 0 ? t('packCost') : t('unitCost')} (د.إ)
               </label>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                value={form.unit_cost}
-                onChange={(e) =>
-                  updateField(
-                    'unit_cost',
-                    e.target.value === '' ? '' : Number(e.target.value),
-                  )
-                }
-                placeholder="0.00"
-                className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-              />
+              {selectedIngredient && packSizeNum > 0 ? (
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.unit_cost ? (Number(form.unit_cost) * packSizeNum).toFixed(2) : ''}
+                  onChange={(e) => {
+                    const packCost = Number(e.target.value) || 0
+                    updateField('unit_cost', packSizeNum > 0 ? packCost / packSizeNum : 0)
+                  }}
+                  placeholder={selectedIngredient.pack_cost ? String(selectedIngredient.pack_cost) : '0.00'}
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              ) : (
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.unit_cost}
+                  onChange={(e) => updateField('unit_cost', e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+              )}
             </div>
 
             {/* Total Cost (auto-calculated, read-only) */}
