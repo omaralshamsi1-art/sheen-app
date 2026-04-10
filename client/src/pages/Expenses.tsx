@@ -475,44 +475,36 @@ export default function Expenses() {
               </select>
             </div>
 
-            {/* Unit Cost or Pack Cost */}
+            {/* Bill Cost — enter total you paid, unit cost auto-calculates */}
             <div>
               <label className="block font-body text-sm text-sheen-muted mb-1">
-                {selectedIngredient && packSizeNum > 0 ? t('packCost') : t('unitCost')} (د.إ)
+                {t('billCost')} (د.إ)
               </label>
-              {selectedIngredient && packSizeNum > 0 ? (
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.unit_cost ? (Number(form.unit_cost) * packSizeNum).toFixed(2) : ''}
-                  onChange={(e) => {
-                    const packCost = Number(e.target.value) || 0
-                    updateField('unit_cost', packSizeNum > 0 ? packCost / packSizeNum : 0)
-                  }}
-                  placeholder={selectedIngredient.pack_cost ? String(selectedIngredient.pack_cost) : '0.00'}
-                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-                />
-              ) : (
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={form.unit_cost}
-                  onChange={(e) => updateField('unit_cost', e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-                />
-              )}
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={totalCost > 0 ? totalCost.toFixed(2) : ''}
+                onChange={(e) => {
+                  const bill = Number(e.target.value) || 0
+                  if (effectiveQty > 0) {
+                    updateField('unit_cost', bill / effectiveQty)
+                  } else {
+                    updateField('unit_cost', bill)
+                  }
+                }}
+                placeholder="0.00"
+                className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+              />
             </div>
 
-            {/* Total Cost (auto-calculated, read-only) */}
+            {/* Unit Cost (auto-calculated, read-only) */}
             <div>
               <label className="block font-body text-sm text-sheen-muted mb-1">
-                {t('totalCost')} (د.إ)
+                {t('unitCost')}
               </label>
-              <div className="w-full px-3 py-2 rounded-lg border border-sheen-muted/20 bg-sheen-cream/50 font-body text-sm text-sheen-brown font-semibold">
-                {totalCost.toFixed(2)}
+              <div className="w-full px-3 py-2 rounded-lg border border-sheen-muted/20 bg-sheen-cream/50 font-body text-sm text-sheen-muted">
+                {form.unit_cost ? `${Number(form.unit_cost).toFixed(4)} / ${form.unit}` : '—'}
               </div>
             </div>
           </div>
@@ -525,7 +517,7 @@ export default function Expenses() {
                 !form.ingredient_name.trim() ||
                 (!form.quantity && !form.packs) ||
                 !form.unit.trim() ||
-                form.unit_cost === ''
+                !totalCost
               }
             >
               {createExpense.isPending ? t('saving') : t('addExpense')}

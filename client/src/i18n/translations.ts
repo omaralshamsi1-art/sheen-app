@@ -337,6 +337,7 @@ export const translations = {
   packs: { en: 'Packs', ar: 'عبوات' },
   packCost: { en: 'Pack Cost', ar: 'سعر العبوة' },
   packSize: { en: 'Pack Size', ar: 'حجم العبوة' },
+  billCost: { en: 'Bill Cost', ar: 'تكلفة الفاتورة' },
 
   // ── Categories (expenses) ──
   catDairy: { en: 'Dairy', ar: 'ألبان' },
