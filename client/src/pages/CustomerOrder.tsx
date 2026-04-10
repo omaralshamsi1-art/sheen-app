@@ -230,7 +230,7 @@ export default function CustomerOrder() {
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 transition-all duration-150 ${
+          className={`grid ${activeCategory === 'Beans' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'} gap-4 mb-6 transition-all duration-150 ${
             slideDir === 'left' ? 'opacity-0 -translate-x-8' :
             slideDir === 'right' ? 'opacity-0 translate-x-8' : 'opacity-100 translate-x-0'
           }`}
@@ -243,11 +243,13 @@ export default function CustomerOrder() {
             activeItems.map((item: MenuItem) => {
               const qty = getQty(item.id)
               return (
-                <div key={item.id} className="bg-sheen-white rounded-xl shadow-sm overflow-hidden">
+                <div key={item.id} className={`bg-sheen-white rounded-xl shadow-sm overflow-hidden ${activeCategory === 'Beans' ? 'group hover:shadow-lg' : ''}`}>
                   {getItemImage(item.name, item.image_url) ? (
-                    <img src={getItemImage(item.name, item.image_url)} alt={item.name} className="w-full h-32 object-cover" />
+                    <div className={`overflow-hidden ${activeCategory === 'Beans' ? 'h-56' : 'h-32'}`}>
+                      <img src={getItemImage(item.name, item.image_url)} alt={item.name} className={`w-full h-full object-cover transition-transform duration-300 ${activeCategory === 'Beans' ? 'group-hover:scale-110' : ''}`} />
+                    </div>
                   ) : (
-                    <div className="w-full h-32 bg-sheen-cream flex items-center justify-center text-3xl">☕</div>
+                    <div className={`w-full ${activeCategory === 'Beans' ? 'h-56 bg-sheen-black' : 'h-32 bg-sheen-cream'} flex items-center justify-center text-3xl`}>☕</div>
                   )}
                   <div className="p-3">
                     <h3 className="font-body font-medium text-sheen-black text-sm leading-tight">{item.name}</h3>

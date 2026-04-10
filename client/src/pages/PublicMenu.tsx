@@ -104,7 +104,7 @@ export default function PublicMenu() {
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 transition-all duration-150 ${
+            className={`grid ${activeCategory === 'Beans' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'} gap-4 transition-all duration-150 ${
               slideDir === 'left' ? 'opacity-0 -translate-x-8' :
               slideDir === 'right' ? 'opacity-0 translate-x-8' : 'opacity-100 translate-x-0'
             }`}
@@ -112,28 +112,30 @@ export default function PublicMenu() {
             {activeItems.map((item: MenuItem) => (
               <div
                 key={item.id}
-                className="bg-sheen-white rounded-xl shadow-sm overflow-hidden transition-shadow hover:shadow-md"
+                className={`bg-sheen-white rounded-xl shadow-sm overflow-hidden transition-all hover:shadow-lg ${activeCategory === 'Beans' ? 'group' : ''}`}
               >
-                {getItemImage(item.name, item.image_url) ? (
-                  <img
-                    src={getItemImage(item.name, item.image_url)}
-                    alt={item.name}
-                    className="w-full h-36 object-cover"
-                  />
+                {getItemImage(item.name, (item as any).image_url) ? (
+                  <div className={`overflow-hidden ${activeCategory === 'Beans' ? 'h-64' : 'h-36'}`}>
+                    <img
+                      src={getItemImage(item.name, (item as any).image_url)}
+                      alt={item.name}
+                      className={`w-full h-full object-cover transition-transform duration-300 ${activeCategory === 'Beans' ? 'group-hover:scale-110' : ''}`}
+                    />
+                  </div>
                 ) : (
-                  <div className="w-full h-36 bg-sheen-cream flex items-center justify-center text-4xl">
-                    ☕
+                  <div className={`w-full ${activeCategory === 'Beans' ? 'h-64 bg-sheen-black' : 'h-36 bg-sheen-cream'} flex items-center justify-center text-4xl`}>
+                    {activeCategory === 'Beans' ? '☕' : '☕'}
                   </div>
                 )}
-                <div className="p-3">
-                  <h3 className="font-body font-medium text-sheen-black text-sm truncate">{item.name}</h3>
+                <div className={activeCategory === 'Beans' ? 'p-4' : 'p-3'}>
+                  <h3 className={`font-body font-medium text-sheen-black ${activeCategory === 'Beans' ? 'text-base' : 'text-sm'} truncate`}>{item.name}</h3>
                   <div className="flex items-center justify-between mt-1">
-                    <p className="font-display text-lg font-semibold text-sheen-brown">
+                    <p className={`font-display font-semibold text-sheen-brown ${activeCategory === 'Beans' ? 'text-xl' : 'text-lg'}`}>
                       {item.selling_price} <span className="text-sm">AED</span>
                     </p>
                     <Link
                       to="/login"
-                      className="px-3 py-1 rounded-lg bg-sheen-brown text-white text-xs font-body font-medium hover:bg-sheen-brown/90 transition-colors"
+                      className={`rounded-lg bg-sheen-brown text-white font-body font-medium hover:bg-sheen-brown/90 transition-colors ${activeCategory === 'Beans' ? 'px-4 py-1.5 text-sm' : 'px-3 py-1 text-xs'}`}
                     >
                       {t('orderNow')}
                     </Link>
