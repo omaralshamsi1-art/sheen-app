@@ -65,6 +65,7 @@ export default function Expenses() {
   const createExpense = useCreateExpense()
   const updateExpense = useUpdateExpense()
   const deleteExpense = useDeleteExpense()
+  const [customPackSize, setCustomPackSize] = useState<string>('')
   const [editExpense, setEditExpense] = useState<Expense | null>(null)
   const [editForm, setEditForm] = useState({ ingredient_name: '', qty_bought: '', unit: '', unit_cost: '', total_cost: '', supplier: '', notes: '' })
 
@@ -121,12 +122,13 @@ export default function Expenses() {
     ) as any | undefined
   }, [form.ingredient_name, ingredients])
 
-  // Parse pack size number from string like "1000g bag" → 1000
+  // Parse pack size number — use custom override if set, otherwise from ingredient
   const packSizeNum = useMemo(() => {
+    if (customPackSize) return Number(customPackSize) || 0
     if (!selectedIngredient?.pack_size) return 0
     const match = String(selectedIngredient.pack_size).match(/(\d+)/)
     return match ? Number(match[1]) : 0
-  }, [selectedIngredient])
+  }, [selectedIngredient, customPackSize])
 
   // Auto-calculate quantity from packs if ingredient has pack_size
   const effectiveQty = useMemo(() => {
@@ -212,6 +214,7 @@ export default function Expenses() {
     createExpense.mutate(payload, {
       onSuccess: () => {
         setForm(INITIAL_FORM)
+        setCustomPackSize('')
       },
     })
   }
@@ -322,6 +325,8 @@ export default function Expenses() {
                         if (full.unit) updateField('unit', full.unit)
                         if (full.cost_per_unit) updateField('unit_cost', full.cost_per_unit)
                         if (full.category) updateField('category', full.category)
+                        setCustomPackSize('')
+                        updateField('packs', '')
                         setShowSuggestions(false)
                       }}
                       className="px-3 py-2 font-body text-sm text-sheen-black hover:bg-sheen-gold/10 cursor-pointer"
@@ -396,27 +401,43 @@ export default function Expenses() {
               </select>
             </div>
 
-            {/* Packs or Quantity */}
-            {selectedIngredient && packSizeNum > 0 ? (
-              <div>
-                <label className="block font-body text-sm text-sheen-muted mb-1">
-                  {t('packs')} <span className="text-sheen-gold text-xs">({selectedIngredient.pack_size})</span>
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="1"
-                  value={form.packs}
-                  onChange={(e) => updateField('packs', e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="0"
-                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-                />
-                {form.packs && packSizeNum > 0 && (
-                  <p className="font-body text-[10px] text-sheen-gold mt-1">
-                    = {effectiveQty.toLocaleString()} {selectedIngredient.unit}
-                  </p>
-                )}
-              </div>
+            {/* Packs + Pack Size or raw Quantity */}
+            {selectedIngredient ? (
+              <>
+                <div>
+                  <label className="block font-body text-sm text-sheen-muted mb-1">
+                    {t('packs')}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="1"
+                    value={form.packs}
+                    onChange={(e) => updateField('packs', e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                  />
+                  {form.packs && packSizeNum > 0 && (
+                    <p className="font-body text-[10px] text-sheen-gold mt-1">
+                      = {effectiveQty.toLocaleString()} {selectedIngredient.unit}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block font-body text-sm text-sheen-muted mb-1">
+                    {t('packSize')} ({selectedIngredient.unit})
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={customPackSize || (packSizeNum > 0 ? packSizeNum : '')}
+                    onChange={(e) => setCustomPackSize(e.target.value)}
+                    placeholder={selectedIngredient.pack_size || '1000'}
+                    className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                  />
+                </div>
+              </>
             ) : (
               <div>
                 <label className="block font-body text-sm text-sheen-muted mb-1">
