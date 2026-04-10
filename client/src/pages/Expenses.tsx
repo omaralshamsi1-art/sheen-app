@@ -101,19 +101,7 @@ export default function Expenses() {
     end: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
   })
 
-  // Auto-calculate quantity from packs if ingredient has pack_size
-  const effectiveQty = useMemo(() => {
-    if (form.packs && packSizeNum > 0) {
-      return Number(form.packs) * packSizeNum
-    }
-    return typeof form.quantity === 'number' ? form.quantity : 0
-  }, [form.packs, form.quantity, packSizeNum])
-
-  // Auto-calculated total cost
-  const totalCost = useMemo(() => {
-    const cost = typeof form.unit_cost === 'number' ? form.unit_cost : 0
-    return effectiveQty * cost
-  }, [effectiveQty, form.unit_cost])
+  // (effectiveQty and totalCost moved below after packSizeNum)
 
   // Ingredient name autocomplete suggestions
   const suggestions = useMemo(() => {
@@ -139,6 +127,20 @@ export default function Expenses() {
     const match = String(selectedIngredient.pack_size).match(/(\d+)/)
     return match ? Number(match[1]) : 0
   }, [selectedIngredient])
+
+  // Auto-calculate quantity from packs if ingredient has pack_size
+  const effectiveQty = useMemo(() => {
+    if (form.packs && packSizeNum > 0) {
+      return Number(form.packs) * packSizeNum
+    }
+    return typeof form.quantity === 'number' ? form.quantity : 0
+  }, [form.packs, form.quantity, packSizeNum])
+
+  // Auto-calculated total cost
+  const totalCost = useMemo(() => {
+    const cost = typeof form.unit_cost === 'number' ? form.unit_cost : 0
+    return effectiveQty * cost
+  }, [effectiveQty, form.unit_cost])
 
   // Supplier autocomplete from past expenses
   const supplierSuggestions = useMemo(() => {
