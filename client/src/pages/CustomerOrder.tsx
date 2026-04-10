@@ -45,6 +45,9 @@ export default function CustomerOrder() {
   const [showCart, setShowCart] = useState(false)
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
+  const [beanChoices, setBeanChoices] = useState<Record<string, string>>({}) // itemId → bean name
+
+  const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
   const [stripeLoading, setStripeLoading] = useState(false)
 
   // Refs
@@ -136,7 +139,7 @@ export default function CustomerOrder() {
       customer_name: user!.user_metadata?.full_name || user!.user_metadata?.name || user!.email?.split('@')[0] || user!.email,
       items: cartItems.map((i) => ({
         menu_item_id: i.id,
-        name: i.name,
+        name: i.category === 'Coffee' && beanChoices[i.id] ? `${i.name} (${beanChoices[i.id]})` : i.name,
         price: i.selling_price,
         qty: i.qty,
       })),
@@ -281,6 +284,24 @@ export default function CustomerOrder() {
                         })()}
                       </div>
                     )}
+                    {/* Bean selector for coffee */}
+                    {item.category === 'Coffee' && (
+                      <div className="flex gap-1 mt-1.5">
+                        {BEAN_OPTIONS.map(bean => (
+                          <button
+                            key={bean}
+                            onClick={(e) => { e.stopPropagation(); setBeanChoices(prev => ({ ...prev, [item.id]: bean })) }}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-body font-medium transition-colors ${
+                              (beanChoices[item.id] || 'Ethiopia') === bean
+                                ? 'bg-sheen-brown text-white'
+                                : 'bg-sheen-cream text-sheen-muted'
+                            }`}
+                          >
+                            {bean}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>{item.selling_price} AED</p>
                     <div className="flex items-center gap-1 mt-2">
                       {qty > 0 ? (
@@ -332,7 +353,12 @@ export default function CustomerOrder() {
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <p className="font-body text-sm text-sheen-black">{item.name}</p>
+                      <p className="font-body text-sm text-sheen-black">
+                        {item.name}
+                        {item.category === 'Coffee' && beanChoices[item.id] && (
+                          <span className="ml-1 text-[10px] text-sheen-gold">({beanChoices[item.id]})</span>
+                        )}
+                      </p>
                       <p className="font-body text-xs text-sheen-muted">{item.selling_price} AED x {item.qty}</p>
                     </div>
                     <div className="flex items-center gap-2">

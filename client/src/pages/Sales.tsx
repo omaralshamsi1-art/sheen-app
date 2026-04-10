@@ -34,6 +34,9 @@ export default function Sales() {
 
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
+
+  const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
   const [orderSource, setOrderSource] = useState('POS')
   const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [reportLoading, setReportLoading] = useState(false)
@@ -207,7 +210,7 @@ export default function Sales() {
         const menuItem = menuItems.find((m: MenuItem) => m.id === id)
         return {
           menu_item_id: id,
-          name: menuItem?.name ?? '',
+          name: menuItem?.category === 'Coffee' && beanChoices[id] ? `${menuItem?.name ?? ''} (${beanChoices[id]})` : (menuItem?.name ?? ''),
           category: menuItem?.category ?? '',
           price: menuItem?.selling_price ?? 0,
           qty,
@@ -220,6 +223,7 @@ export default function Sales() {
     recordSale.mutate(payload, {
       onSuccess: () => {
         setQuantities({})
+        setBeanChoices({})
         setOrderSource('POS')
       },
     })
@@ -357,13 +361,30 @@ export default function Sales() {
                         ☕
                       </div>
                     )}
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-body font-medium text-sheen-black text-sm leading-tight">
                         {item.name}
                       </p>
                       <p className="font-body text-sm text-sheen-brown">
                         {item.selling_price} د.إ
                       </p>
+                      {item.category === 'Coffee' && (
+                        <div className="flex gap-1 mt-1">
+                          {BEAN_OPTIONS.map(bean => (
+                            <button
+                              key={bean}
+                              onClick={() => setBeanChoices(prev => ({ ...prev, [item.id]: bean }))}
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-body font-medium transition-colors ${
+                                (beanChoices[item.id] || 'Ethiopia') === bean
+                                  ? 'bg-sheen-brown text-white'
+                                  : 'bg-sheen-cream text-sheen-muted'
+                              }`}
+                            >
+                              {bean}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
