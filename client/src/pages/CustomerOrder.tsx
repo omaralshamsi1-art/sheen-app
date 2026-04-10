@@ -31,16 +31,16 @@ export default function CustomerOrder() {
   const [profilePhone, setProfilePhone] = useState('')
   const [profilePlate, setProfilePlate] = useState('')
   const [profileSaving, setProfileSaving] = useState(false)
+  const [profileDone, setProfileDone] = useState(false) // prevents re-triggering after save
 
-  // Show profile modal if plate number is missing (after role loads)
+  // Show profile modal only once when role loads and plate is missing
   useEffect(() => {
-    if (!roleLoading && user && plateNumber === null) {
+    if (!roleLoading && user && plateNumber === null && !profileDone) {
       setProfileName(fullName || user.user_metadata?.full_name || user.user_metadata?.name || '')
       setProfilePhone(phone || '')
-      setProfilePlate('')
       setShowProfileModal(true)
     }
-  }, [roleLoading, plateNumber, user, fullName, phone])
+  }, [roleLoading]) // only run once when loading finishes
 
   const handleSaveProfile = async () => {
     if (!profilePlate.trim() || !user) return
@@ -51,6 +51,7 @@ export default function CustomerOrder() {
         phone: profilePhone.trim() || undefined,
         plate_number: profilePlate.trim(),
       })
+      setProfileDone(true)
       setShowProfileModal(false)
     } catch {
       toast.error('Failed to save profile')
