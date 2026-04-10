@@ -460,13 +460,19 @@ export default function Expenses() {
               <label className="block font-body text-sm text-sheen-muted mb-1">
                 {t('unit')}
               </label>
-              <input
-                type="text"
+              <select
                 value={form.unit}
                 onChange={(e) => updateField('unit', e.target.value)}
-                placeholder="e.g. L, kg, pcs"
                 className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 bg-sheen-cream font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-              />
+              >
+                <option value="grams">grams</option>
+                <option value="ml">ml</option>
+                <option value="piece">piece</option>
+                <option value="kg">kg</option>
+                <option value="L">L</option>
+                <option value="box">box</option>
+                <option value="item">item</option>
+              </select>
             </div>
 
             {/* Unit Cost or Pack Cost */}
@@ -826,9 +832,16 @@ export default function Expenses() {
               </div>
               <div>
                 <label className="block font-body text-xs text-sheen-muted mb-1">{t('unit')}</label>
-                <input type="text" value={editForm.unit} onChange={e => setEditForm({ ...editForm, unit: e.target.value })}
-                  placeholder="kg, L, pcs"
-                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+                <select value={editForm.unit} onChange={e => setEditForm({ ...editForm, unit: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold">
+                  <option value="grams">grams</option>
+                  <option value="ml">ml</option>
+                  <option value="piece">piece</option>
+                  <option value="kg">kg</option>
+                  <option value="L">L</option>
+                  <option value="box">box</option>
+                  <option value="item">item</option>
+                </select>
               </div>
               <div>
                 <label className="block font-body text-xs text-sheen-muted mb-1">{t('unitCost')}</label>
