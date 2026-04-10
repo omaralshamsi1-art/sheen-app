@@ -507,10 +507,10 @@ export default function CustomerOrder() {
 
       {/* ── Profile Completion Modal ── */}
       {showProfileModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 overflow-y-auto max-h-[90vh]">
-            <h3 className="font-display text-xl font-bold text-sheen-black mb-1">Complete Your Profile</h3>
-            <p className="font-body text-sm text-sheen-muted mb-5">We need a few details to serve you better at our drive-through.</p>
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start sm:items-center justify-center p-4 pt-12 sm:pt-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-5 overflow-y-auto max-h-[80vh]">
+            <h3 className="font-display text-lg font-bold text-sheen-black mb-0.5">Complete Your Profile</h3>
+            <p className="font-body text-xs text-sheen-muted mb-4">We need a few details to serve you at our drive-through.</p>
 
             <div className="space-y-3">
               <div>
@@ -520,7 +520,7 @@ export default function CustomerOrder() {
                   value={profileName}
                   onChange={e => setProfileName(e.target.value)}
                   placeholder="Your name"
-                  className="w-full px-3 py-2.5 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
                 />
               </div>
               <div>
@@ -530,7 +530,7 @@ export default function CustomerOrder() {
                   value={profilePhone}
                   onChange={e => setProfilePhone(e.target.value)}
                   placeholder="e.g. 0501234567"
-                  className="w-full px-3 py-2.5 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
                 />
               </div>
               <div>
@@ -540,15 +540,14 @@ export default function CustomerOrder() {
                   value={profilePlate}
                   onChange={e => setProfilePlate(e.target.value.toUpperCase())}
                   placeholder="e.g. A 12345"
-                  autoFocus
-                  className="w-full px-3 py-2.5 rounded-lg border border-sheen-gold font-body text-sm focus:outline-none focus:ring-2 focus:ring-sheen-gold uppercase tracking-widest"
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-gold font-body text-sm focus:outline-none focus:ring-2 focus:ring-sheen-gold uppercase tracking-widest"
                 />
               </div>
 
               <button
                 onClick={handleSaveProfile}
                 disabled={!profilePlate.trim() || profileSaving}
-                className="w-full py-3 rounded-xl bg-sheen-brown text-white font-body font-semibold text-sm hover:bg-sheen-brown/90 transition-colors disabled:opacity-50 mt-2"
+                className="w-full py-2.5 rounded-xl bg-sheen-brown text-white font-body font-semibold text-sm hover:bg-sheen-brown/90 transition-colors disabled:opacity-50 mt-1"
               >
                 {profileSaving ? 'Saving...' : 'Save & Continue'}
               </button>
