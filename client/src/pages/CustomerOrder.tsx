@@ -241,7 +241,7 @@ export default function CustomerOrder() {
   }
 
   return (
-    <div className="min-h-screen bg-sheen-cream">
+    <div className="min-h-screen bg-sheen-cream overflow-x-hidden">
       <TopBar title={t('orderNow')} />
 
       <main className="max-w-5xl mx-auto px-4 py-6">
@@ -321,7 +321,7 @@ export default function CustomerOrder() {
                     )}
                     {/* Bean selector for coffee */}
                     {item.category === 'Coffee' && (
-                      <div className="flex gap-1 mt-1.5">
+                      <div className="flex flex-wrap gap-1 mt-1.5">
                         {BEAN_OPTIONS.map(bean => (
                           <button
                             key={bean}
@@ -508,7 +508,7 @@ export default function CustomerOrder() {
       {/* ── Profile Completion Modal ── */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 overflow-y-auto max-h-[90vh]">
             <h3 className="font-display text-xl font-bold text-sheen-black mb-1">Complete Your Profile</h3>
             <p className="font-body text-sm text-sheen-muted mb-5">We need a few details to serve you better at our drive-through.</p>
 
