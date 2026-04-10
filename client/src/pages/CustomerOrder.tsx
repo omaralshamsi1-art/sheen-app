@@ -240,6 +240,60 @@ export default function CustomerOrder() {
     ),
   }
 
+  // Show profile form as a full page (not a modal) to avoid iOS keyboard/fixed-position issues
+  if (showProfileModal) {
+    return (
+      <div className="min-h-screen bg-sheen-cream">
+        <TopBar title="Complete Profile" />
+        <div className="max-w-sm mx-auto px-4 py-8">
+          <h3 className="font-display text-xl font-bold text-sheen-black mb-1">Complete Your Profile</h3>
+          <p className="font-body text-sm text-sheen-muted mb-6">We need a few details to serve you at our drive-through.</p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block font-body text-xs text-sheen-muted mb-1">Full Name</label>
+              <input
+                type="text"
+                value={profileName}
+                onChange={e => setProfileName(e.target.value)}
+                placeholder="Your name"
+                className="w-full px-3 py-3 rounded-lg border border-sheen-muted/30 font-body text-base focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+              />
+            </div>
+            <div>
+              <label className="block font-body text-xs text-sheen-muted mb-1">Phone Number</label>
+              <input
+                type="tel"
+                value={profilePhone}
+                onChange={e => setProfilePhone(e.target.value)}
+                placeholder="e.g. 0501234567"
+                className="w-full px-3 py-3 rounded-lg border border-sheen-muted/30 font-body text-base focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+              />
+            </div>
+            <div>
+              <label className="block font-body text-xs text-sheen-muted mb-1">UAE Plate Number <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                value={profilePlate}
+                onChange={e => setProfilePlate(e.target.value.toUpperCase())}
+                placeholder="e.g. A 12345"
+                className="w-full px-3 py-3 rounded-lg border border-sheen-gold font-body text-base focus:outline-none focus:ring-2 focus:ring-sheen-gold uppercase tracking-widest"
+              />
+            </div>
+
+            <button
+              onClick={handleSaveProfile}
+              disabled={!profilePlate.trim() || profileSaving}
+              className="w-full py-3 rounded-xl bg-sheen-brown text-white font-body font-semibold text-sm hover:bg-sheen-brown/90 transition-colors disabled:opacity-50"
+            >
+              {profileSaving ? 'Saving...' : 'Save & Continue'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-sheen-cream overflow-x-hidden">
       <TopBar title={t('orderNow')} />
@@ -505,56 +559,6 @@ export default function CustomerOrder() {
         )}
       </main>
 
-      {/* ── Profile Completion Modal ── */}
-      {showProfileModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-start sm:items-center justify-center p-4 pt-12 sm:pt-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5 overflow-y-auto max-h-[80vh]">
-            <h3 className="font-display text-lg font-bold text-sheen-black mb-0.5">Complete Your Profile</h3>
-            <p className="font-body text-xs text-sheen-muted mb-4">We need a few details to serve you at our drive-through.</p>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block font-body text-xs text-sheen-muted mb-1">Full Name</label>
-                <input
-                  type="text"
-                  value={profileName}
-                  onChange={e => setProfileName(e.target.value)}
-                  placeholder="Your name"
-                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-                />
-              </div>
-              <div>
-                <label className="block font-body text-xs text-sheen-muted mb-1">Phone Number</label>
-                <input
-                  type="tel"
-                  value={profilePhone}
-                  onChange={e => setProfilePhone(e.target.value)}
-                  placeholder="e.g. 0501234567"
-                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
-                />
-              </div>
-              <div>
-                <label className="block font-body text-xs text-sheen-muted mb-1">UAE Plate Number <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={profilePlate}
-                  onChange={e => setProfilePlate(e.target.value.toUpperCase())}
-                  placeholder="e.g. A 12345"
-                  className="w-full px-3 py-2 rounded-lg border border-sheen-gold font-body text-sm focus:outline-none focus:ring-2 focus:ring-sheen-gold uppercase tracking-widest"
-                />
-              </div>
-
-              <button
-                onClick={handleSaveProfile}
-                disabled={!profilePlate.trim() || profileSaving}
-                className="w-full py-2.5 rounded-xl bg-sheen-brown text-white font-body font-semibold text-sm hover:bg-sheen-brown/90 transition-colors disabled:opacity-50 mt-1"
-              >
-                {profileSaving ? 'Saving...' : 'Save & Continue'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
