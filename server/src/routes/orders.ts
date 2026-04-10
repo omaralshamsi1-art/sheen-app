@@ -117,6 +117,48 @@ router.patch('/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
+
+    // Auto-add loyalty visit when order is confirmed or completed
+    if ((status === 'confirmed' || status === 'completed') && data.customer_id) {
+      try {
+        // Find or create loyalty card
+        const { data: card } = await supabase
+          .from('loyalty_cards')
+          .select('*')
+          .eq('user_id', data.customer_id)
+          .single()
+
+        if (card) {
+          // Check if this order already had a visit recorded (avoid duplicates)
+          const { data: existingVisit } = await supabase
+            .from('loyalty_visits')
+            .select('id')
+            .eq('card_id', card.id)
+            .eq('recorded_by', `order:${req.params.id}`)
+            .single()
+
+          if (!existingVisit) {
+            // Add visit
+            await supabase.from('loyalty_visits').insert({
+              card_id: card.id,
+              recorded_by: `order:${req.params.id}`,
+              visit_type: 'visit',
+            })
+
+            const newVisits = card.total_visits + 1
+            const newFreeCups = Math.floor(newVisits / 6)
+
+            await supabase
+              .from('loyalty_cards')
+              .update({ total_visits: newVisits, free_cups_earned: newFreeCups })
+              .eq('id', card.id)
+          }
+        }
+      } catch {
+        // Loyalty update failed — don't block the order update
+      }
+    }
+
     await logAudit(req, { action: 'update', entity: 'order', entity_id: req.params.id, details: { page: 'Orders', customer: data.customer_name || data.customer_email, status_changed: `→ ${status}`, total_amount: data.total_amount } })
     res.json(data)
   } catch (err: any) {
