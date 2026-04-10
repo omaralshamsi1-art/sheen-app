@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   useExpenses,
   useCreateExpense,
@@ -23,16 +23,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import StockAlert from '../components/StockAlert'
 import api from '../lib/api'
 
-const EXPENSE_CATEGORIES: IngredientCategory[] = [
-  'Coffee',
-  'Dairy',
-  'Matcha',
-  'Packaging',
-  'Fruit',
-  'Syrup',
-  'Baking',
-  'Other',
-]
+const DEFAULT_CATEGORIES = ['Coffee', 'Dairy', 'Matcha', 'Packaging', 'Fruit', 'Syrup', 'Baking', 'Transportation', 'Other']
 
 const today = format(new Date(), 'yyyy-MM-dd')
 
@@ -62,6 +53,16 @@ export default function Expenses() {
   const { t } = useLanguage()
   const queryClient = useQueryClient()
   const { data: ingredients = [] } = useIngredients()
+
+  const { data: settingsCategories } = useQuery({
+    queryKey: ['settings', 'expense_categories'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/expense_categories')
+      return data as string[] | null
+    },
+    staleTime: 60_000,
+  })
+  const EXPENSE_CATEGORIES = settingsCategories ?? DEFAULT_CATEGORIES
   const createExpense = useCreateExpense()
   const updateExpense = useUpdateExpense()
   const deleteExpense = useDeleteExpense()

@@ -18,6 +18,8 @@ export default function Settings() {
   const [sources, setSources] = useState<OrderSource[]>([])
   const [newName, setNewName] = useState('')
   const [newCommission, setNewCommission] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
+  const [newCategory, setNewCategory] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings', 'order_sources'],
@@ -30,6 +32,31 @@ export default function Settings() {
   useEffect(() => {
     if (data) setSources(data)
   }, [data])
+
+  const defaultCategories = ['Coffee', 'Dairy', 'Matcha', 'Packaging', 'Fruit', 'Syrup', 'Baking', 'Transportation', 'Other']
+
+  const { data: catData } = useQuery({
+    queryKey: ['settings', 'expense_categories'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/expense_categories')
+      return data as string[] | null
+    },
+  })
+
+  useEffect(() => {
+    setCategories(catData ?? defaultCategories)
+  }, [catData])
+
+  const saveCatMut = useMutation({
+    mutationFn: async (updated: string[]) => {
+      await api.put('/api/settings/expense_categories', { value: updated })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings', 'expense_categories'] })
+      toast.success(t('save'))
+    },
+    onError: () => toast.error('Failed to save'),
+  })
 
   const saveMut = useMutation({
     mutationFn: async (updated: OrderSource[]) => {
@@ -135,6 +162,56 @@ export default function Settings() {
               className="w-20 px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
             />
             <Button onClick={addSource} disabled={!newName.trim()}>
+              {t('add')}
+            </Button>
+          </div>
+        </div>
+        {/* Expense Categories */}
+        <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
+          <h2 className="font-display text-lg text-sheen-black mb-1">{t('expenseCategories')}</h2>
+          <p className="font-body text-xs text-sheen-muted mb-4">{t('expenseCategoriesDesc')}</p>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {categories.map((cat) => (
+              <div key={cat} className="flex items-center gap-1.5 bg-sheen-cream/50 rounded-lg px-3 py-2">
+                <span className="font-body text-sm text-sheen-black">{cat}</span>
+                <button
+                  onClick={() => {
+                    const updated = categories.filter(c => c !== cat)
+                    setCategories(updated)
+                    saveCatMut.mutate(updated)
+                  }}
+                  className="text-red-400 hover:text-red-600 text-xs transition-colors ml-1"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newCategory}
+              onChange={e => setNewCategory(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newCategory.trim()) {
+                  const updated = [...categories, newCategory.trim()]
+                  setCategories(updated)
+                  saveCatMut.mutate(updated)
+                  setNewCategory('')
+                }
+              }}
+              placeholder={t('newCategory')}
+              className="flex-1 px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+            />
+            <Button onClick={() => {
+              if (!newCategory.trim()) return
+              const updated = [...categories, newCategory.trim()]
+              setCategories(updated)
+              saveCatMut.mutate(updated)
+              setNewCategory('')
+            }} disabled={!newCategory.trim()}>
               {t('add')}
             </Button>
           </div>
