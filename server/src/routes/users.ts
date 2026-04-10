@@ -191,9 +191,9 @@ router.patch('/profile/:userId', async (req: Request, res: Response) => {
     const { full_name, phone, plate_number } = req.body
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
-    if (full_name !== undefined) updates.full_name = String(full_name).trim().slice(0, 100)
-    if (phone !== undefined) updates.phone = String(phone).trim().slice(0, 20)
-    if (plate_number !== undefined) updates.plate_number = String(plate_number).trim().toUpperCase().slice(0, 20)
+    if (full_name !== undefined) updates.full_name = String(full_name).trim().slice(0, 100) || null
+    if (phone !== undefined) updates.phone = String(phone).trim().slice(0, 20) || null
+    if (plate_number !== undefined) updates.plate_number = String(plate_number).trim().toUpperCase().slice(0, 20) || null
 
     const { data, error } = await supabase
       .from('user_roles')

@@ -35,7 +35,7 @@ export default function CustomerOrder() {
 
   // Show profile modal only once when role loads and plate is missing
   useEffect(() => {
-    if (!roleLoading && user && plateNumber === null && !profileDone) {
+    if (!roleLoading && user && !plateNumber && !profileDone) {
       setProfileName(fullName || user.user_metadata?.full_name || user.user_metadata?.name || '')
       setProfilePhone(phone || '')
       setShowProfileModal(true)

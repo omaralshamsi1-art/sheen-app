@@ -36,9 +36,9 @@ export function useRole() {
         setRole((data.role as UserRole) ?? 'customer')
         setAllowedPages(data.allowed_pages ?? null)
         setAllowedPaymentMethods(data.allowed_payment_methods ?? null)
-        setPlateNumber(data.plate_number ?? null)
-        setPhone(data.phone ?? null)
-        setFullName(data.full_name ?? null)
+        setPlateNumber(data.plate_number || null)
+        setPhone(data.phone || null)
+        setFullName(data.full_name || null)
         setRoleRecordId(data.id ?? null)
       } catch {
         setRole('customer')
