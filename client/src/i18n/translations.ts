@@ -2,8 +2,8 @@ export type Lang = 'en' | 'ar'
 
 export const translations = {
   // ── Common ──
-  coffeeShopManager: { en: 'Coffee Shop Manager', ar: 'مدير المقهى' },
-  coffeeShop: { en: 'Coffee Shop', ar: 'مقهى' },
+  coffeeShopManager: { en: 'Speciality Coffee Manager', ar: 'مدير القهوة المختصة' },
+  coffeeShop: { en: 'Speciality Coffee', ar: 'قهوة مختصة' },
   loading: { en: 'Loading...', ar: 'جاري التحميل...' },
   save: { en: 'Save', ar: 'حفظ' },
   saving: { en: 'Saving...', ar: 'جاري الحفظ...' },

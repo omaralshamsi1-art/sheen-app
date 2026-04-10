@@ -67,7 +67,7 @@ export function printReceipt(data: ReceiptData) {
   <!-- Header -->
   <div class="center">
     <div class="logo">SHEEN</div>
-    <div class="sub">Coffee Shop</div>
+    <div class="sub">Speciality Coffee</div>
     <div class="sub">sheencafe.ae</div>
   </div>
 

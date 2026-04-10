@@ -1,7 +1,7 @@
 {
   "name": "SHEEN Coffee",
   "short_name": "SHEEN",
-  "description": "SHEEN Coffee Shop — Loyalty Card & Menu",
+  "description": "SHEEN Speciality Coffee — Loyalty Card & Menu",
   "start_url": "/my-card",
   "display": "standalone",
   "background_color": "#1A1A1A",

@@ -42,7 +42,7 @@ export function generateDailyReport(
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(160, 120, 90)
-  doc.text('Coffee Shop', pageWidth / 2, 34, { align: 'center' })
+  doc.text('Speciality Coffee', pageWidth / 2, 34, { align: 'center' })
 
   doc.setFontSize(8)
   doc.setTextColor(139, 69, 19)
@@ -213,7 +213,7 @@ export function generateDailyReport(
   doc.setTextColor(160, 120, 90)
   doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
-  doc.text('SHEEN Coffee Shop \u2014 Daily Sales Report', pageWidth / 2, footerY + 2, { align: 'center' })
+  doc.text('SHEEN Speciality Coffee \u2014 Daily Sales Report', pageWidth / 2, footerY + 2, { align: 'center' })
   doc.text(`@SheenCafe \u2014 Generated ${format(new Date(), 'dd/MM/yyyy hh:mm a')}`, pageWidth / 2, footerY + 7, { align: 'center' })
 
   return { doc, filename: `SHEEN-Daily-Report-${format(today, 'yyyy-MM-dd')}.pdf` }

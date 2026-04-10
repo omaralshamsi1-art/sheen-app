@@ -28,7 +28,7 @@ router.post('/send-report', async (req: Request, res: Response) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; text-align: center; padding: 30px 20px;">
           <h1 style="color: #8B4513; font-size: 28px; letter-spacing: 2px; margin-bottom: 4px;">SHEEN</h1>
-          <p style="color: #A0785A; font-size: 12px; margin-bottom: 20px;">Coffee Shop</p>
+          <p style="color: #A0785A; font-size: 12px; margin-bottom: 20px;">Speciality Coffee</p>
           <hr style="border: none; border-top: 1px solid #D4A843; margin: 20px 0;" />
           <p style="color: #333; font-size: 14px;">Please find attached your daily sales report.</p>
           <p style="color: #999; font-size: 11px; margin-top: 20px;">@SheenCafe</p>
