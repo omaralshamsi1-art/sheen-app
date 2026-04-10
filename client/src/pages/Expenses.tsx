@@ -64,7 +64,7 @@ export default function Expenses() {
   const updateExpense = useUpdateExpense()
   const deleteExpense = useDeleteExpense()
   const [editExpense, setEditExpense] = useState<Expense | null>(null)
-  const [editForm, setEditForm] = useState({ ingredient_name: '', qty_bought: '', unit_cost: '', total_cost: '', supplier: '', notes: '' })
+  const [editForm, setEditForm] = useState({ ingredient_name: '', qty_bought: '', unit: '', unit_cost: '', total_cost: '', supplier: '', notes: '' })
 
   // Form state
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
@@ -682,6 +682,7 @@ export default function Expenses() {
                                 setEditForm({
                                   ingredient_name: exp.ingredient_name,
                                   qty_bought: String(exp.qty_bought),
+                                  unit: exp.unit ?? '',
                                   unit_cost: String(exp.unit_cost),
                                   total_cost: String(exp.total_cost),
                                   supplier: exp.supplier ?? '',
@@ -740,7 +741,7 @@ export default function Expenses() {
               <input type="text" value={editForm.ingredient_name} onChange={e => setEditForm({ ...editForm, ingredient_name: e.target.value })}
                 className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="block font-body text-xs text-sheen-muted mb-1">{t('quantity')}</label>
                 <input type="number" min="0" step="any" value={editForm.qty_bought} onChange={e => {
@@ -748,6 +749,12 @@ export default function Expenses() {
                   const total = (Number(qty) * Number(editForm.unit_cost)).toFixed(2)
                   setEditForm({ ...editForm, qty_bought: qty, total_cost: total })
                 }}
+                  className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
+              </div>
+              <div>
+                <label className="block font-body text-xs text-sheen-muted mb-1">{t('unit')}</label>
+                <input type="text" value={editForm.unit} onChange={e => setEditForm({ ...editForm, unit: e.target.value })}
+                  placeholder="kg, L, pcs"
                   className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold" />
               </div>
               <div>
@@ -785,6 +792,7 @@ export default function Expenses() {
                   updates: {
                     ingredient_name: editForm.ingredient_name.trim(),
                     qty_bought: Number(editForm.qty_bought),
+                    unit: editForm.unit.trim() || null,
                     unit_cost: Number(editForm.unit_cost),
                     total_cost: Number(editForm.total_cost),
                     supplier: editForm.supplier.trim() || null,
