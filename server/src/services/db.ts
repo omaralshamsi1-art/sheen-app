@@ -29,7 +29,7 @@ export async function getSalesByDateRange(from: string, to: string) {
 }
 
 export async function insertSale(
-  sale: { sale_date: string; recorded_by?: string },
+  sale: { sale_date: string; recorded_by?: string; notes?: string },
   items: Omit<SaleItem, 'id' | 'sale_id'>[]
 ) {
   const total_cups = items.reduce((sum, i) => sum + i.qty, 0)
@@ -40,6 +40,7 @@ export async function insertSale(
     .insert({
       sale_date: sale.sale_date,
       recorded_by: sale.recorded_by ?? null,
+      notes: sale.notes ?? null,
       total_cups,
       total_revenue,
     })

@@ -74,6 +74,7 @@ export interface Sale {
   total_cups: number;
   total_revenue: number;
   recorded_by: string | null;
+  notes: string | null;
 }
 
 export interface SaleItem {
@@ -91,6 +92,7 @@ export interface SalePayload {
   sale_date: string;
   items: Omit<SaleItem, 'id' | 'sale_id'>[];
   recorded_by?: string;
+  notes?: string;
 }
 
 // ─────────────────────────────────────────────

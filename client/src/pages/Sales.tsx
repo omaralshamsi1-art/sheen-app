@@ -38,6 +38,7 @@ export default function Sales() {
 
   const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
   const [orderSource, setOrderSource] = useState('POS')
+  const [orderNote, setOrderNote] = useState('')
   const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [reportLoading, setReportLoading] = useState(false)
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null)
@@ -218,13 +219,19 @@ export default function Sales() {
         }
       })
 
-    const payload: SalePayload = { sale_date: today, items, recorded_by: orderSource }
+    const payload: SalePayload = {
+      sale_date: today,
+      items,
+      recorded_by: orderSource,
+      notes: orderNote.trim() || undefined,
+    }
 
     recordSale.mutate(payload, {
       onSuccess: () => {
         setQuantities({})
         setBeanChoices({})
         setOrderSource('POS')
+        setOrderNote('')
       },
     })
   }
@@ -347,71 +354,76 @@ export default function Sales() {
               {currentItems.map((item: MenuItem) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between border border-sheen-muted/30 rounded-lg p-3"
+                  className="border border-sheen-muted/30 rounded-lg p-3"
                 >
-                  <div className="flex items-center gap-2 min-w-0 mr-3">
-                    {getItemImage(item.name, item.image_url) ? (
-                      <img
-                        src={getItemImage(item.name, item.image_url)}
-                        alt={item.name}
-                        className="w-12 h-12 rounded-lg object-cover shrink-0"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-sheen-cream flex items-center justify-center shrink-0 text-xl">
-                        ☕
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-body font-medium text-sheen-black text-sm leading-tight">
-                        {item.name}
-                      </p>
-                      <p className="font-body text-sm text-sheen-brown">
-                        {item.selling_price} د.إ
-                      </p>
-                      {item.category === 'Coffee' && (
-                        <div className="flex gap-1 mt-1">
-                          {BEAN_OPTIONS.map(bean => (
-                            <button
-                              key={bean}
-                              onClick={() => setBeanChoices(prev => ({ ...prev, [item.id]: bean }))}
-                              className={`px-1.5 py-0.5 rounded text-[9px] font-body font-medium transition-colors ${
-                                (beanChoices[item.id] || 'Ethiopia') === bean
-                                  ? 'bg-sheen-brown text-white'
-                                  : 'bg-sheen-cream text-sheen-muted'
-                              }`}
-                            >
-                              {bean}
-                            </button>
-                          ))}
+                  {/* Top row: image + name/price + qty controls */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {getItemImage(item.name, item.image_url) ? (
+                        <img
+                          src={getItemImage(item.name, item.image_url)}
+                          alt={item.name}
+                          className="w-10 h-10 rounded-lg object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-sheen-cream flex items-center justify-center shrink-0 text-lg">
+                          ☕
                         </div>
                       )}
+                      <div className="min-w-0">
+                        <p className="font-body font-medium text-sheen-black text-sm leading-tight">
+                          {item.name}
+                        </p>
+                        <p className="font-body text-sm text-sheen-brown">
+                          {item.selling_price} د.إ
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => decrement(item.id)}
+                        disabled={getQty(item.id) === 0}
+                        className="w-10 h-10 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold hover:bg-sheen-gold/20 active:bg-sheen-gold/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        &minus;
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        value={getQty(item.id)}
+                        onChange={(e) =>
+                          setQty(item.id, parseInt(e.target.value, 10) || 0)
+                        }
+                        className="w-12 h-10 text-center font-body text-sm border border-sheen-muted/40 rounded-md bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
+                      <button
+                        onClick={() => increment(item.id)}
+                        className="w-10 h-10 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold hover:bg-sheen-gold/20 active:bg-sheen-gold/30 transition-colors"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => decrement(item.id)}
-                      disabled={getQty(item.id) === 0}
-                      className="w-10 h-10 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold hover:bg-sheen-gold/20 active:bg-sheen-gold/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      &minus;
-                    </button>
-                    <input
-                      type="number"
-                      min={0}
-                      value={getQty(item.id)}
-                      onChange={(e) =>
-                        setQty(item.id, parseInt(e.target.value, 10) || 0)
-                      }
-                      className="w-12 h-10 text-center font-body text-sm border border-sheen-muted/40 rounded-md bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    />
-                    <button
-                      onClick={() => increment(item.id)}
-                      className="w-10 h-10 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold hover:bg-sheen-gold/20 active:bg-sheen-gold/30 transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
+                  {/* Bean options row (Coffee only) */}
+                  {item.category === 'Coffee' && (
+                    <div className="flex gap-1 mt-2">
+                      {BEAN_OPTIONS.map(bean => (
+                        <button
+                          key={bean}
+                          onClick={() => setBeanChoices(prev => ({ ...prev, [item.id]: bean }))}
+                          className={`px-2 py-0.5 rounded text-[10px] font-body font-medium transition-colors ${
+                            (beanChoices[item.id] || 'Ethiopia') === bean
+                              ? 'bg-sheen-brown text-white'
+                              : 'bg-sheen-cream text-sheen-muted'
+                          }`}
+                        >
+                          {bean}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -438,6 +450,18 @@ export default function Sales() {
                 ))}
               </div>
             </div>
+            {/* Car # / Note */}
+            <div>
+              <p className="font-body text-xs text-sheen-muted mb-1.5">Car # / Note</p>
+              <input
+                type="text"
+                value={orderNote}
+                onChange={(e) => setOrderNote(e.target.value)}
+                placeholder="e.g. A 12345"
+                className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold bg-sheen-cream"
+              />
+            </div>
+
             {/* Subtotal + Commission + VAT + Record */}
             <div>
               <div className="flex items-center justify-between">
@@ -551,10 +575,13 @@ export default function Sales() {
                   className="p-4 flex items-start justify-between gap-4"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-body text-xs text-sheen-muted mb-1 flex items-center gap-2">
+                    <p className="font-body text-xs text-sheen-muted mb-1 flex items-center gap-2 flex-wrap">
                       {format(new Date(sale.recorded_at), 'hh:mm a')}
                       {sale.recorded_by && (
                         <span className="px-1.5 py-0.5 rounded bg-sheen-cream text-sheen-brown text-[10px] font-medium">{sale.recorded_by}</span>
+                      )}
+                      {sale.notes && (
+                        <span className="px-1.5 py-0.5 rounded bg-sheen-gold/20 text-sheen-black text-[10px] font-medium">🚗 {sale.notes}</span>
                       )}
                     </p>
                     <div className="flex flex-wrap gap-2">

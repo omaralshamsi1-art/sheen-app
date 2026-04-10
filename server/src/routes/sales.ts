@@ -185,7 +185,7 @@ router.get('/last-7-days', async (_req: Request, res: Response) => {
 // POST /api/sales
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { sale_date, items, recorded_by } = req.body
+    const { sale_date, items, recorded_by, notes } = req.body
     if (!sale_date || !items || !items.length) {
       res.status(400).json({ message: 'sale_date and items are required' })
       return
@@ -222,7 +222,11 @@ router.post('/', async (req: Request, res: Response) => {
     }))
 
     const sale = await insertSale(
-      { sale_date, recorded_by: recorded_by ? String(recorded_by).trim().slice(0, 100) : undefined },
+      {
+        sale_date,
+        recorded_by: recorded_by ? String(recorded_by).trim().slice(0, 100) : undefined,
+        notes: notes ? String(notes).trim().slice(0, 200) : undefined,
+      },
       sanitizedItems
     )
 
@@ -239,7 +243,7 @@ router.post('/', async (req: Request, res: Response) => {
         customer_name: `${source}: ${staffEmail?.split('@')[0] ?? 'Staff'}`,
         status: 'completed',
         total_amount: totalAmount,
-        notes: `[${source} — ${sale_date}]`,
+        notes: notes ? `[${source} — ${sale_date}] ${String(notes).trim()}` : `[${source} — ${sale_date}]`,
       })
       .select()
       .single()
