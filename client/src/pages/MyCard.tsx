@@ -150,6 +150,20 @@ export default function MyCard() {
         <p className="text-center font-body text-xs text-sheen-muted mt-4">
           {t('loyaltyInfo')}
         </p>
+
+        {/* Add to Home Screen */}
+        <div className="mt-4 bg-sheen-white rounded-xl shadow-sm p-4 text-center">
+          <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('addToHomeScreen')}</p>
+          <p className="font-body text-xs text-sheen-muted mb-3">{t('addToHomeScreenDesc')}</p>
+          <div className="bg-sheen-cream rounded-lg p-3 text-left">
+            <p className="font-body text-xs text-sheen-black">
+              <strong>iPhone/iPad:</strong> {t('iosInstructions')}
+            </p>
+            <p className="font-body text-xs text-sheen-black mt-2">
+              <strong>Android:</strong> {t('androidInstructions')}
+            </p>
+          </div>
+        </div>
       </main>
     </div>
   )
