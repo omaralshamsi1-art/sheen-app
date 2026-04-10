@@ -201,6 +201,21 @@ export default function Sales() {
     setEmailSending(false)
   }
 
+  // End of Day handler — uses selected reportDate
+  const handleEndOfDay = async () => {
+    const isToday = reportDate === format(new Date(), 'yyyy-MM-dd')
+    if (isToday) {
+      printZReport(todaySales, new Date(reportDate + 'T00:00:00'))
+    } else {
+      try {
+        const { data } = await api.get(`/api/sales?from=${reportDate}&to=${reportDate}`)
+        printZReport(data, new Date(reportDate + 'T00:00:00'))
+      } catch {
+        toast.error('Failed to load sales for selected date')
+      }
+    }
+  }
+
   // Record sale handler
   const handleRecordSale = () => {
     if (!hasItems) return
@@ -556,13 +571,13 @@ export default function Sales() {
 
         {/* ── End of Day ── */}
         <button
-          onClick={() => printZReport(todaySales, new Date())}
+          onClick={handleEndOfDay}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-sheen-black text-white font-body text-base font-semibold hover:bg-sheen-black/80 transition-colors mb-6"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
           </svg>
-          End of Day (Z Report)
+          End of Day — {reportDate}
         </button>
 
         {/* ── Today's Sales Log ── */}
