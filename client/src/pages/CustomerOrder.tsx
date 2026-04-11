@@ -5,7 +5,7 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useRole } from '../hooks/useRole'
 import { getDefaultPaymentMethods } from '../services/userService'
-import { createOrder, getOrders } from '../services/orderService'
+import { createOrder } from '../services/orderService'
 import { createPaymentIntent } from '../services/paymentService'
 import { getItemImage } from '../data/itemImages'
 import TopBar from '../components/layout/TopBar'
@@ -13,8 +13,7 @@ import Button from '../components/ui/Button'
 import StripeCheckout from '../components/StripeCheckout'
 import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
-import type { MenuItem, MenuCategory, Order, OrderItem } from '../types'
-import { format } from 'date-fns'
+import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
 const PAYMENT_METHODS = ['cash', 'card'] as const
@@ -130,13 +129,6 @@ export default function CustomerOrder() {
     }
   }
 
-  // Fetch customer's orders
-  const { data: myOrders = [] } = useQuery({
-    queryKey: ['orders', 'mine', user?.id],
-    queryFn: () => getOrders({ customer_id: user?.id }),
-    enabled: !!user?.id,
-  })
-
   const activeItems = useMemo(
     () => menuItems.filter((item: MenuItem) => item.category === activeCategory && item.is_active),
     [menuItems, activeCategory],
@@ -216,12 +208,6 @@ export default function CustomerOrder() {
     }
   }
 
-  const statusColor: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-700',
-    confirmed: 'bg-green-100 text-green-700',
-    rejected: 'bg-red-100 text-red-700',
-    completed: 'bg-blue-100 text-blue-700',
-  }
 
   const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
     cash: (
@@ -529,34 +515,6 @@ export default function CustomerOrder() {
           </div>
         )}
 
-        {/* My Orders */}
-        {myOrders.length > 0 && (
-          <section className="mt-8">
-            <h2 className="font-display text-xl text-sheen-black mb-4">{t('myOrders')}</h2>
-            <div className="space-y-3">
-              {myOrders.slice(0, 10).map((order: Order) => (
-                <div key={order.id} className="bg-sheen-white rounded-xl shadow-sm p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-body text-xs text-sheen-muted">
-                      {format(new Date(order.created_at), 'MMM d, yyyy h:mm a')}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-body font-medium ${statusColor[order.status]}`}>
-                      {t(order.status as any)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {(order.order_items ?? []).map((item: OrderItem, idx: number) => (
-                      <span key={idx} className="bg-sheen-cream text-sheen-black text-xs font-body px-2 py-1 rounded-md">
-                        {item.name} x{item.qty}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="font-body text-sm font-semibold text-sheen-brown">{order.total_amount.toFixed(2)} AED</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
       </main>
 
     </div>
