@@ -36,6 +36,8 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
   })
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [niimPrinting, setNiimPrinting] = useState(false)
+  const [niimDensity, setNiimDensity] = useState<number>(() => Number(localStorage.getItem('niim-density')) || 3)
+  const [niimLabelType, setNiimLabelType] = useState<number>(() => Number(localStorage.getItem('niim-label-type')) || 1)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const niimbotRef = useRef<NiimbotPrinter | null>(null)
 
@@ -202,7 +204,7 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     try {
       niimbotRef.current = new NiimbotPrinter()
       await niimbotRef.current.connect()
-      await niimbotRef.current.printCanvas(printCanvas, { density: 3, labelType: 1, quantity: 1 })
+      await niimbotRef.current.printCanvas(printCanvas, { density: niimDensity, labelType: niimLabelType, quantity: 1 })
       toast.success('Sticker sent to printer')
     } catch (err: any) {
       console.error('[NIIMBOT]', err)
@@ -312,20 +314,64 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
 
           {/* NIIMBOT USB direct print — Chrome/Edge desktop only */}
           {NiimbotPrinter.isSupported() && (
-            <button
-              onClick={handleNiimbotPrint}
-              disabled={niimPrinting}
-              className="w-full px-4 py-2.5 rounded-lg bg-sheen-black text-white font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {niimPrinting ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                  Printing…
-                </>
-              ) : (
-                <>🖨️ Print via NIIMBOT USB</>
-              )}
-            </button>
+            <div className="pt-2 border-t border-sheen-cream space-y-2">
+              <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider">NIIMBOT USB</p>
+
+              {/* Density */}
+              <div className="flex items-center gap-2">
+                <span className="font-body text-xs text-sheen-muted w-14">Density</span>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map(d => (
+                    <button
+                      key={d}
+                      onClick={() => { setNiimDensity(d); localStorage.setItem('niim-density', String(d)) }}
+                      className={`w-7 h-7 rounded-md text-[11px] font-body font-medium ${
+                        niimDensity === d ? 'bg-sheen-brown text-white' : 'bg-sheen-cream text-sheen-muted'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Label type */}
+              <div className="flex items-center gap-2">
+                <span className="font-body text-xs text-sheen-muted w-14">Label</span>
+                <div className="flex gap-1">
+                  {[
+                    { v: 1, l: 'Gap' },
+                    { v: 2, l: 'Continuous' },
+                    { v: 3, l: 'Black-mark' },
+                  ].map(opt => (
+                    <button
+                      key={opt.v}
+                      onClick={() => { setNiimLabelType(opt.v); localStorage.setItem('niim-label-type', String(opt.v)) }}
+                      className={`px-2.5 h-7 rounded-md text-[11px] font-body font-medium ${
+                        niimLabelType === opt.v ? 'bg-sheen-brown text-white' : 'bg-sheen-cream text-sheen-muted'
+                      }`}
+                    >
+                      {opt.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={handleNiimbotPrint}
+                disabled={niimPrinting}
+                className="w-full px-4 py-2.5 rounded-lg bg-sheen-black text-white font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {niimPrinting ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                    Printing…
+                  </>
+                ) : (
+                  <>🖨️ Print via NIIMBOT USB</>
+                )}
+              </button>
+            </div>
           )}
         </div>
       </div>

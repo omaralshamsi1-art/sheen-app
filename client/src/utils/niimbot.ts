@@ -3,15 +3,18 @@
 // and sends the NIIMBOT packet protocol to print a bitmap.
 //
 // Browser support: Chrome / Edge desktop only.
+//
+// The NIIMBOT protocol is request/response: every command packet receives
+// an ACK packet (command code + offset). A background read loop collects
+// incoming bytes; send() waits for the matching response.
 
 export interface NiimbotPrintOptions {
   density?: number        // 1-5 (default 3)
   labelType?: number      // 1=gap, 2=continuous, 3=black-mark (default 1)
   quantity?: number       // number of copies (default 1)
-  printerDotsPerMm?: number // default 8 (≈ 203 DPI)
 }
 
-type SerialPort = any // WebSerial types not always available
+type SerialPort = any
 
 // ── Packet helpers ──────────────────────────────────────────────────────────
 const PKT_START = [0x55, 0x55]
@@ -19,14 +22,14 @@ const PKT_END = [0xAA, 0xAA]
 
 function makePacket(cmd: number, data: number[]): Uint8Array {
   const len = data.length
-  const body = [cmd, len, ...data]
-  let checksum = 0
-  for (const b of body) checksum ^= b
-  return new Uint8Array([...PKT_START, ...body, checksum & 0xFF, ...PKT_END])
+  let checksum = cmd ^ len
+  for (const b of data) checksum ^= b
+  return new Uint8Array([...PKT_START, cmd, len, ...data, checksum & 0xFF, ...PKT_END])
 }
 
-// NIIMBOT command codes (B1/D11 family)
 const CMD = {
+  HEARTBEAT: 0xDC,
+  GET_INFO: 0x40,
   SET_DENSITY: 0x21,
   SET_LABEL_TYPE: 0x23,
   START_PRINT: 0x01,
@@ -40,32 +43,24 @@ const CMD = {
 }
 
 // ── Bitmap conversion ──────────────────────────────────────────────────────
-// Convert canvas → monochrome bitmap: one bit per pixel, packed MSB first.
-// Returns rows[] where each row is a Uint8Array of width/8 bytes.
 export function canvasToMonoRows(canvas: HTMLCanvasElement, threshold = 128): Uint8Array[] {
   const ctx = canvas.getContext('2d')!
   const { width, height } = canvas
   const imgData = ctx.getImageData(0, 0, width, height)
   const bytesPerRow = Math.ceil(width / 8)
   const rows: Uint8Array[] = []
-
   for (let y = 0; y < height; y++) {
     const row = new Uint8Array(bytesPerRow)
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4
-      // Grayscale luminance
-      const lum = (imgData.data[i] * 0.299 + imgData.data[i + 1] * 0.587 + imgData.data[i + 2] * 0.114)
-      const black = lum < threshold ? 1 : 0
-      if (black) {
-        row[x >> 3] |= 1 << (7 - (x & 7))
-      }
+      const lum = imgData.data[i] * 0.299 + imgData.data[i + 1] * 0.587 + imgData.data[i + 2] * 0.114
+      if (lum < threshold) row[x >> 3] |= 1 << (7 - (x & 7))
     }
     rows.push(row)
   }
   return rows
 }
 
-// Count black pixels in the three horizontal thirds of a row (NIIMBOT needs this)
 function rowPixelCounts(row: Uint8Array, width: number): [number, number, number] {
   const thirds: [number, number, number] = [0, 0, 0]
   for (let x = 0; x < width; x++) {
@@ -82,10 +77,13 @@ function rowIsEmpty(row: Uint8Array): boolean {
   return true
 }
 
-// ── WebSerial IO ────────────────────────────────────────────────────────────
+// ── WebSerial IO with request/response ─────────────────────────────────────
 export class NiimbotPrinter {
   private port: SerialPort | null = null
   private writer: WritableStreamDefaultWriter<Uint8Array> | null = null
+  private reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+  private readBuffer: number[] = []
+  private readLoopAbort = false
 
   static isSupported(): boolean {
     return typeof navigator !== 'undefined' && 'serial' in navigator
@@ -93,20 +91,72 @@ export class NiimbotPrinter {
 
   async connect(): Promise<void> {
     if (!NiimbotPrinter.isSupported()) {
-      throw new Error('WebSerial is not supported in this browser. Use Chrome or Edge on desktop.')
+      throw new Error('WebSerial is not supported. Use Chrome or Edge on desktop.')
     }
-    // Request any serial device — user picks the NIIMBOT port in the prompt
     this.port = await (navigator as any).serial.requestPort()
     await this.port.open({ baudRate: 115200 })
     this.writer = this.port.writable.getWriter()
+    this.reader = this.port.readable.getReader()
+    this.readLoopAbort = false
+    this._startReadLoop()
   }
 
   async disconnect(): Promise<void> {
-    try {
-      if (this.writer) { await this.writer.releaseLock(); this.writer = null }
-      if (this.port) { await this.port.close(); this.port = null }
-    } catch {
-      // ignore
+    this.readLoopAbort = true
+    try { if (this.reader) { await this.reader.cancel().catch(() => {}); this.reader.releaseLock(); this.reader = null } } catch {}
+    try { if (this.writer) { this.writer.releaseLock(); this.writer = null } } catch {}
+    try { if (this.port) { await this.port.close(); this.port = null } } catch {}
+  }
+
+  private async _startReadLoop() {
+    if (!this.reader) return
+    const reader = this.reader
+    ;(async () => {
+      try {
+        while (!this.readLoopAbort) {
+          const { value, done } = await reader.read()
+          if (done) break
+          if (value) {
+            for (let i = 0; i < value.length; i++) this.readBuffer.push(value[i])
+          }
+        }
+      } catch (e) {
+        // reader cancelled or stream closed
+      }
+    })()
+  }
+
+  private sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
+  // Parse one packet out of the read buffer if possible, return [cmd, data] or null
+  private parseOnePacket(): { cmd: number; data: Uint8Array } | null {
+    const buf = this.readBuffer
+    // Need at least 7 bytes for the smallest packet (start×2, cmd, len=0, chk, end×2)
+    while (buf.length >= 7) {
+      // Locate start sequence 0x55 0x55
+      if (buf[0] !== 0x55 || buf[1] !== 0x55) { buf.shift(); continue }
+      const cmd = buf[2]
+      const len = buf[3]
+      const totalLen = 4 + len + 1 + 2 // header + data + checksum + end
+      if (buf.length < totalLen) return null
+      const data = new Uint8Array(buf.slice(4, 4 + len))
+      // Verify end markers
+      if (buf[4 + len + 1] !== 0xAA || buf[4 + len + 2] !== 0xAA) {
+        buf.shift()
+        continue
+      }
+      // Remove the consumed bytes
+      buf.splice(0, totalLen)
+      return { cmd, data }
+    }
+    return null
+  }
+
+  // Drain all currently-buffered packets, log them
+  private drainPackets() {
+    let pkt
+    while ((pkt = this.parseOnePacket())) {
+      console.log('[NIIMBOT] rx', '0x' + pkt.cmd.toString(16).padStart(2, '0'), Array.from(pkt.data))
     }
   }
 
@@ -115,8 +165,16 @@ export class NiimbotPrinter {
     await this.writer.write(packet)
   }
 
-  // Small pause between commands — some NIIMBOT models need this
-  private sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+  // Send a command packet, optionally wait for any response packet
+  private async sendCmd(cmd: number, data: number[], waitMs = 40) {
+    await this.send(makePacket(cmd, data))
+    await this.sleep(waitMs)
+    this.drainPackets()
+  }
+
+  async heartbeat() {
+    await this.sendCmd(CMD.HEARTBEAT, [0x01], 100)
+  }
 
   async printCanvas(canvas: HTMLCanvasElement, opts: NiimbotPrintOptions = {}) {
     const density = opts.density ?? 3
@@ -129,40 +187,29 @@ export class NiimbotPrinter {
 
     console.log('[NIIMBOT] printing', { width, height, density, labelType, quantity })
 
-    // 1. Set density
-    await this.send(makePacket(CMD.SET_DENSITY, [density]))
-    await this.sleep(20)
+    // Heartbeat to verify the printer is alive
+    await this.heartbeat()
 
-    // 2. Set label type
-    await this.send(makePacket(CMD.SET_LABEL_TYPE, [labelType]))
-    await this.sleep(20)
-
-    // 3. Start print
-    await this.send(makePacket(CMD.START_PRINT, [0x01]))
-    await this.sleep(20)
-
-    // 4. Start page
-    await this.send(makePacket(CMD.START_PAGE, [0x01]))
-    await this.sleep(20)
-
-    // 5. Set page size (rows=height, columns=width)
-    await this.send(makePacket(CMD.SET_PAGE_SIZE, [
+    // Set density
+    await this.sendCmd(CMD.SET_DENSITY, [density])
+    // Set label type
+    await this.sendCmd(CMD.SET_LABEL_TYPE, [labelType])
+    // Start print
+    await this.sendCmd(CMD.START_PRINT, [0x01])
+    // Start page
+    await this.sendCmd(CMD.START_PAGE, [0x01])
+    // Page size (rows=height, cols=width)
+    await this.sendCmd(CMD.SET_PAGE_SIZE, [
       (height >> 8) & 0xFF, height & 0xFF,
       (width >> 8) & 0xFF, width & 0xFF,
-    ]))
-    await this.sleep(20)
+    ])
+    // Quantity
+    await this.sendCmd(CMD.SET_QUANTITY, [(quantity >> 8) & 0xFF, quantity & 0xFF])
 
-    // 6. Set print quantity
-    await this.send(makePacket(CMD.SET_QUANTITY, [
-      (quantity >> 8) & 0xFF, quantity & 0xFF,
-    ]))
-    await this.sleep(20)
-
-    // 7. Send each row
+    // Send each row (minimal inter-row pacing to avoid buffer overruns)
     for (let y = 0; y < height; y++) {
       const row = rows[y]
       if (rowIsEmpty(row)) {
-        // empty row — single packet skip
         await this.send(makePacket(CMD.PRINT_EMPTY_ROW, [
           (y >> 8) & 0xFF, y & 0xFF, 1,
         ]))
@@ -171,23 +218,24 @@ export class NiimbotPrinter {
         const data = [
           (y >> 8) & 0xFF, y & 0xFF,
           c1 & 0xFF, c2 & 0xFF, c3 & 0xFF,
-          1, // repeat count
+          1,
           ...row,
         ]
         await this.send(makePacket(CMD.PRINT_BITMAP_ROW, data))
       }
-      // Chunked pacing: small pause every 20 rows
-      if (y % 20 === 0) await this.sleep(5)
+      if (y % 16 === 0) {
+        await this.sleep(5)
+        this.drainPackets()
+      }
     }
 
-    // 8. End page
-    await this.sleep(30)
-    await this.send(makePacket(CMD.END_PAGE, [0x01]))
-    await this.sleep(50)
+    // Short pause before end-of-page — some models drop the last rows otherwise
+    await this.sleep(300)
 
-    // 9. End print
-    await this.send(makePacket(CMD.END_PRINT, [0x01]))
-    await this.sleep(100)
+    // End page
+    await this.sendCmd(CMD.END_PAGE, [0x01], 100)
+    // End print
+    await this.sendCmd(CMD.END_PRINT, [0x01], 200)
 
     console.log('[NIIMBOT] done')
   }
