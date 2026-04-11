@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
 import { useLanguage } from '../i18n/LanguageContext'
-import { NiimbotPrinter, NiimbotBluetoothPrinter, B1_MAX_WIDTH, buildTestPatternCanvas } from '../utils/niimbot'
-import toast from 'react-hot-toast'
 
 interface StickerMessage {
   id: string
@@ -35,14 +33,7 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     return saved ? Number(saved) : 0
   })
   const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [niimPrinting, setNiimPrinting] = useState(false)
-  const [niimDensity, setNiimDensity] = useState<number>(() => Number(localStorage.getItem('niim-density')) || 3)
-  const [niimLabelType, setNiimLabelType] = useState<number>(() => Number(localStorage.getItem('niim-label-type')) || 1)
-  const [niimBaud, setNiimBaud] = useState<number>(() => Number(localStorage.getItem('niim-baud')) || 115200)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const niimbotRef = useRef<NiimbotPrinter | null>(null)
-  const niimBleRef = useRef<NiimbotBluetoothPrinter | null>(null)
-  const [blePrinting, setBlePrinting] = useState(false)
 
   const label = LABEL_SIZES[labelIdx]
 
@@ -177,84 +168,6 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     }
   }
 
-  // Build a canvas at NIIMBOT native DPI, auto-rotated to fit the 384-dot print head
-  const buildPrintCanvas = (): HTMLCanvasElement | null => {
-    const canvas = canvasRef.current
-    if (!canvas || !sticker) return null
-    const PRINT_DPI = 203
-    const pxFromMm = (mm: number) => Math.round((mm / 25.4) * PRINT_DPI)
-    const w = pxFromMm(label.w)
-    const h = pxFromMm(label.h)
-    const needRotate = w > B1_MAX_WIDTH
-    const printCanvas = document.createElement('canvas')
-    if (needRotate) { printCanvas.width = h; printCanvas.height = w }
-    else { printCanvas.width = w; printCanvas.height = h }
-    const ctx = printCanvas.getContext('2d')!
-    ctx.fillStyle = '#FFFFFF'
-    ctx.fillRect(0, 0, printCanvas.width, printCanvas.height)
-    if (needRotate) {
-      ctx.save()
-      ctx.translate(printCanvas.width, 0)
-      ctx.rotate(Math.PI / 2)
-      ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h)
-      ctx.restore()
-    } else {
-      ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h)
-    }
-    console.log('[NIIMBOT] print canvas', printCanvas.width, '×', printCanvas.height, needRotate ? '(rotated)' : '')
-    return printCanvas
-  }
-
-  // Print via NIIMBOT over WebSerial (Chrome/Edge desktop)
-  const handleNiimbotPrint = async () => {
-    if (!NiimbotPrinter.isSupported()) {
-      toast.error('WebSerial not supported. Use Chrome or Edge on desktop.')
-      return
-    }
-    const printCanvas = buildPrintCanvas()
-    if (!printCanvas) return
-
-    setNiimPrinting(true)
-    try {
-      niimbotRef.current = new NiimbotPrinter()
-      await niimbotRef.current.connect(niimBaud)
-      await niimbotRef.current.printCanvas(printCanvas, { density: niimDensity, labelType: niimLabelType, quantity: 1 })
-      toast.success('Sticker sent to printer')
-    } catch (err: any) {
-      console.error('[NIIMBOT]', err)
-      toast.error(err?.message || 'Print failed')
-    } finally {
-      await niimbotRef.current?.disconnect()
-      niimbotRef.current = null
-      setNiimPrinting(false)
-    }
-  }
-
-  // Print via NIIMBOT over Web Bluetooth — the native path for B1
-  const handleNiimbotBlePrint = async () => {
-    if (!NiimbotBluetoothPrinter.isSupported()) {
-      toast.error('Web Bluetooth not supported. Use Chrome or Edge on desktop.')
-      return
-    }
-    const printCanvas = buildPrintCanvas()
-    if (!printCanvas) return
-
-    setBlePrinting(true)
-    try {
-      niimBleRef.current = new NiimbotBluetoothPrinter()
-      await niimBleRef.current.connect()
-      await niimBleRef.current.printCanvas(printCanvas, { density: niimDensity, labelType: niimLabelType, quantity: 1 })
-      toast.success('Sticker sent via Bluetooth')
-    } catch (err: any) {
-      console.error('[NIIMBOT BLE]', err)
-      toast.error(err?.message || 'Bluetooth print failed')
-    } finally {
-      await niimBleRef.current?.disconnect()
-      niimBleRef.current = null
-      setBlePrinting(false)
-    }
-  }
-
   // Print via browser print dialog
   const handlePrint = () => {
     const url = renderToCanvas()
@@ -329,168 +242,25 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
         </div>
 
         {/* Actions */}
-        <div className="px-5 pb-4 space-y-2">
-          <div className="flex gap-2">
-            <button
-              onClick={() => fetchRandom()}
-              className="px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-brown font-body text-sm font-medium hover:bg-sheen-gold/20 transition-colors"
-            >
-              {t('shuffle')}
-            </button>
-            <button
-              onClick={handleShare}
-              className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors"
-            >
-              {t('shareToApp')}
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors"
-            >
-              {t('printSticker')}
-            </button>
-          </div>
-
-          {/* NIIMBOT USB direct print — Chrome/Edge desktop only */}
-          {NiimbotPrinter.isSupported() && (
-            <div className="pt-2 border-t border-sheen-cream space-y-2">
-              <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider">NIIMBOT USB</p>
-
-              {/* Baud rate */}
-              <div className="flex items-center gap-2">
-                <span className="font-body text-xs text-sheen-muted w-14">Baud</span>
-                <div className="flex gap-1 flex-wrap">
-                  {[115200, 230400, 460800, 921600, 1000000].map(b => (
-                    <button
-                      key={b}
-                      onClick={() => { setNiimBaud(b); localStorage.setItem('niim-baud', String(b)) }}
-                      className={`px-2 h-7 rounded-md text-[10px] font-body font-medium ${
-                        niimBaud === b ? 'bg-sheen-brown text-white' : 'bg-sheen-cream text-sheen-muted'
-                      }`}
-                    >
-                      {b >= 1000000 ? '1M' : `${b / 1000}k`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Density */}
-              <div className="flex items-center gap-2">
-                <span className="font-body text-xs text-sheen-muted w-14">Density</span>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map(d => (
-                    <button
-                      key={d}
-                      onClick={() => { setNiimDensity(d); localStorage.setItem('niim-density', String(d)) }}
-                      className={`w-7 h-7 rounded-md text-[11px] font-body font-medium ${
-                        niimDensity === d ? 'bg-sheen-brown text-white' : 'bg-sheen-cream text-sheen-muted'
-                      }`}
-                    >
-                      {d}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Label type */}
-              <div className="flex items-center gap-2">
-                <span className="font-body text-xs text-sheen-muted w-14">Label</span>
-                <div className="flex gap-1">
-                  {[
-                    { v: 1, l: 'Gap' },
-                    { v: 2, l: 'Continuous' },
-                    { v: 3, l: 'Black-mark' },
-                  ].map(opt => (
-                    <button
-                      key={opt.v}
-                      onClick={() => { setNiimLabelType(opt.v); localStorage.setItem('niim-label-type', String(opt.v)) }}
-                      className={`px-2.5 h-7 rounded-md text-[11px] font-body font-medium ${
-                        niimLabelType === opt.v ? 'bg-sheen-brown text-white' : 'bg-sheen-cream text-sheen-muted'
-                      }`}
-                    >
-                      {opt.l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={async () => {
-                    try {
-                      const p = new NiimbotPrinter()
-                      await p.connect(niimBaud)
-                      await p.heartbeat()
-                      await new Promise(r => setTimeout(r, 300))
-                      await p.disconnect()
-                      toast.success('Heartbeat sent — check console for response')
-                    } catch (e: any) {
-                      toast.error(e?.message || 'Heartbeat failed')
-                    }
-                  }}
-                  className="px-3 py-2.5 rounded-lg bg-sheen-cream text-sheen-brown font-body text-xs font-medium"
-                >
-                  Test ping
-                </button>
-                <button
-                  onClick={handleNiimbotPrint}
-                  disabled={niimPrinting}
-                  className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-black text-white font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {niimPrinting ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                      Printing…
-                    </>
-                  ) : (
-                    <>🖨️ Print via NIIMBOT USB</>
-                  )}
-                </button>
-              </div>
-
-              {/* Bluetooth print — the native path for B1 */}
-              {NiimbotBluetoothPrinter.isSupported() && (
-                <div className="space-y-2">
-                  <button
-                    onClick={handleNiimbotBlePrint}
-                    disabled={blePrinting}
-                    className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white font-body text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {blePrinting ? (
-                      <>
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                        Printing via Bluetooth…
-                      </>
-                    ) : (
-                      <>📶 Print via NIIMBOT Bluetooth</>
-                    )}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      setBlePrinting(true)
-                      try {
-                        const test = buildTestPatternCanvas(240, 400)
-                        niimBleRef.current = new NiimbotBluetoothPrinter()
-                        await niimBleRef.current.connect()
-                        await niimBleRef.current.printCanvas(test, { density: niimDensity, labelType: niimLabelType, quantity: 1 })
-                        toast.success('Test pattern sent')
-                      } catch (e: any) {
-                        toast.error(e?.message || 'Test print failed')
-                      } finally {
-                        await niimBleRef.current?.disconnect()
-                        niimBleRef.current = null
-                        setBlePrinting(false)
-                      }
-                    }}
-                    disabled={blePrinting}
-                    className="w-full px-4 py-2 rounded-lg bg-purple-600 text-white font-body text-xs font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
-                  >
-                    🧪 Print TEST pattern via BLE
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+        <div className="px-5 pb-4 flex gap-2">
+          <button
+            onClick={() => fetchRandom()}
+            className="px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-brown font-body text-sm font-medium hover:bg-sheen-gold/20 transition-colors"
+          >
+            {t('shuffle')}
+          </button>
+          <button
+            onClick={handleShare}
+            className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors"
+          >
+            {t('shareToApp')}
+          </button>
+          <button
+            onClick={handlePrint}
+            className="px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors"
+          >
+            {t('printSticker')}
+          </button>
         </div>
       </div>
     </div>
