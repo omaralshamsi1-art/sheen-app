@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
 import { useLanguage } from '../i18n/LanguageContext'
-import { NiimbotPrinter } from '../utils/niimbot'
+import { NiimbotPrinter, B1_MAX_WIDTH } from '../utils/niimbot'
 import toast from 'react-hot-toast'
 
 interface StickerMessage {
@@ -38,6 +38,7 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
   const [niimPrinting, setNiimPrinting] = useState(false)
   const [niimDensity, setNiimDensity] = useState<number>(() => Number(localStorage.getItem('niim-density')) || 3)
   const [niimLabelType, setNiimLabelType] = useState<number>(() => Number(localStorage.getItem('niim-label-type')) || 1)
+  const [niimBaud, setNiimBaud] = useState<number>(() => Number(localStorage.getItem('niim-baud')) || 115200)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const niimbotRef = useRef<NiimbotPrinter | null>(null)
 
@@ -186,24 +187,44 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     const canvas = canvasRef.current
     if (!canvas || !sticker) return
 
-    // Build a new canvas at 203 DPI
+    // Build a new canvas at 203 DPI (NIIMBOT native resolution)
     const PRINT_DPI = 203
     const pxFromMm = (mm: number) => Math.round((mm / 25.4) * PRINT_DPI)
-    const w = pxFromMm(label.w)
-    const h = pxFromMm(label.h)
+    let w = pxFromMm(label.w)
+    let h = pxFromMm(label.h)
+
+    // NIIMBOT B1: print head is only 384 dots wide. If the current width
+    // exceeds that, rotate the canvas 90° so the longer edge runs along
+    // the paper feed (which has no length limit).
+    const needRotate = w > B1_MAX_WIDTH
     const printCanvas = document.createElement('canvas')
-    printCanvas.width = w
-    printCanvas.height = h
+    if (needRotate) {
+      printCanvas.width = h
+      printCanvas.height = w
+    } else {
+      printCanvas.width = w
+      printCanvas.height = h
+    }
     const ctx = printCanvas.getContext('2d')!
-    // Re-use the render logic by drawing the existing canvas scaled down
     ctx.fillStyle = '#FFFFFF'
-    ctx.fillRect(0, 0, w, h)
-    ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h)
+    ctx.fillRect(0, 0, printCanvas.width, printCanvas.height)
+
+    if (needRotate) {
+      // Rotate 90° clockwise: translate + rotate + draw
+      ctx.save()
+      ctx.translate(printCanvas.width, 0)
+      ctx.rotate(Math.PI / 2)
+      ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h)
+      ctx.restore()
+    } else {
+      ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h)
+    }
+    console.log('[NIIMBOT] print canvas', printCanvas.width, '×', printCanvas.height, needRotate ? '(rotated)' : '')
 
     setNiimPrinting(true)
     try {
       niimbotRef.current = new NiimbotPrinter()
-      await niimbotRef.current.connect()
+      await niimbotRef.current.connect(niimBaud)
       await niimbotRef.current.printCanvas(printCanvas, { density: niimDensity, labelType: niimLabelType, quantity: 1 })
       toast.success('Sticker sent to printer')
     } catch (err: any) {
@@ -317,6 +338,24 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
             <div className="pt-2 border-t border-sheen-cream space-y-2">
               <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider">NIIMBOT USB</p>
 
+              {/* Baud rate */}
+              <div className="flex items-center gap-2">
+                <span className="font-body text-xs text-sheen-muted w-14">Baud</span>
+                <div className="flex gap-1 flex-wrap">
+                  {[115200, 230400, 460800, 921600, 1000000].map(b => (
+                    <button
+                      key={b}
+                      onClick={() => { setNiimBaud(b); localStorage.setItem('niim-baud', String(b)) }}
+                      className={`px-2 h-7 rounded-md text-[10px] font-body font-medium ${
+                        niimBaud === b ? 'bg-sheen-brown text-white' : 'bg-sheen-cream text-sheen-muted'
+                      }`}
+                    >
+                      {b >= 1000000 ? '1M' : `${b / 1000}k`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Density */}
               <div className="flex items-center gap-2">
                 <span className="font-body text-xs text-sheen-muted w-14">Density</span>
@@ -357,20 +396,39 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
                 </div>
               </div>
 
-              <button
-                onClick={handleNiimbotPrint}
-                disabled={niimPrinting}
-                className="w-full px-4 py-2.5 rounded-lg bg-sheen-black text-white font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {niimPrinting ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                    Printing…
-                  </>
-                ) : (
-                  <>🖨️ Print via NIIMBOT USB</>
-                )}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const p = new NiimbotPrinter()
+                      await p.connect(niimBaud)
+                      await p.heartbeat()
+                      await new Promise(r => setTimeout(r, 300))
+                      await p.disconnect()
+                      toast.success('Heartbeat sent — check console for response')
+                    } catch (e: any) {
+                      toast.error(e?.message || 'Heartbeat failed')
+                    }
+                  }}
+                  className="px-3 py-2.5 rounded-lg bg-sheen-cream text-sheen-brown font-body text-xs font-medium"
+                >
+                  Test ping
+                </button>
+                <button
+                  onClick={handleNiimbotPrint}
+                  disabled={niimPrinting}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-black text-white font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {niimPrinting ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                      Printing…
+                    </>
+                  ) : (
+                    <>🖨️ Print via NIIMBOT USB</>
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -33,6 +33,7 @@ const CMD = {
   SET_DENSITY: 0x21,
   SET_LABEL_TYPE: 0x23,
   START_PRINT: 0x01,
+  ALLOW_PRINT_CLEAR: 0x20, // B1 family requires this after START_PRINT
   START_PAGE: 0x03,
   SET_PAGE_SIZE: 0x13,
   SET_QUANTITY: 0x15,
@@ -41,6 +42,9 @@ const CMD = {
   END_PAGE: 0xE3,
   END_PRINT: 0xF3,
 }
+
+// NIIMBOT B1 print head is 384 dots wide (48mm at 8 dots/mm)
+export const B1_MAX_WIDTH = 384
 
 // ── Bitmap conversion ──────────────────────────────────────────────────────
 export function canvasToMonoRows(canvas: HTMLCanvasElement, threshold = 128): Uint8Array[] {
@@ -89,12 +93,13 @@ export class NiimbotPrinter {
     return typeof navigator !== 'undefined' && 'serial' in navigator
   }
 
-  async connect(): Promise<void> {
+  async connect(baudRate: number = 115200): Promise<void> {
     if (!NiimbotPrinter.isSupported()) {
       throw new Error('WebSerial is not supported. Use Chrome or Edge on desktop.')
     }
     this.port = await (navigator as any).serial.requestPort()
-    await this.port.open({ baudRate: 115200 })
+    await this.port.open({ baudRate })
+    console.log('[NIIMBOT] port opened at', baudRate, 'baud')
     this.writer = this.port.writable.getWriter()
     this.reader = this.port.readable.getReader()
     this.readLoopAbort = false
@@ -196,6 +201,8 @@ export class NiimbotPrinter {
     await this.sendCmd(CMD.SET_LABEL_TYPE, [labelType])
     // Start print
     await this.sendCmd(CMD.START_PRINT, [0x01])
+    // Allow print clear — REQUIRED for B1 family
+    await this.sendCmd(CMD.ALLOW_PRINT_CLEAR, [0x01])
     // Start page
     await this.sendCmd(CMD.START_PAGE, [0x01])
     // Page size (rows=height, cols=width)
