@@ -86,8 +86,8 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     // Customer name
     if (customerName) {
       y += unit * 1.1
-      ctx.font = `600 ${Math.round(unit * 0.85)}px Arial, Helvetica, sans-serif`
-      ctx.fillStyle = '#333333'
+      ctx.font = `bold ${Math.round(unit * 0.85)}px Arial, Helvetica, sans-serif`
+      ctx.fillStyle = '#000000'
       ctx.fillText(customerName, cx, y)
     }
 
@@ -108,9 +108,9 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
 
     // English message
     y += unit * 0.3
-    ctx.fillStyle = '#666666'
+    ctx.fillStyle = '#000000'
     const enFontSize = Math.round(unit * 0.7)
-    ctx.font = `${enFontSize}px Arial, Helvetica, sans-serif`
+    ctx.font = `600 ${enFontSize}px Arial, Helvetica, sans-serif`
     const enLines = wrapText(ctx, sticker.message_en, maxWidth)
     for (const line of enLines) {
       ctx.fillText(line, cx, y)
@@ -119,8 +119,8 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
 
     // @SheenCafe
     y += unit * 0.2
-    ctx.fillStyle = '#999999'
-    ctx.font = `${Math.round(unit * 0.6)}px Arial, Helvetica, sans-serif`
+    ctx.fillStyle = '#000000'
+    ctx.font = `bold ${Math.round(unit * 0.6)}px Arial, Helvetica, sans-serif`
     ctx.fillText('@SheenCafe', cx, y)
 
     return canvas.toDataURL('image/png')
