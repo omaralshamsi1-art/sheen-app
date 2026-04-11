@@ -384,10 +384,10 @@ export default function Sales() {
                       <img
                         src={getItemImage(item.name, item.image_url)}
                         alt={item.name}
-                        className="w-14 h-14 rounded-xl object-cover shrink-0"
+                        className="w-20 h-20 rounded-xl object-cover shrink-0"
                       />
                     ) : (
-                      <div className="w-14 h-14 rounded-xl bg-sheen-cream flex items-center justify-center shrink-0 text-2xl">
+                      <div className="w-20 h-20 rounded-xl bg-sheen-cream flex items-center justify-center shrink-0 text-3xl">
                         ☕
                       </div>
                     )}
