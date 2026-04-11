@@ -376,21 +376,30 @@ export class NiimbotBluetoothPrinter {
         const [c1, c2, c3] = rowPixelCounts(row, width)
         const data = [
           (y >> 8) & 0xFF, y & 0xFF,
-          c1 & 0xFF, c2 & 0xFF, c3 & 0xFF,
+          Math.min(c1, 255), Math.min(c2, 255), Math.min(c3, 255),
           1,
           ...row,
         ]
         await this.sendRaw(makePacket(CMD.PRINT_BITMAP_ROW, data))
       }
-      if (y % 8 === 0) {
-        await this.sleep(10)
+      // Pace more aggressively so the BLE stack doesn't overrun
+      if (y % 4 === 0) {
+        await this.sleep(15)
         this.drainPackets()
       }
     }
 
-    await this.sleep(300)
-    await this.sendCmd(CMD.END_PAGE, [0x01], 100)
-    await this.sendCmd(CMD.END_PRINT, [0x01], 300)
+    // Give the printer plenty of time to finish processing image data
+    console.log('[NIIMBOT BLE] rows sent, waiting for processing…')
+    await this.sleep(1500)
+    this.drainPackets()
+
+    // End page — give it a full second to ACK
+    await this.sendCmd(CMD.END_PAGE, [0x01], 1000)
+    // End print — even longer
+    await this.sendCmd(CMD.END_PRINT, [0x01], 1500)
+    // Final heartbeat to confirm printer is still responsive and idle
+    await this.sendCmd(CMD.HEARTBEAT, [0x01], 500)
 
     console.log('[NIIMBOT BLE] done')
   }
