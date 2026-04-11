@@ -186,6 +186,14 @@ export default function CustomerOrder() {
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0)
 
   const placeOrder = async (paymentNote: string) => {
+    // Hard guard: never submit as delivery if cart doesn't qualify
+    const effectiveOrderType = canDeliver ? orderType : 'pickup'
+    if (orderType === 'delivery' && !canDeliver) {
+      toast.error('Delivery is only available for bean orders. Switching to Pickup.')
+      setOrderType('pickup')
+      return
+    }
+
     await createOrder({
       customer_id: user!.id,
       customer_email: user!.email,
@@ -198,7 +206,7 @@ export default function CustomerOrder() {
       })),
       notes: [
         plateNumber ? `Plate: ${plateNumber}` : null,
-        canDeliver ? (orderType === 'delivery' ? `[Delivery]${homeAddress ? ` → ${homeAddress}` : ' (no address saved)'}` : '[Pickup]') : null,
+        canDeliver ? (effectiveOrderType === 'delivery' ? `[Delivery]${homeAddress ? ` → ${homeAddress}` : ' (no address saved)'}` : '[Pickup]') : null,
         notes || null,
         paymentNote,
       ].filter(Boolean).join('\n'),
