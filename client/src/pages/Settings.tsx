@@ -21,6 +21,29 @@ export default function Settings() {
   const [categories, setCategories] = useState<string[]>([])
   const [newCategory, setNewCategory] = useState('')
 
+  // Delivery toggle
+  const { data: deliveryData } = useQuery({
+    queryKey: ['settings', 'delivery_enabled'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/delivery_enabled')
+      return (data === true) as boolean
+    },
+  })
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false)
+  useEffect(() => { if (deliveryData !== undefined) setDeliveryEnabled(deliveryData ?? false) }, [deliveryData])
+
+  const toggleDeliveryMut = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      await api.put('/api/settings/delivery_enabled', { value: enabled })
+    },
+    onSuccess: (_, enabled) => {
+      setDeliveryEnabled(enabled)
+      qc.invalidateQueries({ queryKey: ['settings', 'delivery_enabled'] })
+      toast.success(enabled ? 'Delivery enabled' : 'Delivery disabled')
+    },
+    onError: () => toast.error('Failed to update'),
+  })
+
   const { data, isLoading } = useQuery({
     queryKey: ['settings', 'order_sources'],
     queryFn: async () => {
@@ -95,6 +118,36 @@ export default function Settings() {
       <TopBar title={t('settings')} />
 
       <main className="max-w-lg mx-auto px-4 py-6">
+        {/* Delivery toggle */}
+        <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-lg text-sheen-black">Delivery</h2>
+              <p className="font-body text-xs text-sheen-muted mt-0.5">
+                Allow customers to choose delivery when placing an order.
+              </p>
+            </div>
+            <button
+              onClick={() => toggleDeliveryMut.mutate(!deliveryEnabled)}
+              disabled={toggleDeliveryMut.isPending}
+              className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                deliveryEnabled ? 'bg-sheen-brown' : 'bg-sheen-muted/30'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200 ${
+                  deliveryEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-body ${deliveryEnabled ? 'bg-green-50 text-green-700' : 'bg-sheen-cream text-sheen-muted'}`}>
+            {deliveryEnabled
+              ? 'Delivery is ON — customers will see a Pickup / Delivery choice when ordering.'
+              : 'Delivery is OFF — customers can only choose Pickup.'}
+          </div>
+        </div>
+
         {/* Order Sources / Commissions */}
         <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
           <h2 className="font-display text-lg text-sheen-black mb-1">{t('orderSources')}</h2>

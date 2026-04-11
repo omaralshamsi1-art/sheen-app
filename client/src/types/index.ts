@@ -274,6 +274,7 @@ export interface UserRoleRecord {
   plate_number: string | null;
   home_lat: number | null;
   home_lng: number | null;
+  home_address: string | null;
   is_banned?: boolean;
   last_sign_in?: string | null;
   created_at: string;

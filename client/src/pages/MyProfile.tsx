@@ -53,7 +53,7 @@ function LocationPicker({ position, onChange }: { position: LatLng | null; onCha
 
 export default function MyProfile() {
   const { user } = useAuth()
-  const { fullName, phone, plateNumber, homeLat, homeLng, roleLoading } = useRole()
+  const { fullName, phone, plateNumber, homeLat, homeLng, homeAddress, roleLoading } = useRole()
 
   const [name, setName] = useState('')
   const [phoneVal, setPhoneVal] = useState('')
@@ -84,7 +84,8 @@ export default function MyProfile() {
       setLocation(loc)
       setMapFocus(loc)
       setMapZoom(15)
-      reverseGeocode(homeLat, homeLng).then(setAddress)
+      if (homeAddress) setAddress(homeAddress)
+      else reverseGeocode(homeLat, homeLng).then(setAddress)
     }
   }, [roleLoading])
 
@@ -151,6 +152,7 @@ export default function MyProfile() {
         plate_number: plate.trim() || undefined,
         home_lat: location?.lat ?? null,
         home_lng: location?.lng ?? null,
+        home_address: address ?? null,
       })
       toast.success('Profile saved')
     } catch {
