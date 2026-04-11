@@ -299,16 +299,15 @@ export class NiimbotBluetoothPrinter {
 
   private sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
+  // Use writeValue (with ACK) — slower but guaranteed delivery so BLE stack
+  // can't outrun the B1's buffer. writeValueWithoutResponse was dropping
+  // roughly half the row packets.
   private async sendRaw(packet: Uint8Array) {
     if (!this.characteristic) throw new Error('Not connected')
     const CHUNK = 20
     for (let off = 0; off < packet.length; off += CHUNK) {
       const chunk = packet.slice(off, off + CHUNK)
-      if (this.characteristic.writeValueWithoutResponse) {
-        await this.characteristic.writeValueWithoutResponse(chunk)
-      } else {
-        await this.characteristic.writeValue(chunk)
-      }
+      await this.characteristic.writeValue(chunk)
     }
   }
 
@@ -393,30 +392,21 @@ export class NiimbotBluetoothPrinter {
       }
     }
 
-    // Give the printer plenty of time to finish processing image data
-    console.log('[NIIMBOT BLE] rows sent, waiting for processing…')
-    await this.sleep(1000)
+    // All rows are now safely delivered because writeValue waits for ACK
+    console.log('[NIIMBOT BLE] rows sent, ending job…')
+    await this.sleep(500)
     this.drainPackets()
 
-    // End page
+    // End page + poll status until printer says it's done (or we give up)
     await this.sendCmd(CMD.END_PAGE, [0x01], 500)
 
-    // Poll print status until the printer reports the job is complete.
-    // This is what niimbluelib / the phone app does — without it, END_PRINT
-    // races the printer's internal row buffer.
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 20; i++) {
       await this.sendCmd(CMD.GET_PRINT_STATUS, [0x01], 200)
-      // We just fire-and-poll — the drainPackets() in sendCmd logs the responses
-      // so we can see progress in the console. If the printer reported 0xD3
-      // with progress == 100 or a specific "done" flag, we could exit early,
-      // but because the exact "done" value varies, we just poll a fixed number
-      // of times then give up.
-      if (i >= 5 && this.readBuffer.length === 0) break // idle
+      // If no fresh response and we're past the warmup, assume idle
+      if (i >= 3 && this.readBuffer.length === 0) break
     }
 
-    // End print
     await this.sendCmd(CMD.END_PRINT, [0x01], 1000)
-    // Final heartbeat to confirm printer is still responsive and idle
     await this.sendCmd(CMD.HEARTBEAT, [0x01], 500)
 
     console.log('[NIIMBOT BLE] done')
