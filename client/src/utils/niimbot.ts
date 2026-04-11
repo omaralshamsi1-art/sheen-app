@@ -401,25 +401,28 @@ export class NiimbotBluetoothPrinter {
     await this.sendCmd(CMD.SET_QUANTITY, [(quantity >> 8) & 0xFF, quantity & 0xFF])
 
     // Counts field: niimbluelib / NiimPrintX use (0, 0, bytesPerRow).
-    // The third byte is the number of image bytes in the row, NOT a pixel count.
     const bytesPerRow = rows[0]?.length ?? 0
 
     for (let y = 0; y < height; y++) {
       const row = rows[y]
       if (rowIsEmpty(row)) {
+        // Empty in natural encoding = all white = use PRINT_EMPTY_ROW
         await this.sendRaw(makePacket(CMD.PRINT_EMPTY_ROW, [
           (y >> 8) & 0xFF, y & 0xFF, 1,
         ]))
       } else {
+        // NIIMBOT B1 uses INVERTED bit encoding: 0 = black, 1 = white.
+        // Flip every byte before sending.
+        const inverted: number[] = []
+        for (let i = 0; i < row.length; i++) inverted.push(row[i] ^ 0xFF)
         const data = [
           (y >> 8) & 0xFF, y & 0xFF,
           0, 0, bytesPerRow & 0xFF,
           1,
-          ...row,
+          ...inverted,
         ]
         await this.sendRaw(makePacket(CMD.PRINT_BITMAP_ROW, data))
       }
-      // Pace drains
       if (y % 4 === 0) {
         this.drainPackets()
       }
