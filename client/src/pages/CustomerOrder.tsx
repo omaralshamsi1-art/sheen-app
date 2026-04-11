@@ -466,6 +466,18 @@ export default function CustomerOrder() {
                   </div>
                 ))}
 
+                {/* Mixed cart warning — beans + non-beans, delivery enabled */}
+                {deliveryEnabled && !canDeliver && cartItems.some(i => i.category === 'Beans') && cartItems.some(i => i.category !== 'Beans') && (
+                  <div className="pt-3 border-t border-sheen-cream">
+                    <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-orange-50 border border-orange-200">
+                      <span className="text-base shrink-0">🛵</span>
+                      <p className="font-body text-xs text-orange-700 leading-snug">
+                        <strong>Delivery is available for beans only.</strong> Remove the drinks/food items from your cart if you'd like delivery.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Pickup / Delivery — only shown when delivery is enabled AND all items are Beans */}
                 {canDeliver && (
                   <div className="pt-3 border-t border-sheen-cream">
