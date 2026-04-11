@@ -30,10 +30,12 @@ function makePacket(cmd: number, data: number[]): Uint8Array {
 const CMD = {
   HEARTBEAT: 0xDC,
   GET_INFO: 0x40,
+  GET_RFID: 0x1A,           // Read RFID tag of loaded label (B1 requires)
+  GET_PRINT_STATUS: 0xA3,   // Poll printing progress
   SET_DENSITY: 0x21,
   SET_LABEL_TYPE: 0x23,
   START_PRINT: 0x01,
-  ALLOW_PRINT_CLEAR: 0x20, // B1 family requires this after START_PRINT
+  ALLOW_PRINT_CLEAR: 0x20,  // B1 family requires this after START_PRINT
   START_PAGE: 0x03,
   SET_PAGE_SIZE: 0x13,
   SET_QUANTITY: 0x15,
@@ -355,6 +357,8 @@ export class NiimbotBluetoothPrinter {
     console.log('[NIIMBOT BLE] printing', { width, height, density, labelType, quantity })
 
     await this.heartbeat()
+    // Read RFID tag of loaded label — B1 expects this before any print job
+    await this.sendCmd(CMD.GET_RFID, [0x01], 200)
     await this.sendCmd(CMD.SET_DENSITY, [density])
     await this.sendCmd(CMD.SET_LABEL_TYPE, [labelType])
     await this.sendCmd(CMD.START_PRINT, [0x01])
@@ -391,13 +395,27 @@ export class NiimbotBluetoothPrinter {
 
     // Give the printer plenty of time to finish processing image data
     console.log('[NIIMBOT BLE] rows sent, waiting for processing…')
-    await this.sleep(1500)
+    await this.sleep(1000)
     this.drainPackets()
 
-    // End page — give it a full second to ACK
-    await this.sendCmd(CMD.END_PAGE, [0x01], 1000)
-    // End print — even longer
-    await this.sendCmd(CMD.END_PRINT, [0x01], 1500)
+    // End page
+    await this.sendCmd(CMD.END_PAGE, [0x01], 500)
+
+    // Poll print status until the printer reports the job is complete.
+    // This is what niimbluelib / the phone app does — without it, END_PRINT
+    // races the printer's internal row buffer.
+    for (let i = 0; i < 30; i++) {
+      await this.sendCmd(CMD.GET_PRINT_STATUS, [0x01], 200)
+      // We just fire-and-poll — the drainPackets() in sendCmd logs the responses
+      // so we can see progress in the console. If the printer reported 0xD3
+      // with progress == 100 or a specific "done" flag, we could exit early,
+      // but because the exact "done" value varies, we just poll a fixed number
+      // of times then give up.
+      if (i >= 5 && this.readBuffer.length === 0) break // idle
+    }
+
+    // End print
+    await this.sendCmd(CMD.END_PRINT, [0x01], 1000)
     // Final heartbeat to confirm printer is still responsive and idle
     await this.sendCmd(CMD.HEARTBEAT, [0x01], 500)
 
