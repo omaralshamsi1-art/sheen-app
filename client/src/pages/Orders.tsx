@@ -154,10 +154,42 @@ export default function Orders() {
                   ))}
                 </div>
 
-                {/* Notes — hide internal notes (POS, Payment) */}
-                {order.notes && !order.notes.startsWith('[POS') && !order.notes.startsWith('[Payment') && (
-                  <p className="font-body text-xs text-sheen-muted italic mb-3">"{order.notes}"</p>
-                )}
+                {/* Delivery / Pickup badge */}
+                {(() => {
+                  const deliveryMatch = order.notes?.match(/\[Delivery\](?: → (.+))?/)
+                  const isPickup = order.notes?.includes('[Pickup]')
+                  if (deliveryMatch) {
+                    const address = deliveryMatch[1]?.split('\n')[0]?.trim()
+                    return (
+                      <div className="flex items-start gap-2 mb-3 px-3 py-2 rounded-lg bg-orange-50 border border-orange-200">
+                        <span className="text-base mt-0.5">🛵</span>
+                        <div>
+                          <span className="font-body text-sm font-bold text-orange-700 uppercase tracking-wide">Delivery</span>
+                          {address && <p className="font-body text-xs text-orange-600 mt-0.5">{address}</p>}
+                        </div>
+                      </div>
+                    )
+                  }
+                  if (isPickup) {
+                    return (
+                      <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200">
+                        <span className="text-base">🏪</span>
+                        <span className="font-body text-sm font-semibold text-blue-700">Pickup</span>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
+
+                {/* Notes — hide internal tags */}
+                {order.notes && !order.notes.startsWith('[POS') && !order.notes.startsWith('[Payment') && (() => {
+                  const cleaned = order.notes
+                    .split('\n')
+                    .filter(l => !l.startsWith('[Delivery]') && !l.startsWith('[Pickup]') && !l.startsWith('[Payment') && !l.startsWith('[POS'))
+                    .join('\n')
+                    .trim()
+                  return cleaned ? <p className="font-body text-xs text-sheen-muted italic mb-3">"{cleaned}"</p> : null
+                })()}
 
                 {/* Total + Actions */}
                 <div className="flex items-center justify-between border-t border-sheen-cream pt-3">
