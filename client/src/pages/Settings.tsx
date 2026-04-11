@@ -50,6 +50,29 @@ export default function Settings() {
     onError: () => toast.error('Failed to update'),
   })
 
+  // Delivery scope: beans_only | all
+  const { data: deliveryScopeData } = useQuery({
+    queryKey: ['settings', 'delivery_scope'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/delivery_scope')
+      return (data as string) ?? 'beans_only'
+    },
+  })
+  const [deliveryScope, setDeliveryScope] = useState<'beans_only' | 'all'>('beans_only')
+  useEffect(() => { if (deliveryScopeData) setDeliveryScope(deliveryScopeData as 'beans_only' | 'all') }, [deliveryScopeData])
+
+  const deliveryScopeMut = useMutation({
+    mutationFn: async (scope: string) => {
+      await api.put('/api/settings/delivery_scope', { value: scope })
+    },
+    onSuccess: (_, scope) => {
+      setDeliveryScope(scope as 'beans_only' | 'all')
+      qc.invalidateQueries({ queryKey: ['settings', 'delivery_scope'] })
+      toast.success(scope === 'all' ? 'Delivery enabled for all items' : 'Delivery enabled for beans only')
+    },
+    onError: () => toast.error('Failed to update'),
+  })
+
   // Default payment methods
   const { data: defaultMethods } = useQuery({
     queryKey: ['default-payment-methods'],
@@ -168,6 +191,32 @@ export default function Settings() {
               ? 'Delivery is ON — customers will see a Pickup / Delivery choice when ordering.'
               : 'Delivery is OFF — customers can only choose Pickup.'}
           </div>
+
+          {deliveryEnabled && (
+            <div className="mt-4">
+              <p className="font-body text-xs font-medium text-sheen-black mb-2">Delivery available for:</p>
+              <div className="flex gap-2">
+                {([
+                  { value: 'beans_only', label: 'Beans only', desc: 'Drinks & food → Pickup only' },
+                  { value: 'all', label: 'All items', desc: 'Any order can be delivered' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => deliveryScopeMut.mutate(opt.value)}
+                    disabled={deliveryScopeMut.isPending}
+                    className={`flex-1 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                      deliveryScope === opt.value
+                        ? 'bg-sheen-brown text-white border-sheen-brown'
+                        : 'bg-sheen-cream text-sheen-black border-sheen-muted/20 hover:border-sheen-brown/40'
+                    }`}
+                  >
+                    <p className={`font-body text-xs font-semibold ${deliveryScope === opt.value ? 'text-white' : 'text-sheen-black'}`}>{opt.label}</p>
+                    <p className={`font-body text-[10px] mt-0.5 ${deliveryScope === opt.value ? 'text-white/70' : 'text-sheen-muted'}`}>{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Default Payment Methods */}

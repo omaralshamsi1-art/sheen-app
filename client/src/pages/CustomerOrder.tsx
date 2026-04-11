@@ -59,12 +59,19 @@ export default function CustomerOrder() {
   }
   const queryClient = useQueryClient()
 
-  // Fetch delivery enabled setting
+  // Fetch delivery enabled + scope settings
   const { data: deliveryEnabled = false } = useQuery({
     queryKey: ['settings', 'delivery_enabled'],
     queryFn: async () => {
       const { data } = await api.get('/api/settings/delivery_enabled')
       return data === true
+    },
+  })
+  const { data: deliveryScope = 'beans_only' } = useQuery({
+    queryKey: ['settings', 'delivery_scope'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/delivery_scope')
+      return (data as string) ?? 'beans_only'
     },
   })
   const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup')
@@ -168,8 +175,9 @@ export default function CustomerOrder() {
 
   const cartTotal = cartItems.reduce((s, i) => s + i.total, 0)
 
-  // Delivery only available when admin has enabled it AND every cart item is a Bean
-  const canDeliver = deliveryEnabled && cartItems.length > 0 && cartItems.every(i => i.category === 'Beans')
+  // Delivery only available when admin has enabled it, and either scope is 'all' or every cart item is a Bean
+  const canDeliver = deliveryEnabled && cartItems.length > 0 &&
+    (deliveryScope === 'all' || cartItems.every(i => i.category === 'Beans'))
 
   // Auto-reset to pickup whenever delivery becomes unavailable
   useEffect(() => {
@@ -466,8 +474,8 @@ export default function CustomerOrder() {
                   </div>
                 ))}
 
-                {/* Mixed cart warning — beans + non-beans, delivery enabled */}
-                {deliveryEnabled && !canDeliver && cartItems.some(i => i.category === 'Beans') && cartItems.some(i => i.category !== 'Beans') && (
+                {/* Mixed cart warning — only when scope is beans_only */}
+                {deliveryEnabled && deliveryScope === 'beans_only' && !canDeliver && cartItems.some(i => i.category === 'Beans') && cartItems.some(i => i.category !== 'Beans') && (
                   <div className="pt-3 border-t border-sheen-cream">
                     <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-orange-50 border border-orange-200">
                       <span className="text-base shrink-0">🛵</span>
