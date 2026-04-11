@@ -400,6 +400,10 @@ export class NiimbotBluetoothPrinter {
     ])
     await this.sendCmd(CMD.SET_QUANTITY, [(quantity >> 8) & 0xFF, quantity & 0xFF])
 
+    // Counts field: niimbluelib / NiimPrintX use (0, 0, bytesPerRow).
+    // The third byte is the number of image bytes in the row, NOT a pixel count.
+    const bytesPerRow = rows[0]?.length ?? 0
+
     for (let y = 0; y < height; y++) {
       const row = rows[y]
       if (rowIsEmpty(row)) {
@@ -407,18 +411,16 @@ export class NiimbotBluetoothPrinter {
           (y >> 8) & 0xFF, y & 0xFF, 1,
         ]))
       } else {
-        const [c1, c2, c3] = rowPixelCounts(row, width)
         const data = [
           (y >> 8) & 0xFF, y & 0xFF,
-          Math.min(c1, 255), Math.min(c2, 255), Math.min(c3, 255),
+          0, 0, bytesPerRow & 0xFF,
           1,
           ...row,
         ]
         await this.sendRaw(makePacket(CMD.PRINT_BITMAP_ROW, data))
       }
-      // Pace more aggressively so the BLE stack doesn't overrun
+      // Pace drains
       if (y % 4 === 0) {
-        await this.sleep(15)
         this.drainPackets()
       }
     }
