@@ -188,12 +188,14 @@ router.post('/', async (req: Request, res: Response) => {
 router.patch('/profile/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params
-    const { full_name, phone, plate_number } = req.body
+    const { full_name, phone, plate_number, home_lat, home_lng } = req.body
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
     if (full_name !== undefined) updates.full_name = String(full_name).trim().slice(0, 100) || null
     if (phone !== undefined) updates.phone = String(phone).trim().slice(0, 20) || null
     if (plate_number !== undefined) updates.plate_number = String(plate_number).trim().toUpperCase().slice(0, 20) || null
+    if (home_lat !== undefined) updates.home_lat = home_lat === null ? null : Number(home_lat)
+    if (home_lng !== undefined) updates.home_lng = home_lng === null ? null : Number(home_lng)
 
     const { data, error } = await supabase
       .from('user_roles')

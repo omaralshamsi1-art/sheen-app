@@ -140,6 +140,7 @@ export const translations = {
   orderSubmitted: { en: 'Order submitted!', ar: 'تم إرسال الطلب!' },
   orderFailed: { en: 'Failed to submit order', ar: 'فشل إرسال الطلب' },
   myOrders: { en: 'My Orders', ar: 'طلباتي' },
+  myProfile: { en: 'My Profile', ar: 'ملفي الشخصي' },
   noOrders: { en: 'No orders yet.', ar: 'لا توجد طلبات بعد.' },
   confirm: { en: 'Confirm', ar: 'تأكيد' },
   reject: { en: 'Reject', ar: 'رفض' },

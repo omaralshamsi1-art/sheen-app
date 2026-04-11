@@ -12,6 +12,8 @@ export function useRole() {
   const [phone, setPhone] = useState<string | null>(null)
   const [fullName, setFullName] = useState<string | null>(null)
   const [roleRecordId, setRoleRecordId] = useState<string | null>(null)
+  const [homeLat, setHomeLat] = useState<number | null>(null)
+  const [homeLng, setHomeLng] = useState<number | null>(null)
   const [roleLoading, setRoleLoading] = useState(true)
 
   useEffect(() => {
@@ -23,6 +25,8 @@ export function useRole() {
       setPhone(null)
       setFullName(null)
       setRoleRecordId(null)
+      setHomeLat(null)
+      setHomeLng(null)
       setRoleLoading(false)
       return
     }
@@ -40,6 +44,8 @@ export function useRole() {
         setPhone(data.phone || null)
         setFullName(data.full_name || null)
         setRoleRecordId(data.id ?? null)
+        setHomeLat(data.home_lat ?? null)
+        setHomeLng(data.home_lng ?? null)
       } catch {
         setRole('customer')
         setAllowedPages(null)
@@ -55,5 +61,5 @@ export function useRole() {
   const isStaff = role === 'staff'
   const isCustomer = role === 'customer'
 
-  return { role, roleLoading, isAdmin, isStaff, isCustomer, allowedPages, allowedPaymentMethods, plateNumber, phone, fullName, roleRecordId }
+  return { role, roleLoading, isAdmin, isStaff, isCustomer, allowedPages, allowedPaymentMethods, plateNumber, phone, fullName, roleRecordId, homeLat, homeLng }
 }
