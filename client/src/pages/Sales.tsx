@@ -372,82 +372,81 @@ export default function Sales() {
               {t('noItemsInCategory')}
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {currentItems.map((item: MenuItem) => (
                 <div
                   key={item.id}
-                  className="border border-sheen-muted/30 rounded-xl p-5"
+                  className="border border-sheen-muted/30 rounded-xl p-4 flex flex-col"
                 >
-                  {/* Top row: image + name/price + qty controls */}
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {getItemImage(item.name, item.image_url) ? (
-                        <img
-                          src={getItemImage(item.name, item.image_url)}
-                          alt={item.name}
-                          className="w-16 h-16 rounded-xl object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded-xl bg-sheen-cream flex items-center justify-center shrink-0 text-2xl">
-                          ☕
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-body font-semibold text-sheen-black text-base leading-tight">
-                          {item.name}
-                        </p>
-                        <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
-                          {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
-                            ? item.selling_price + COLOMBIA_PREMIUM
-                            : item.selling_price} د.إ
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => decrement(item.id)}
-                        disabled={getQty(item.id) === 0}
-                        className="w-12 h-12 flex items-center justify-center rounded-lg bg-sheen-cream text-sheen-black font-bold text-xl hover:bg-sheen-gold/20 active:bg-sheen-gold/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      >
-                        &minus;
-                      </button>
-                      <input
-                        type="number"
-                        min={0}
-                        value={getQty(item.id)}
-                        onChange={(e) =>
-                          setQty(item.id, parseInt(e.target.value, 10) || 0)
-                        }
-                        className="w-14 h-12 text-center font-body text-base font-semibold border border-sheen-muted/40 rounded-lg bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  {/* Top: image + name + price */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    {getItemImage(item.name, item.image_url) ? (
+                      <img
+                        src={getItemImage(item.name, item.image_url)}
+                        alt={item.name}
+                        className="w-14 h-14 rounded-xl object-cover shrink-0"
                       />
-                      <button
-                        onClick={() => increment(item.id)}
-                        className="w-12 h-12 flex items-center justify-center rounded-lg bg-sheen-brown text-white font-bold text-xl hover:bg-sheen-brown/90 active:bg-sheen-brown transition-colors"
-                      >
-                        +
-                      </button>
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl bg-sheen-cream flex items-center justify-center shrink-0 text-2xl">
+                        ☕
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-body font-semibold text-sheen-black text-base leading-tight truncate">
+                        {item.name}
+                      </p>
+                      <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
+                        {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
+                          ? item.selling_price + COLOMBIA_PREMIUM
+                          : item.selling_price} د.إ
+                      </p>
                     </div>
                   </div>
 
-                  {/* Bean options row (Coffee only) */}
+                  {/* Bean options (Coffee only) */}
                   {item.category === 'Coffee' && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {BEAN_OPTIONS.map(bean => (
                         <button
                           key={bean}
                           onClick={() => setBeanChoices(prev => ({ ...prev, [item.id]: bean }))}
-                          className={`px-3 py-1 rounded-full text-xs font-body font-medium transition-colors ${
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-body font-medium transition-colors ${
                             (beanChoices[item.id] || 'Ethiopia') === bean
                               ? 'bg-sheen-brown text-white'
                               : 'bg-sheen-cream text-sheen-muted'
                           }`}
                         >
-                          {bean}{bean === 'Colombia Tobacco' ? ' +5' : ''}
+                          {bean === 'Colombia Tobacco' ? 'Colombia +5' : bean}
                         </button>
                       ))}
                     </div>
                   )}
+
+                  {/* Quantity controls — full width on its own row */}
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      onClick={() => decrement(item.id)}
+                      disabled={getQty(item.id) === 0}
+                      className="flex-1 h-12 flex items-center justify-center rounded-lg bg-sheen-cream text-sheen-black font-bold text-2xl hover:bg-sheen-gold/20 active:bg-sheen-gold/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      &minus;
+                    </button>
+                    <input
+                      type="number"
+                      min={0}
+                      value={getQty(item.id)}
+                      onChange={(e) =>
+                        setQty(item.id, parseInt(e.target.value, 10) || 0)
+                      }
+                      className="w-16 h-12 text-center font-body text-lg font-semibold border border-sheen-muted/40 rounded-lg bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <button
+                      onClick={() => increment(item.id)}
+                      className="flex-1 h-12 flex items-center justify-center rounded-lg bg-sheen-brown text-white font-bold text-2xl hover:bg-sheen-brown/90 active:bg-sheen-brown transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
