@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
 import { useLanguage } from '../i18n/LanguageContext'
-import { NiimbotPrinter, NiimbotBluetoothPrinter, B1_MAX_WIDTH } from '../utils/niimbot'
+import { NiimbotPrinter, NiimbotBluetoothPrinter, B1_MAX_WIDTH, buildTestPatternCanvas } from '../utils/niimbot'
 import toast from 'react-hot-toast'
 
 interface StickerMessage {
@@ -450,20 +450,44 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
 
               {/* Bluetooth print — the native path for B1 */}
               {NiimbotBluetoothPrinter.isSupported() && (
-                <button
-                  onClick={handleNiimbotBlePrint}
-                  disabled={blePrinting}
-                  className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white font-body text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {blePrinting ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                      Printing via Bluetooth…
-                    </>
-                  ) : (
-                    <>📶 Print via NIIMBOT Bluetooth</>
-                  )}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={handleNiimbotBlePrint}
+                    disabled={blePrinting}
+                    className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white font-body text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {blePrinting ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                        Printing via Bluetooth…
+                      </>
+                    ) : (
+                      <>📶 Print via NIIMBOT Bluetooth</>
+                    )}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setBlePrinting(true)
+                      try {
+                        const test = buildTestPatternCanvas(240, 400)
+                        niimBleRef.current = new NiimbotBluetoothPrinter()
+                        await niimBleRef.current.connect()
+                        await niimBleRef.current.printCanvas(test, { density: niimDensity, labelType: niimLabelType, quantity: 1 })
+                        toast.success('Test pattern sent')
+                      } catch (e: any) {
+                        toast.error(e?.message || 'Test print failed')
+                      } finally {
+                        await niimBleRef.current?.disconnect()
+                        niimBleRef.current = null
+                        setBlePrinting(false)
+                      }
+                    }}
+                    disabled={blePrinting}
+                    className="w-full px-4 py-2 rounded-lg bg-purple-600 text-white font-body text-xs font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
+                  >
+                    🧪 Print TEST pattern via BLE
+                  </button>
+                </div>
               )}
             </div>
           )}

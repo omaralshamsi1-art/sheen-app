@@ -53,6 +53,27 @@ const NIIMBOT_SERVICE_UUID = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
 const NIIMBOT_CHAR_UUID = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'
 
 // ── Bitmap conversion ──────────────────────────────────────────────────────
+// Build a test pattern canvas: solid black bars at known row positions
+export function buildTestPatternCanvas(widthPx = 240, heightPx = 400): HTMLCanvasElement {
+  const c = document.createElement('canvas')
+  c.width = widthPx
+  c.height = heightPx
+  const ctx = c.getContext('2d')!
+  ctx.fillStyle = '#FFFFFF'
+  ctx.fillRect(0, 0, widthPx, heightPx)
+  ctx.fillStyle = '#000000'
+  // Three solid black bars across the whole width
+  ctx.fillRect(0, 50, widthPx, 30)
+  ctx.fillRect(0, 180, widthPx, 30)
+  ctx.fillRect(0, 310, widthPx, 30)
+  // Big text marker
+  ctx.font = 'bold 60px Arial'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('TEST', widthPx / 2, heightPx / 2)
+  return c
+}
+
 export function canvasToMonoRows(canvas: HTMLCanvasElement, threshold = 128): Uint8Array[] {
   const ctx = canvas.getContext('2d')!
   const { width, height } = canvas
@@ -354,6 +375,16 @@ export class NiimbotBluetoothPrinter {
     const width = canvas.width
 
     console.log('[NIIMBOT BLE] printing', { width, height, density, labelType, quantity })
+
+    // DEBUG: log first few non-empty rows so we can verify bits are reaching the wire
+    let shown = 0
+    for (let y = 0; y < rows.length && shown < 3; y++) {
+      if (!rowIsEmpty(rows[y])) {
+        const hex = Array.from(rows[y]).map(b => b.toString(16).padStart(2, '0')).join('')
+        console.log(`[NIIMBOT BLE] row ${y}: ${hex}`)
+        shown++
+      }
+    }
 
     await this.heartbeat()
     // Read RFID tag of loaded label — B1 expects this before any print job
