@@ -167,6 +167,14 @@ export default function CustomerOrder() {
   }, [quantities, menuItems])
 
   const cartTotal = cartItems.reduce((s, i) => s + i.total, 0)
+
+  // Delivery only available when admin has enabled it AND every cart item is a Bean
+  const canDeliver = deliveryEnabled && cartItems.length > 0 && cartItems.every(i => i.category === 'Beans')
+
+  // Auto-reset to pickup whenever delivery becomes unavailable
+  useEffect(() => {
+    if (!canDeliver) setOrderType('pickup')
+  }, [canDeliver])
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0)
 
   const placeOrder = async (paymentNote: string) => {
@@ -182,7 +190,7 @@ export default function CustomerOrder() {
       })),
       notes: [
         plateNumber ? `Plate: ${plateNumber}` : null,
-        deliveryEnabled ? (orderType === 'delivery' ? `[Delivery]${homeAddress ? ` → ${homeAddress}` : ' (no address saved)'}` : '[Pickup]') : null,
+        canDeliver ? (orderType === 'delivery' ? `[Delivery]${homeAddress ? ` → ${homeAddress}` : ' (no address saved)'}` : '[Pickup]') : null,
         notes || null,
         paymentNote,
       ].filter(Boolean).join('\n'),
@@ -458,8 +466,8 @@ export default function CustomerOrder() {
                   </div>
                 ))}
 
-                {/* Pickup / Delivery — only shown when admin has enabled delivery */}
-                {deliveryEnabled && (
+                {/* Pickup / Delivery — only shown when delivery is enabled AND all items are Beans */}
+                {canDeliver && (
                   <div className="pt-3 border-t border-sheen-cream">
                     <p className="font-body text-sm font-medium text-sheen-black mb-2">Order Type</p>
                     <div className="flex gap-2">
