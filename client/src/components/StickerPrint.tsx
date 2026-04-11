@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
 import { useLanguage } from '../i18n/LanguageContext'
+import toast from 'react-hot-toast'
 
 interface StickerMessage {
   id: string
@@ -136,31 +137,39 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     }
   }, [sticker, labelIdx, customerName])
 
-  // Share as image (for OpenLabel on iPad)
+  // Save image for the NIIMBOT app (Android downloads; iOS/desktop use share sheet)
   const handleShare = async () => {
     const url = renderToCanvas()
     if (!url) return
 
+    const isAndroid = /Android/i.test(navigator.userAgent)
+
+    // On Android, NIIMBOT doesn't register as a share target, so the share
+    // sheet is useless. Download directly and tell the user what to do next.
+    if (isAndroid) {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'sheen-sticker.png'
+      a.click()
+      toast.success('Saved to Downloads — open NIIMBOT → Import from gallery', { duration: 6000 })
+      return
+    }
+
+    // iOS/desktop: use the Web Share API (works well on iPad for NIIMBOT extension)
     try {
-      // Convert data URL to blob
       const res = await fetch(url)
       const blob = await res.blob()
       const file = new File([blob], 'sheen-sticker.png', { type: 'image/png' })
 
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'SHEEN Sticker',
-        })
+        await navigator.share({ files: [file], title: 'SHEEN Sticker' })
       } else {
-        // Fallback: download the image
         const a = document.createElement('a')
         a.href = url
         a.download = 'sheen-sticker.png'
         a.click()
       }
     } catch {
-      // User cancelled share or not supported — try download
       const a = document.createElement('a')
       a.href = url!
       a.download = 'sheen-sticker.png'
