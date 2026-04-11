@@ -99,6 +99,7 @@ export default function CustomerOrder() {
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({}) // itemId → bean name
 
   const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
+  const COLOMBIA_PREMIUM = 5 // AED extra per coffee when Colombia beans are selected
   const [stripeLoading, setStripeLoading] = useState(false)
 
   // Refs
@@ -168,10 +169,14 @@ export default function CustomerOrder() {
       .filter(([, qty]) => qty > 0)
       .map(([id, qty]) => {
         const item = menuItems.find((m: MenuItem) => m.id === id)
-        return item ? { ...item, qty, total: item.selling_price * qty } : null
+        if (!item) return null
+        // Colombia premium: +5 AED per coffee
+        const isColombia = item.category === 'Coffee' && beanChoices[item.id] === 'Colombia'
+        const effectivePrice = item.selling_price + (isColombia ? COLOMBIA_PREMIUM : 0)
+        return { ...item, selling_price: effectivePrice, qty, total: effectivePrice * qty }
       })
       .filter(Boolean) as (MenuItem & { qty: number; total: number })[]
-  }, [quantities, menuItems])
+  }, [quantities, menuItems, beanChoices])
 
   const cartTotal = cartItems.reduce((s, i) => s + i.total, 0)
 
@@ -418,12 +423,16 @@ export default function CustomerOrder() {
                                 : 'bg-sheen-cream text-sheen-muted'
                             }`}
                           >
-                            {bean}
+                            {bean}{bean === 'Colombia' ? ' +5' : ''}
                           </button>
                         ))}
                       </div>
                     )}
-                    <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>{item.selling_price} AED</p>
+                    <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>
+                      {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia'
+                        ? item.selling_price + COLOMBIA_PREMIUM
+                        : item.selling_price} AED
+                    </p>
                     <div className="flex items-center gap-1 mt-2">
                       {qty > 0 ? (
                         <>
