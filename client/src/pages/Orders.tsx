@@ -133,6 +133,14 @@ export default function Orders() {
                     {order.customer_email && order.customer_name && (
                       <p className="font-body text-xs text-sheen-muted">{order.customer_email}</p>
                     )}
+                    {order.customer_phone && (
+                      <a
+                        href={`tel:${order.customer_phone}`}
+                        className="font-body text-xs text-sheen-brown hover:text-sheen-brown/80 inline-flex items-center gap-1"
+                      >
+                        📞 {order.customer_phone}
+                      </a>
+                    )}
                     <p className="font-body text-xs text-sheen-muted">
                       {format(new Date(order.created_at), 'MMM d, yyyy h:mm a')}
                     </p>

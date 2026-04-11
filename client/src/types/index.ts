@@ -239,6 +239,8 @@ export interface Order {
   customer_id: string;
   customer_email: string | null;
   customer_name: string | null;
+  customer_phone?: string | null;
+  customer_plate?: string | null;
   status: OrderStatus;
   total_amount: number;
   notes: string | null;

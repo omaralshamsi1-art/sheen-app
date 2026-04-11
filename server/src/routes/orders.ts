@@ -30,7 +30,30 @@ router.get('/', async (req: Request, res: Response) => {
 
     const { data, error } = await query.limit(200)
     if (error) throw error
-    res.json(data ?? [])
+
+    // Enrich each order with the customer's phone from user_roles (best-effort)
+    const orders = data ?? []
+    if (orders.length > 0) {
+      const customerIds = Array.from(new Set(orders.map((o: any) => o.customer_id).filter(Boolean)))
+      if (customerIds.length > 0) {
+        try {
+          const { data: roles } = await supabase
+            .from('user_roles')
+            .select('user_id, phone, plate_number')
+            .in('user_id', customerIds)
+          const phoneMap = new Map((roles ?? []).map((r: any) => [r.user_id, { phone: r.phone, plate_number: r.plate_number }]))
+          for (const o of orders as any[]) {
+            const info = phoneMap.get(o.customer_id)
+            o.customer_phone = info?.phone ?? null
+            o.customer_plate = info?.plate_number ?? null
+          }
+        } catch {
+          // ignore enrichment failures
+        }
+      }
+    }
+
+    res.json(orders)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
