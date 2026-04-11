@@ -175,22 +175,29 @@ export default function CustomerOrder() {
 
   const cartTotal = cartItems.reduce((s, i) => s + i.total, 0)
 
-  // Delivery only available when admin has enabled it, and either scope is 'all' or every cart item is a Bean
-  const canDeliver = deliveryEnabled && cartItems.length > 0 &&
-    (deliveryScope === 'all' || cartItems.every(i => i.category === 'Beans'))
+  // Delivery available when admin enabled it and there are items
+  const deliveryOn = deliveryEnabled && cartItems.length > 0
 
-  // Auto-reset to pickup whenever delivery becomes unavailable
-  useEffect(() => {
-    if (!canDeliver) setOrderType('pickup')
-  }, [canDeliver])
+  // Items that qualify for delivery
+  const deliverableItems = deliveryScope === 'all'
+    ? cartItems
+    : cartItems.filter(i => i.category === 'Beans')
+
+  // Items that will be dropped if delivery is chosen (beans_only scope)
+  const nonDeliverableItems = deliveryScope === 'beans_only'
+    ? cartItems.filter(i => i.category !== 'Beans')
+    : []
+
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0)
 
   const placeOrder = async (paymentNote: string) => {
-    // Hard guard: never submit as delivery if cart doesn't qualify
-    const effectiveOrderType = canDeliver ? orderType : 'pickup'
-    if (orderType === 'delivery' && !canDeliver) {
-      toast.error('Delivery is only available for bean orders. Switching to Pickup.')
-      setOrderType('pickup')
+    // When delivery selected with beans_only scope, submit only deliverable items
+    const itemsToSubmit = (orderType === 'delivery' && deliveryScope === 'beans_only')
+      ? deliverableItems
+      : cartItems
+
+    if (itemsToSubmit.length === 0) {
+      toast.error('No items to submit.')
       return
     }
 
@@ -198,7 +205,7 @@ export default function CustomerOrder() {
       customer_id: user!.id,
       customer_email: user!.email,
       customer_name: user!.user_metadata?.full_name || user!.user_metadata?.name || user!.email?.split('@')[0] || user!.email,
-      items: cartItems.map((i) => ({
+      items: itemsToSubmit.map((i) => ({
         menu_item_id: i.id,
         name: i.category === 'Coffee' && beanChoices[i.id] ? `${i.name} (${beanChoices[i.id]})` : i.name,
         price: i.selling_price,
@@ -206,7 +213,7 @@ export default function CustomerOrder() {
       })),
       notes: [
         plateNumber ? `Plate: ${plateNumber}` : null,
-        canDeliver ? (effectiveOrderType === 'delivery' ? `[Delivery]${homeAddress ? ` → ${homeAddress}` : ' (no address saved)'}` : '[Pickup]') : null,
+        deliveryOn ? (orderType === 'delivery' ? `[Delivery]${homeAddress ? ` → ${homeAddress}` : ' (no address saved)'}` : '[Pickup]') : null,
         notes || null,
         paymentNote,
       ].filter(Boolean).join('\n'),
@@ -482,20 +489,8 @@ export default function CustomerOrder() {
                   </div>
                 ))}
 
-                {/* Mixed cart warning — only when scope is beans_only */}
-                {deliveryEnabled && deliveryScope === 'beans_only' && !canDeliver && cartItems.some(i => i.category === 'Beans') && cartItems.some(i => i.category !== 'Beans') && (
-                  <div className="pt-3 border-t border-sheen-cream">
-                    <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-orange-50 border border-orange-200">
-                      <span className="text-base shrink-0">🛵</span>
-                      <p className="font-body text-xs text-orange-700 leading-snug">
-                        <strong>Delivery is available for beans only.</strong> Remove the drinks/food items from your cart if you'd like delivery.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Pickup / Delivery — only shown when delivery is enabled AND all items are Beans */}
-                {canDeliver && (
+                {/* Pickup / Delivery selector */}
+                {deliveryOn && (
                   <div className="pt-3 border-t border-sheen-cream">
                     <p className="font-body text-sm font-medium text-sheen-black mb-2">Order Type</p>
                     <div className="flex gap-2">
@@ -518,12 +513,25 @@ export default function CustomerOrder() {
                         </button>
                       ))}
                     </div>
+
+                    {/* Delivery address */}
                     {orderType === 'delivery' && (
                       <div className="mt-2 px-3 py-2 rounded-lg bg-sheen-cream text-xs font-body text-sheen-black">
                         {homeAddress
                           ? <><span className="text-sheen-gold mr-1">📍</span>{homeAddress}</>
                           : <span className="text-sheen-muted">No home address saved — go to <strong>My Profile</strong> to add one.</span>
                         }
+                      </div>
+                    )}
+
+                    {/* Warning: drinks will be dropped from delivery order */}
+                    {orderType === 'delivery' && nonDeliverableItems.length > 0 && (
+                      <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-lg bg-orange-50 border border-orange-200">
+                        <span className="text-sm shrink-0">⚠️</span>
+                        <p className="font-body text-xs text-orange-700 leading-snug">
+                          <strong>Delivery is beans only.</strong> The following will be removed from this order:{' '}
+                          {nonDeliverableItems.map(i => `${i.name} ×${i.qty}`).join(', ')}.
+                        </p>
                       </div>
                     )}
                   </div>
