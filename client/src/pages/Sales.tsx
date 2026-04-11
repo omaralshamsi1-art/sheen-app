@@ -422,12 +422,12 @@ export default function Sales() {
                     </div>
                   )}
 
-                  {/* Quantity controls — full width on its own row */}
-                  <div className="flex items-center gap-2 mt-3">
+                  {/* Quantity controls */}
+                  <div className="flex items-center justify-center gap-1.5 mt-3">
                     <button
                       onClick={() => decrement(item.id)}
                       disabled={getQty(item.id) === 0}
-                      className="flex-1 h-12 flex items-center justify-center rounded-lg bg-sheen-cream text-sheen-black font-bold text-2xl hover:bg-sheen-gold/20 active:bg-sheen-gold/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg bg-sheen-cream text-sheen-black font-bold text-base hover:bg-sheen-gold/20 active:bg-sheen-gold/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
                       &minus;
                     </button>
@@ -438,11 +438,11 @@ export default function Sales() {
                       onChange={(e) =>
                         setQty(item.id, parseInt(e.target.value, 10) || 0)
                       }
-                      className="w-16 h-12 text-center font-body text-lg font-semibold border border-sheen-muted/40 rounded-lg bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-12 h-9 text-center font-body text-sm font-semibold border border-sheen-muted/40 rounded-lg bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <button
                       onClick={() => increment(item.id)}
-                      className="flex-1 h-12 flex items-center justify-center rounded-lg bg-sheen-brown text-white font-bold text-2xl hover:bg-sheen-brown/90 active:bg-sheen-brown transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg bg-sheen-brown text-white font-bold text-base hover:bg-sheen-brown/90 active:bg-sheen-brown transition-colors"
                     >
                       +
                     </button>
