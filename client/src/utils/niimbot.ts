@@ -46,6 +46,10 @@ const CMD = {
 // NIIMBOT B1 print head is 384 dots wide (48mm at 8 dots/mm)
 export const B1_MAX_WIDTH = 384
 
+// NIIMBOT BLE GATT service & characteristic UUIDs (B1/B21/D11 family)
+const NIIMBOT_SERVICE_UUID = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+const NIIMBOT_CHAR_UUID = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'
+
 // ── Bitmap conversion ──────────────────────────────────────────────────────
 export function canvasToMonoRows(canvas: HTMLCanvasElement, threshold = 128): Uint8Array[] {
   const ctx = canvas.getContext('2d')!
@@ -245,5 +249,149 @@ export class NiimbotPrinter {
     await this.sendCmd(CMD.END_PRINT, [0x01], 200)
 
     console.log('[NIIMBOT] done')
+  }
+}
+
+// ── Bluetooth (Web Bluetooth) transport ─────────────────────────────────────
+// The B1 is designed as a Bluetooth printer. Use this path whenever USB
+// serial does not respond.
+export class NiimbotBluetoothPrinter {
+  private device: any = null
+  private server: any = null
+  private characteristic: any = null
+  private readBuffer: number[] = []
+
+  static isSupported(): boolean {
+    return typeof navigator !== 'undefined' && 'bluetooth' in navigator
+  }
+
+  async connect(): Promise<void> {
+    if (!NiimbotBluetoothPrinter.isSupported()) {
+      throw new Error('Web Bluetooth not supported. Use Chrome or Edge on desktop.')
+    }
+    this.device = await (navigator as any).bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [NIIMBOT_SERVICE_UUID],
+    })
+    console.log('[NIIMBOT BLE] selected', this.device.name)
+    this.server = await this.device.gatt.connect()
+    const service = await this.server.getPrimaryService(NIIMBOT_SERVICE_UUID)
+    this.characteristic = await service.getCharacteristic(NIIMBOT_CHAR_UUID)
+    await this.characteristic.startNotifications()
+    this.characteristic.addEventListener('characteristicvaluechanged', (e: any) => {
+      const value: DataView = e.target.value
+      for (let i = 0; i < value.byteLength; i++) this.readBuffer.push(value.getUint8(i))
+    })
+    console.log('[NIIMBOT BLE] connected')
+  }
+
+  async disconnect(): Promise<void> {
+    try {
+      if (this.characteristic) { await this.characteristic.stopNotifications().catch(() => {}) }
+      if (this.server && this.server.connected) this.server.disconnect()
+    } catch {}
+    this.characteristic = null
+    this.server = null
+    this.device = null
+  }
+
+  private sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
+  private async sendRaw(packet: Uint8Array) {
+    if (!this.characteristic) throw new Error('Not connected')
+    const CHUNK = 20
+    for (let off = 0; off < packet.length; off += CHUNK) {
+      const chunk = packet.slice(off, off + CHUNK)
+      if (this.characteristic.writeValueWithoutResponse) {
+        await this.characteristic.writeValueWithoutResponse(chunk)
+      } else {
+        await this.characteristic.writeValue(chunk)
+      }
+    }
+  }
+
+  private parseOnePacket(): { cmd: number; data: Uint8Array } | null {
+    const buf = this.readBuffer
+    while (buf.length >= 7) {
+      if (buf[0] !== 0x55 || buf[1] !== 0x55) { buf.shift(); continue }
+      const cmd = buf[2]
+      const len = buf[3]
+      const totalLen = 4 + len + 1 + 2
+      if (buf.length < totalLen) return null
+      const data = new Uint8Array(buf.slice(4, 4 + len))
+      if (buf[4 + len + 1] !== 0xAA || buf[4 + len + 2] !== 0xAA) { buf.shift(); continue }
+      buf.splice(0, totalLen)
+      return { cmd, data }
+    }
+    return null
+  }
+
+  private drainPackets() {
+    let pkt
+    while ((pkt = this.parseOnePacket())) {
+      console.log('[NIIMBOT BLE] rx', '0x' + pkt.cmd.toString(16).padStart(2, '0'), Array.from(pkt.data))
+    }
+  }
+
+  private async sendCmd(cmd: number, data: number[], waitMs = 40) {
+    await this.sendRaw(makePacket(cmd, data))
+    await this.sleep(waitMs)
+    this.drainPackets()
+  }
+
+  async heartbeat() {
+    await this.sendCmd(CMD.HEARTBEAT, [0x01], 100)
+  }
+
+  async printCanvas(canvas: HTMLCanvasElement, opts: NiimbotPrintOptions = {}) {
+    const density = opts.density ?? 3
+    const labelType = opts.labelType ?? 1
+    const quantity = opts.quantity ?? 1
+
+    const rows = canvasToMonoRows(canvas)
+    const height = rows.length
+    const width = canvas.width
+
+    console.log('[NIIMBOT BLE] printing', { width, height, density, labelType, quantity })
+
+    await this.heartbeat()
+    await this.sendCmd(CMD.SET_DENSITY, [density])
+    await this.sendCmd(CMD.SET_LABEL_TYPE, [labelType])
+    await this.sendCmd(CMD.START_PRINT, [0x01])
+    await this.sendCmd(CMD.ALLOW_PRINT_CLEAR, [0x01])
+    await this.sendCmd(CMD.START_PAGE, [0x01])
+    await this.sendCmd(CMD.SET_PAGE_SIZE, [
+      (height >> 8) & 0xFF, height & 0xFF,
+      (width >> 8) & 0xFF, width & 0xFF,
+    ])
+    await this.sendCmd(CMD.SET_QUANTITY, [(quantity >> 8) & 0xFF, quantity & 0xFF])
+
+    for (let y = 0; y < height; y++) {
+      const row = rows[y]
+      if (rowIsEmpty(row)) {
+        await this.sendRaw(makePacket(CMD.PRINT_EMPTY_ROW, [
+          (y >> 8) & 0xFF, y & 0xFF, 1,
+        ]))
+      } else {
+        const [c1, c2, c3] = rowPixelCounts(row, width)
+        const data = [
+          (y >> 8) & 0xFF, y & 0xFF,
+          c1 & 0xFF, c2 & 0xFF, c3 & 0xFF,
+          1,
+          ...row,
+        ]
+        await this.sendRaw(makePacket(CMD.PRINT_BITMAP_ROW, data))
+      }
+      if (y % 8 === 0) {
+        await this.sleep(10)
+        this.drainPackets()
+      }
+    }
+
+    await this.sleep(300)
+    await this.sendCmd(CMD.END_PAGE, [0x01], 100)
+    await this.sendCmd(CMD.END_PRINT, [0x01], 300)
+
+    console.log('[NIIMBOT BLE] done')
   }
 }

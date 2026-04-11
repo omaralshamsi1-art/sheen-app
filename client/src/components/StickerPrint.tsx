@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
 import { useLanguage } from '../i18n/LanguageContext'
-import { NiimbotPrinter, B1_MAX_WIDTH } from '../utils/niimbot'
+import { NiimbotPrinter, NiimbotBluetoothPrinter, B1_MAX_WIDTH } from '../utils/niimbot'
 import toast from 'react-hot-toast'
 
 interface StickerMessage {
@@ -41,6 +41,8 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
   const [niimBaud, setNiimBaud] = useState<number>(() => Number(localStorage.getItem('niim-baud')) || 115200)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const niimbotRef = useRef<NiimbotPrinter | null>(null)
+  const niimBleRef = useRef<NiimbotBluetoothPrinter | null>(null)
+  const [blePrinting, setBlePrinting] = useState(false)
 
   const label = LABEL_SIZES[labelIdx]
 
@@ -175,42 +177,22 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     }
   }
 
-  // Print via NIIMBOT over WebSerial (Chrome/Edge desktop)
-  const handleNiimbotPrint = async () => {
-    if (!NiimbotPrinter.isSupported()) {
-      toast.error('WebSerial not supported. Use Chrome or Edge on desktop.')
-      return
-    }
-
-    // Render at NIIMBOT native resolution (≈203 DPI = 8 dots/mm)
-    // Rather than resize the high-DPI canvas, re-render directly at printer DPI
+  // Build a canvas at NIIMBOT native DPI, auto-rotated to fit the 384-dot print head
+  const buildPrintCanvas = (): HTMLCanvasElement | null => {
     const canvas = canvasRef.current
-    if (!canvas || !sticker) return
-
-    // Build a new canvas at 203 DPI (NIIMBOT native resolution)
+    if (!canvas || !sticker) return null
     const PRINT_DPI = 203
     const pxFromMm = (mm: number) => Math.round((mm / 25.4) * PRINT_DPI)
-    let w = pxFromMm(label.w)
-    let h = pxFromMm(label.h)
-
-    // NIIMBOT B1: print head is only 384 dots wide. If the current width
-    // exceeds that, rotate the canvas 90° so the longer edge runs along
-    // the paper feed (which has no length limit).
+    const w = pxFromMm(label.w)
+    const h = pxFromMm(label.h)
     const needRotate = w > B1_MAX_WIDTH
     const printCanvas = document.createElement('canvas')
-    if (needRotate) {
-      printCanvas.width = h
-      printCanvas.height = w
-    } else {
-      printCanvas.width = w
-      printCanvas.height = h
-    }
+    if (needRotate) { printCanvas.width = h; printCanvas.height = w }
+    else { printCanvas.width = w; printCanvas.height = h }
     const ctx = printCanvas.getContext('2d')!
     ctx.fillStyle = '#FFFFFF'
     ctx.fillRect(0, 0, printCanvas.width, printCanvas.height)
-
     if (needRotate) {
-      // Rotate 90° clockwise: translate + rotate + draw
       ctx.save()
       ctx.translate(printCanvas.width, 0)
       ctx.rotate(Math.PI / 2)
@@ -220,6 +202,17 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
       ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h)
     }
     console.log('[NIIMBOT] print canvas', printCanvas.width, '×', printCanvas.height, needRotate ? '(rotated)' : '')
+    return printCanvas
+  }
+
+  // Print via NIIMBOT over WebSerial (Chrome/Edge desktop)
+  const handleNiimbotPrint = async () => {
+    if (!NiimbotPrinter.isSupported()) {
+      toast.error('WebSerial not supported. Use Chrome or Edge on desktop.')
+      return
+    }
+    const printCanvas = buildPrintCanvas()
+    if (!printCanvas) return
 
     setNiimPrinting(true)
     try {
@@ -234,6 +227,31 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
       await niimbotRef.current?.disconnect()
       niimbotRef.current = null
       setNiimPrinting(false)
+    }
+  }
+
+  // Print via NIIMBOT over Web Bluetooth — the native path for B1
+  const handleNiimbotBlePrint = async () => {
+    if (!NiimbotBluetoothPrinter.isSupported()) {
+      toast.error('Web Bluetooth not supported. Use Chrome or Edge on desktop.')
+      return
+    }
+    const printCanvas = buildPrintCanvas()
+    if (!printCanvas) return
+
+    setBlePrinting(true)
+    try {
+      niimBleRef.current = new NiimbotBluetoothPrinter()
+      await niimBleRef.current.connect()
+      await niimBleRef.current.printCanvas(printCanvas, { density: niimDensity, labelType: niimLabelType, quantity: 1 })
+      toast.success('Sticker sent via Bluetooth')
+    } catch (err: any) {
+      console.error('[NIIMBOT BLE]', err)
+      toast.error(err?.message || 'Bluetooth print failed')
+    } finally {
+      await niimBleRef.current?.disconnect()
+      niimBleRef.current = null
+      setBlePrinting(false)
     }
   }
 
@@ -429,6 +447,24 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
                   )}
                 </button>
               </div>
+
+              {/* Bluetooth print — the native path for B1 */}
+              {NiimbotBluetoothPrinter.isSupported() && (
+                <button
+                  onClick={handleNiimbotBlePrint}
+                  disabled={blePrinting}
+                  className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white font-body text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {blePrinting ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                      Printing via Bluetooth…
+                    </>
+                  ) : (
+                    <>📶 Print via NIIMBOT Bluetooth</>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
