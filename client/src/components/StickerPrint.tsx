@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
 import { useLanguage } from '../i18n/LanguageContext'
+import { NiimbotPrinter } from '../utils/niimbot'
+import toast from 'react-hot-toast'
 
 interface StickerMessage {
   id: string
@@ -33,7 +35,9 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     return saved ? Number(saved) : 0
   })
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [niimPrinting, setNiimPrinting] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const niimbotRef = useRef<NiimbotPrinter | null>(null)
 
   const label = LABEL_SIZES[labelIdx]
 
@@ -168,6 +172,48 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     }
   }
 
+  // Print via NIIMBOT over WebSerial (Chrome/Edge desktop)
+  const handleNiimbotPrint = async () => {
+    if (!NiimbotPrinter.isSupported()) {
+      toast.error('WebSerial not supported. Use Chrome or Edge on desktop.')
+      return
+    }
+
+    // Render at NIIMBOT native resolution (≈203 DPI = 8 dots/mm)
+    // Rather than resize the high-DPI canvas, re-render directly at printer DPI
+    const canvas = canvasRef.current
+    if (!canvas || !sticker) return
+
+    // Build a new canvas at 203 DPI
+    const PRINT_DPI = 203
+    const pxFromMm = (mm: number) => Math.round((mm / 25.4) * PRINT_DPI)
+    const w = pxFromMm(label.w)
+    const h = pxFromMm(label.h)
+    const printCanvas = document.createElement('canvas')
+    printCanvas.width = w
+    printCanvas.height = h
+    const ctx = printCanvas.getContext('2d')!
+    // Re-use the render logic by drawing the existing canvas scaled down
+    ctx.fillStyle = '#FFFFFF'
+    ctx.fillRect(0, 0, w, h)
+    ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h)
+
+    setNiimPrinting(true)
+    try {
+      niimbotRef.current = new NiimbotPrinter()
+      await niimbotRef.current.connect()
+      await niimbotRef.current.printCanvas(printCanvas, { density: 3, labelType: 1, quantity: 1 })
+      toast.success('Sticker sent to printer')
+    } catch (err: any) {
+      console.error('[NIIMBOT]', err)
+      toast.error(err?.message || 'Print failed')
+    } finally {
+      await niimbotRef.current?.disconnect()
+      niimbotRef.current = null
+      setNiimPrinting(false)
+    }
+  }
+
   // Print via browser print dialog
   const handlePrint = () => {
     const url = renderToCanvas()
@@ -242,25 +288,45 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
         </div>
 
         {/* Actions */}
-        <div className="px-5 pb-4 flex gap-2">
-          <button
-            onClick={() => fetchRandom()}
-            className="px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-brown font-body text-sm font-medium hover:bg-sheen-gold/20 transition-colors"
-          >
-            {t('shuffle')}
-          </button>
-          <button
-            onClick={handleShare}
-            className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors"
-          >
-            {t('shareToApp')}
-          </button>
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors"
-          >
-            {t('printSticker')}
-          </button>
+        <div className="px-5 pb-4 space-y-2">
+          <div className="flex gap-2">
+            <button
+              onClick={() => fetchRandom()}
+              className="px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-brown font-body text-sm font-medium hover:bg-sheen-gold/20 transition-colors"
+            >
+              {t('shuffle')}
+            </button>
+            <button
+              onClick={handleShare}
+              className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors"
+            >
+              {t('shareToApp')}
+            </button>
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors"
+            >
+              {t('printSticker')}
+            </button>
+          </div>
+
+          {/* NIIMBOT USB direct print — Chrome/Edge desktop only */}
+          {NiimbotPrinter.isSupported() && (
+            <button
+              onClick={handleNiimbotPrint}
+              disabled={niimPrinting}
+              className="w-full px-4 py-2.5 rounded-lg bg-sheen-black text-white font-body text-sm font-medium hover:bg-sheen-black/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {niimPrinting ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                  Printing…
+                </>
+              ) : (
+                <>🖨️ Print via NIIMBOT USB</>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>
