@@ -79,14 +79,14 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     ctx.fillStyle = '#000000'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.font = `bold ${Math.round(unit * 1.8)}px Arial, Helvetica, sans-serif`
-    let y = unit * 1.2
+    ctx.font = `bold ${Math.round(unit * 2.0)}px Arial, Helvetica, sans-serif`
+    let y = unit * 1.25
     ctx.fillText('SHEEN', cx, y)
 
     // Customer name
     if (customerName) {
-      y += unit * 1.1
-      ctx.font = `bold ${Math.round(unit * 0.85)}px Arial, Helvetica, sans-serif`
+      y += unit * 1.2
+      ctx.font = `bold ${Math.round(unit * 1.0)}px Arial, Helvetica, sans-serif`
       ctx.fillStyle = '#000000'
       ctx.fillText(customerName, cx, y)
     }
@@ -94,33 +94,33 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     // Arabic message — large and clear
     y += unit * 1.3
     ctx.fillStyle = '#000000'
-    const arFontSize = Math.round(unit * 1.1)
+    const arFontSize = Math.round(unit * 1.3)
     ctx.font = `bold ${arFontSize}px Arial, Helvetica, sans-serif`
 
     const arText = sticker.message_ar
-    const maxWidth = w * 0.9
+    const maxWidth = w * 0.92
     const arLines = wrapText(ctx, arText, maxWidth)
 
     for (const line of arLines) {
       ctx.fillText(line, cx, y)
-      y += arFontSize * 1.25
+      y += arFontSize * 1.2
     }
 
     // English message
-    y += unit * 0.3
+    y += unit * 0.25
     ctx.fillStyle = '#000000'
-    const enFontSize = Math.round(unit * 0.7)
+    const enFontSize = Math.round(unit * 0.85)
     ctx.font = `600 ${enFontSize}px Arial, Helvetica, sans-serif`
     const enLines = wrapText(ctx, sticker.message_en, maxWidth)
     for (const line of enLines) {
       ctx.fillText(line, cx, y)
-      y += enFontSize * 1.2
+      y += enFontSize * 1.15
     }
 
     // @SheenCafe
-    y += unit * 0.2
+    y += unit * 0.15
     ctx.fillStyle = '#000000'
-    ctx.font = `bold ${Math.round(unit * 0.6)}px Arial, Helvetica, sans-serif`
+    ctx.font = `bold ${Math.round(unit * 0.7)}px Arial, Helvetica, sans-serif`
     ctx.fillText('@SheenCafe', cx, y)
 
     return canvas.toDataURL('image/png')
