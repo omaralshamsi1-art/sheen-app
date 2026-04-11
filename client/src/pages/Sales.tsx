@@ -37,7 +37,7 @@ export default function Sales() {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
 
-  const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
+  const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia Tobacco'] as const
   const COLOMBIA_PREMIUM = 5 // AED extra per coffee when Colombia beans are selected
   const [orderSource, setOrderSource] = useState('POS')
   const [orderNote, setOrderNote] = useState('')
@@ -143,7 +143,7 @@ export default function Sales() {
     for (const [id, qty] of Object.entries(quantities)) {
       const item = menuItems.find((m: MenuItem) => m.id === id)
       if (!item) continue
-      const isColombia = item.category === 'Coffee' && beanChoices[id] === 'Colombia'
+      const isColombia = item.category === 'Coffee' && beanChoices[id] === 'Colombia Tobacco'
       const unit = item.selling_price + (isColombia ? COLOMBIA_PREMIUM : 0)
       total += unit * qty
     }
@@ -229,7 +229,7 @@ export default function Sales() {
       .filter(([, qty]) => qty > 0)
       .map(([id, qty]) => {
         const menuItem = menuItems.find((m: MenuItem) => m.id === id)
-        const isColombia = menuItem?.category === 'Coffee' && beanChoices[id] === 'Colombia'
+        const isColombia = menuItem?.category === 'Coffee' && beanChoices[id] === 'Colombia Tobacco'
         const unitPrice = (menuItem?.selling_price ?? 0) + (isColombia ? COLOMBIA_PREMIUM : 0)
         return {
           menu_item_id: id,
@@ -397,7 +397,7 @@ export default function Sales() {
                           {item.name}
                         </p>
                         <p className="font-body text-sm text-sheen-brown">
-                          {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia'
+                          {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
                             ? item.selling_price + COLOMBIA_PREMIUM
                             : item.selling_price} د.إ
                         </p>
@@ -443,7 +443,7 @@ export default function Sales() {
                               : 'bg-sheen-cream text-sheen-muted'
                           }`}
                         >
-                          {bean}{bean === 'Colombia' ? ' +5' : ''}
+                          {bean}{bean === 'Colombia Tobacco' ? ' +5' : ''}
                         </button>
                       ))}
                     </div>

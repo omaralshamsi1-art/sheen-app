@@ -6,7 +6,7 @@ import { getItemImage } from '../data/itemImages'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
-const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
+const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia Tobacco'] as const
 const COLOMBIA_PREMIUM = 5
 const PENDING_ORDER_KEY = 'sheen-pending-order'
 
@@ -201,14 +201,14 @@ export default function PublicMenu() {
                               : 'bg-sheen-cream text-sheen-muted'
                           }`}
                         >
-                          {bean}{bean === 'Colombia' ? ' +5' : ''}
+                          {bean}{bean === 'Colombia Tobacco' ? ' +5' : ''}
                         </button>
                       ))}
                     </div>
                   )}
                   <div className="flex items-center justify-between mt-2">
                     <p className={`font-display font-semibold text-sheen-brown ${activeCategory === 'Beans' ? 'text-xl' : 'text-lg'}`}>
-                      {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia'
+                      {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
                         ? item.selling_price + COLOMBIA_PREMIUM
                         : item.selling_price} <span className="text-sm">AED</span>
                     </p>

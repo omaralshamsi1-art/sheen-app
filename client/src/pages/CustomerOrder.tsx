@@ -115,7 +115,7 @@ export default function CustomerOrder() {
     }
   }, [])
 
-  const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
+  const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia Tobacco'] as const
   const COLOMBIA_PREMIUM = 5 // AED extra per coffee when Colombia beans are selected
   const [stripeLoading, setStripeLoading] = useState(false)
 
@@ -188,7 +188,7 @@ export default function CustomerOrder() {
         const item = menuItems.find((m: MenuItem) => m.id === id)
         if (!item) return null
         // Colombia premium: +5 AED per coffee
-        const isColombia = item.category === 'Coffee' && beanChoices[item.id] === 'Colombia'
+        const isColombia = item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
         const effectivePrice = item.selling_price + (isColombia ? COLOMBIA_PREMIUM : 0)
         return { ...item, selling_price: effectivePrice, qty, total: effectivePrice * qty }
       })
@@ -440,13 +440,13 @@ export default function CustomerOrder() {
                                 : 'bg-sheen-cream text-sheen-muted'
                             }`}
                           >
-                            {bean}{bean === 'Colombia' ? ' +5' : ''}
+                            {bean}{bean === 'Colombia Tobacco' ? ' +5' : ''}
                           </button>
                         ))}
                       </div>
                     )}
                     <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>
-                      {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia'
+                      {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
                         ? item.selling_price + COLOMBIA_PREMIUM
                         : item.selling_price} AED
                     </p>
