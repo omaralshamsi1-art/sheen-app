@@ -400,32 +400,28 @@ export class NiimbotBluetoothPrinter {
     ])
     await this.sendCmd(CMD.SET_QUANTITY, [(quantity >> 8) & 0xFF, quantity & 0xFF])
 
-    // Counts field: niimbluelib / NiimPrintX use (0, 0, bytesPerRow).
-    const bytesPerRow = rows[0]?.length ?? 0
-
+    // Back to niimbluelib's exact format for B1:
+    // - Command 0x85 (PRINT_BITMAP_ROW)
+    // - Header: [y_hi, y_lo, count1, count2, count3, repeats=1]
+    // - Data: raw bitmap row bytes, black pixel = 1 (natural encoding, MSB first)
+    // Counts are the number of black pixels in each third of the row.
     for (let y = 0; y < height; y++) {
       const row = rows[y]
       if (rowIsEmpty(row)) {
-        // Empty in natural encoding = all white = use PRINT_EMPTY_ROW
         await this.sendRaw(makePacket(CMD.PRINT_EMPTY_ROW, [
           (y >> 8) & 0xFF, y & 0xFF, 1,
         ]))
       } else {
-        // NIIMBOT B1 uses INVERTED bit encoding: 0 = black, 1 = white.
-        // Flip every byte before sending.
-        const inverted: number[] = []
-        for (let i = 0; i < row.length; i++) inverted.push(row[i] ^ 0xFF)
+        const [c1, c2, c3] = rowPixelCounts(row, width)
         const data = [
           (y >> 8) & 0xFF, y & 0xFF,
-          0, 0, bytesPerRow & 0xFF,
+          Math.min(c1, 255), Math.min(c2, 255), Math.min(c3, 255),
           1,
-          ...inverted,
+          ...row,
         ]
         await this.sendRaw(makePacket(CMD.PRINT_BITMAP_ROW, data))
       }
-      if (y % 4 === 0) {
-        this.drainPackets()
-      }
+      if (y % 4 === 0) this.drainPackets()
     }
 
     // All rows are now safely delivered because writeValue waits for ACK
