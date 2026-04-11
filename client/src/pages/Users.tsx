@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUsers, addUser, updateUserRole, updateUserPages, updateUserPaymentMethods, deleteUser, getDefaultPaymentMethods, updateDefaultPaymentMethods, changeUserPassword, toggleUserBan } from '../services/userService'
+import { getUsers, addUser, updateUserRole, updateUserPages, updateUserPaymentMethods, deleteUser, changeUserPassword, toggleUserBan } from '../services/userService'
 import { navItems } from '../config/roles'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
@@ -147,29 +147,6 @@ export default function Users() {
     }
   }
 
-  // Default customer payment methods
-  const { data: defaultMethods } = useQuery({
-    queryKey: ['default-payment-methods'],
-    queryFn: getDefaultPaymentMethods,
-  })
-
-  const defaultMethodsMutation = useMutation({
-    mutationFn: (methods: string[]) => updateDefaultPaymentMethods(methods),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['default-payment-methods'] })
-      toast.success(t('userUpdated'))
-    },
-    onError: () => toast.error('Error updating default payment methods'),
-  })
-
-  const toggleDefaultMethod = (methodId: string) => {
-    const current = defaultMethods ?? ALL_PAYMENT_METHODS.map((m) => m.id)
-    const updated = current.includes(methodId)
-      ? current.filter((m) => m !== methodId)
-      : [...current, methodId]
-    defaultMethodsMutation.mutate(updated)
-  }
-
   const roleBadgeColor: Record<UserRole, string> = {
     admin: 'bg-red-100 text-red-700',
     staff: 'bg-blue-100 text-blue-700',
@@ -186,45 +163,6 @@ export default function Users() {
           <Button onClick={() => setShowAddForm(!showAddForm)}>
             {showAddForm ? t('cancel') : t('addUser')}
           </Button>
-        </div>
-
-        {/* Default Customer Payment Methods */}
-        <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
-          <div className="flex items-center gap-3 mb-3">
-            <span className="w-8 h-8 flex items-center justify-center rounded-full bg-sheen-gold/15 text-sheen-gold text-sm">
-              {'\u{1F310}'}
-            </span>
-            <div>
-              <h2 className="font-display text-base font-semibold text-sheen-black">{t('anyCustomer')}</h2>
-              <p className="font-body text-xs text-sheen-muted">{t('anyCustomerDesc')}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {ALL_PAYMENT_METHODS.map((method) => {
-              const current = defaultMethods ?? ALL_PAYMENT_METHODS.map((m) => m.id)
-              const enabled = current.includes(method.id)
-              return (
-                <label
-                  key={method.id}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-                    enabled
-                      ? 'bg-sheen-gold/15 border border-sheen-gold/30'
-                      : 'bg-sheen-cream border border-sheen-muted/20'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={enabled}
-                    onChange={() => toggleDefaultMethod(method.id)}
-                    className="h-4 w-4 accent-sheen-gold cursor-pointer"
-                  />
-                  <span className={`font-body text-sm ${enabled ? 'text-sheen-black font-medium' : 'text-sheen-muted'}`}>
-                    {t(method.labelKey as any)}
-                  </span>
-                </label>
-              )
-            })}
-          </div>
         </div>
 
         {/* Add User Form */}

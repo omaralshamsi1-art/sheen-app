@@ -4,7 +4,13 @@ import api from '../lib/api'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
+import { getDefaultPaymentMethods, updateDefaultPaymentMethods } from '../services/userService'
 import toast from 'react-hot-toast'
+
+const ALL_PAYMENT_METHODS = [
+  { id: 'cash', label: 'Cash' },
+  { id: 'card', label: 'Card' },
+]
 
 interface OrderSource {
   id: string
@@ -43,6 +49,22 @@ export default function Settings() {
     },
     onError: () => toast.error('Failed to update'),
   })
+
+  // Default payment methods
+  const { data: defaultMethods } = useQuery({
+    queryKey: ['default-payment-methods'],
+    queryFn: getDefaultPaymentMethods,
+  })
+  const paymentMut = useMutation({
+    mutationFn: (methods: string[]) => updateDefaultPaymentMethods(methods),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['default-payment-methods'] }),
+    onError: () => toast.error('Failed to update payment methods'),
+  })
+  const toggleDefaultMethod = (methodId: string) => {
+    const current = defaultMethods ?? ALL_PAYMENT_METHODS.map(m => m.id)
+    const updated = current.includes(methodId) ? current.filter(m => m !== methodId) : [...current, methodId]
+    paymentMut.mutate(updated)
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings', 'order_sources'],
@@ -145,6 +167,38 @@ export default function Settings() {
             {deliveryEnabled
               ? 'Delivery is ON — customers will see a Pickup / Delivery choice when ordering.'
               : 'Delivery is OFF — customers can only choose Pickup.'}
+          </div>
+        </div>
+
+        {/* Default Payment Methods */}
+        <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
+          <h2 className="font-display text-lg text-sheen-black mb-1">Payment Methods</h2>
+          <p className="font-body text-xs text-sheen-muted mb-4">
+            Choose which payment methods customers can use when ordering.
+          </p>
+          <div className="flex gap-3">
+            {ALL_PAYMENT_METHODS.map((method) => {
+              const current = defaultMethods ?? ALL_PAYMENT_METHODS.map(m => m.id)
+              const enabled = current.includes(method.id)
+              return (
+                <label
+                  key={method.id}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-xl cursor-pointer transition-colors flex-1 border ${
+                    enabled ? 'bg-sheen-gold/10 border-sheen-gold/40' : 'bg-sheen-cream border-sheen-muted/20'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={() => toggleDefaultMethod(method.id)}
+                    className="h-4 w-4 accent-sheen-gold cursor-pointer"
+                  />
+                  <span className={`font-body text-sm font-medium ${enabled ? 'text-sheen-black' : 'text-sheen-muted'}`}>
+                    {method.label}
+                  </span>
+                </label>
+              )
+            })}
           </div>
         </div>
 
