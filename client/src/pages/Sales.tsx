@@ -38,6 +38,7 @@ export default function Sales() {
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
 
   const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
+  const COLOMBIA_PREMIUM = 5 // AED extra per coffee when Colombia beans are selected
   const [orderSource, setOrderSource] = useState('POS')
   const [orderNote, setOrderNote] = useState('')
   const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -136,15 +137,18 @@ export default function Sales() {
     [],
   )
 
-  // Live subtotal calculation
+  // Live subtotal calculation (Colombia beans add +5 AED per coffee)
   const subtotal = useMemo(() => {
     let total = 0
     for (const [id, qty] of Object.entries(quantities)) {
       const item = menuItems.find((m: MenuItem) => m.id === id)
-      if (item) total += item.selling_price * qty
+      if (!item) continue
+      const isColombia = item.category === 'Coffee' && beanChoices[id] === 'Colombia'
+      const unit = item.selling_price + (isColombia ? COLOMBIA_PREMIUM : 0)
+      total += unit * qty
     }
     return total
-  }, [quantities, menuItems])
+  }, [quantities, menuItems, beanChoices])
 
   const commissionBase = subtotal * (currentSource.commission / 100)
   const vatOnCommission = (currentSource as any).vat ? commissionBase * 0.05 : 0
@@ -225,13 +229,15 @@ export default function Sales() {
       .filter(([, qty]) => qty > 0)
       .map(([id, qty]) => {
         const menuItem = menuItems.find((m: MenuItem) => m.id === id)
+        const isColombia = menuItem?.category === 'Coffee' && beanChoices[id] === 'Colombia'
+        const unitPrice = (menuItem?.selling_price ?? 0) + (isColombia ? COLOMBIA_PREMIUM : 0)
         return {
           menu_item_id: id,
           name: menuItem?.category === 'Coffee' && beanChoices[id] ? `${menuItem?.name ?? ''} (${beanChoices[id]})` : (menuItem?.name ?? ''),
           category: menuItem?.category ?? '',
-          price: menuItem?.selling_price ?? 0,
+          price: unitPrice,
           qty,
-          total: (menuItem?.selling_price ?? 0) * qty,
+          total: unitPrice * qty,
         }
       })
 
@@ -391,7 +397,9 @@ export default function Sales() {
                           {item.name}
                         </p>
                         <p className="font-body text-sm text-sheen-brown">
-                          {item.selling_price} د.إ
+                          {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia'
+                            ? item.selling_price + COLOMBIA_PREMIUM
+                            : item.selling_price} د.إ
                         </p>
                       </div>
                     </div>
@@ -435,7 +443,7 @@ export default function Sales() {
                               : 'bg-sheen-cream text-sheen-muted'
                           }`}
                         >
-                          {bean}
+                          {bean}{bean === 'Colombia' ? ' +5' : ''}
                         </button>
                       ))}
                     </div>
