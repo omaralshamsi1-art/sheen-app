@@ -1,18 +1,36 @@
 import { useState, useMemo, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
+const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
+const COLOMBIA_PREMIUM = 5
+const PENDING_ORDER_KEY = 'sheen-pending-order'
 
 export default function PublicMenu() {
   const { t, lang, setLang } = useLanguage()
+  const navigate = useNavigate()
   const { data: menuItems = [], isLoading } = useMenuItems()
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
+  const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
+
+  // Add an item to a pending cart in localStorage and send to login
+  const handleAddAndLogin = (itemId: string) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem(PENDING_ORDER_KEY) || '{"quantities":{},"beanChoices":{}}')
+      existing.quantities[itemId] = (existing.quantities[itemId] ?? 0) + 1
+      if (beanChoices[itemId]) existing.beanChoices[itemId] = beanChoices[itemId]
+      localStorage.setItem(PENDING_ORDER_KEY, JSON.stringify(existing))
+    } catch {
+      // ignore storage errors
+    }
+    navigate('/login')
+  }
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const isSwiping = useRef(false)
@@ -170,16 +188,36 @@ export default function PublicMenu() {
                       })()}
                     </div>
                   )}
+                  {/* Bean selector for coffee */}
+                  {item.category === 'Coffee' && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {BEAN_OPTIONS.map(bean => (
+                        <button
+                          key={bean}
+                          onClick={(e) => { e.stopPropagation(); setBeanChoices(prev => ({ ...prev, [item.id]: bean })) }}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-body font-medium transition-colors ${
+                            (beanChoices[item.id] || 'Ethiopia') === bean
+                              ? 'bg-sheen-brown text-white'
+                              : 'bg-sheen-cream text-sheen-muted'
+                          }`}
+                        >
+                          {bean}{bean === 'Colombia' ? ' +5' : ''}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mt-2">
                     <p className={`font-display font-semibold text-sheen-brown ${activeCategory === 'Beans' ? 'text-xl' : 'text-lg'}`}>
-                      {item.selling_price} <span className="text-sm">AED</span>
+                      {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia'
+                        ? item.selling_price + COLOMBIA_PREMIUM
+                        : item.selling_price} <span className="text-sm">AED</span>
                     </p>
-                    <Link
-                      to="/login"
+                    <button
+                      onClick={() => handleAddAndLogin(item.id)}
                       className={`rounded-lg bg-sheen-brown text-white font-body font-medium hover:bg-sheen-brown/90 transition-colors ${activeCategory === 'Beans' ? 'px-4 py-1.5 text-sm' : 'px-3 py-1 text-xs'}`}
                     >
                       {t('orderNow')}
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>

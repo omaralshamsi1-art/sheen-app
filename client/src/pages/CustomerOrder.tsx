@@ -98,6 +98,23 @@ export default function CustomerOrder() {
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({}) // itemId → bean name
 
+  // Load pending order saved by PublicMenu before login (one-shot)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('sheen-pending-order')
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      if (parsed?.quantities && Object.keys(parsed.quantities).length > 0) {
+        setQuantities(parsed.quantities)
+        if (parsed.beanChoices) setBeanChoices(parsed.beanChoices)
+        toast.success('Your selected items are in the cart')
+      }
+      localStorage.removeItem('sheen-pending-order')
+    } catch {
+      // ignore
+    }
+  }, [])
+
   const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia'] as const
   const COLOMBIA_PREMIUM = 5 // AED extra per coffee when Colombia beans are selected
   const [stripeLoading, setStripeLoading] = useState(false)
