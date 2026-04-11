@@ -328,7 +328,7 @@ export default function Sales() {
     <div className="min-h-screen bg-sheen-cream">
       <TopBar title={t('sales')} />
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="font-display text-3xl text-sheen-black mb-6">
           {t('recordSales')}
         </h1>
@@ -372,7 +372,7 @@ export default function Sales() {
               {t('noItemsInCategory')}
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {currentItems.map((item: MenuItem) => (
                 <div
                   key={item.id}
