@@ -59,6 +59,15 @@ export default function CustomerOrder() {
   }
   const queryClient = useQueryClient()
 
+  // Fetch online ordering setting
+  const { data: orderingEnabled = true } = useQuery({
+    queryKey: ['settings', 'online_ordering_enabled'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/online_ordering_enabled')
+      return data === true || data === null // enabled by default
+    },
+  })
+
   // Fetch delivery enabled + scope settings
   const { data: deliveryEnabled = false } = useQuery({
     queryKey: ['settings', 'delivery_enabled'],
@@ -450,17 +459,19 @@ export default function CustomerOrder() {
                         ? item.selling_price + COLOMBIA_PREMIUM
                         : item.selling_price} AED
                     </p>
-                    <div className="flex items-center gap-1 mt-2">
-                      {qty > 0 ? (
-                        <>
-                          <button onClick={() => decrement(item.id)} className="w-8 h-8 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold text-lg">&minus;</button>
-                          <span className="w-8 text-center font-body text-sm font-medium">{qty}</span>
-                          <button onClick={() => increment(item.id)} className="w-8 h-8 flex items-center justify-center rounded-md bg-sheen-brown text-white font-bold text-lg">+</button>
-                        </>
-                      ) : (
-                        <button onClick={() => increment(item.id)} className="w-full py-1.5 rounded-md bg-sheen-brown text-white text-xs font-body font-medium">{t('addToCart')}</button>
-                      )}
-                    </div>
+                    {orderingEnabled && (
+                      <div className="flex items-center gap-1 mt-2">
+                        {qty > 0 ? (
+                          <>
+                            <button onClick={() => decrement(item.id)} className="w-8 h-8 flex items-center justify-center rounded-md bg-sheen-cream text-sheen-black font-bold text-lg">&minus;</button>
+                            <span className="w-8 text-center font-body text-sm font-medium">{qty}</span>
+                            <button onClick={() => increment(item.id)} className="w-8 h-8 flex items-center justify-center rounded-md bg-sheen-brown text-white font-bold text-lg">+</button>
+                          </>
+                        ) : (
+                          <button onClick={() => increment(item.id)} className="w-full py-1.5 rounded-md bg-sheen-brown text-white text-xs font-body font-medium">{t('addToCart')}</button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -475,8 +486,15 @@ export default function CustomerOrder() {
           </div>
         )}
 
+        {/* Ordering disabled banner */}
+        {!orderingEnabled && (
+          <div className="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-center">
+            <p className="font-body text-sm text-red-700 font-medium">Ordering is currently closed. Please check back later.</p>
+          </div>
+        )}
+
         {/* Floating Cart Button */}
-        {cartCount > 0 && !showCart && (
+        {orderingEnabled && cartCount > 0 && !showCart && (
           <button
             onClick={() => setShowCart(true)}
             className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 bg-sheen-brown text-white px-6 py-3 rounded-full shadow-lg font-body font-semibold flex items-center gap-3"

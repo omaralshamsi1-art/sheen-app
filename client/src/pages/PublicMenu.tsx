@@ -1,8 +1,10 @@
 import { useState, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
+import api from '../lib/api'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
@@ -18,6 +20,14 @@ export default function PublicMenu() {
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
+
+  const { data: orderingEnabled = true } = useQuery({
+    queryKey: ['settings', 'online_ordering_enabled'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/online_ordering_enabled')
+      return data === true || data === null
+    },
+  })
 
   // Add an item to a pending cart in localStorage and send to login
   const handleAddAndLogin = (itemId: string) => {
@@ -212,12 +222,14 @@ export default function PublicMenu() {
                         ? item.selling_price + COLOMBIA_PREMIUM
                         : item.selling_price} <span className="text-sm">AED</span>
                     </p>
-                    <button
-                      onClick={() => handleAddAndLogin(item.id)}
-                      className={`rounded-lg bg-sheen-brown text-white font-body font-medium hover:bg-sheen-brown/90 transition-colors ${activeCategory === 'Beans' ? 'px-4 py-1.5 text-sm' : 'px-3 py-1 text-xs'}`}
-                    >
-                      {t('orderNow')}
-                    </button>
+                    {orderingEnabled && (
+                      <button
+                        onClick={() => handleAddAndLogin(item.id)}
+                        className={`rounded-lg bg-sheen-brown text-white font-body font-medium hover:bg-sheen-brown/90 transition-colors ${activeCategory === 'Beans' ? 'px-4 py-1.5 text-sm' : 'px-3 py-1 text-xs'}`}
+                      >
+                        {t('orderNow')}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

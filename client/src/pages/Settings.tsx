@@ -73,6 +73,29 @@ export default function Settings() {
     onError: () => toast.error('Failed to update'),
   })
 
+  // Online ordering toggle
+  const { data: orderingData } = useQuery({
+    queryKey: ['settings', 'online_ordering_enabled'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/online_ordering_enabled')
+      return data === true || data === null // enabled by default
+    },
+  })
+  const [orderingEnabled, setOrderingEnabled] = useState(true)
+  useEffect(() => { if (orderingData !== undefined) setOrderingEnabled(orderingData) }, [orderingData])
+
+  const toggleOrderingMut = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      await api.put('/api/settings/online_ordering_enabled', { value: enabled })
+    },
+    onSuccess: (_, enabled) => {
+      setOrderingEnabled(enabled)
+      qc.invalidateQueries({ queryKey: ['settings', 'online_ordering_enabled'] })
+      toast.success(enabled ? 'Online ordering enabled' : 'Online ordering disabled')
+    },
+    onError: () => toast.error('Failed to update'),
+  })
+
   // Default payment methods
   const { data: defaultMethods } = useQuery({
     queryKey: ['default-payment-methods'],
@@ -163,6 +186,36 @@ export default function Settings() {
       <TopBar title={t('settings')} />
 
       <main className="max-w-lg mx-auto px-4 py-6">
+        {/* Online Ordering toggle */}
+        <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-lg text-sheen-black">Online Ordering</h2>
+              <p className="font-body text-xs text-sheen-muted mt-0.5">
+                Enable or disable the order button for customers.
+              </p>
+            </div>
+            <button
+              onClick={() => toggleOrderingMut.mutate(!orderingEnabled)}
+              disabled={toggleOrderingMut.isPending}
+              className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                orderingEnabled ? 'bg-sheen-brown' : 'bg-sheen-muted/30'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200 ${
+                  orderingEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-body ${orderingEnabled ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+            {orderingEnabled
+              ? 'Ordering is ON — customers can place orders from the menu.'
+              : 'Ordering is OFF — the order button is hidden for customers.'}
+          </div>
+        </div>
+
         {/* Delivery toggle */}
         <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
           <div className="flex items-center justify-between">
