@@ -12,8 +12,6 @@ export default function Footer() {
           {t('tradeLicense' as any)}: 63802 &middot; Saqr bin Mohammed City, AlDhait 03, RAK, UAE
         </p>
         <p className="font-body text-xs text-sheen-muted">
-          <a href="tel:0557306030" className="hover:text-sheen-brown transition-colors">0557306030</a>
-          {' '}&middot;{' '}
           <a href="mailto:info@sheencafe.ae" className="hover:text-sheen-brown transition-colors">info@sheencafe.ae</a>
         </p>
         <div className="flex justify-center gap-4 pt-1">
