@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { getSalesByDateRange, insertSale } from '../services/db'
 import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
+import { deductStock } from '../services/stock'
 
 const router = Router()
 
@@ -259,6 +260,9 @@ router.post('/', async (req: Request, res: Response) => {
       }))
       await supabase.from('order_items').insert(orderItems)
     }
+
+    // Auto-deduct ingredient stock based on recipes (best-effort)
+    try { await deductStock(sanitizedItems) } catch {}
 
     await logAudit(req, { action: 'create', entity: 'sale', entity_id: sale.id, details: { page: 'Sales', sale_date, items: sanitizedItems.map((i: any) => `${i.name} x${i.qty}`).join(', '), total_revenue: totalAmount } })
     res.status(201).json(sale)

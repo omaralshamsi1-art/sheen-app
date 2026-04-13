@@ -150,6 +150,7 @@ export default function Ingredients() {
                     <th className="px-4 py-3 text-right">Pack</th>
                     <th className="px-4 py-3 text-right">Pack Cost</th>
                     <th className="px-4 py-3 text-right">Cost/Unit</th>
+                    <th className="px-4 py-3 text-right">Stock</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -167,6 +168,17 @@ export default function Ingredients() {
                       <td className="px-4 py-3 text-right text-sheen-muted">{ing.pack_size || '\u2014'}</td>
                       <td className="px-4 py-3 text-right text-sheen-black">{Number(ing.pack_cost).toFixed(2)}</td>
                       <td className="px-4 py-3 text-right text-sheen-brown font-semibold">{Number(ing.cost_per_unit).toFixed(4)}</td>
+                      <td className="px-4 py-3 text-right">
+                        {(() => {
+                          const qty = Number(ing.stock_qty ?? 0)
+                          const isLow = qty > 0 && qty < 200
+                          return (
+                            <span className={`font-semibold ${qty === 0 ? 'text-red-500' : isLow ? 'text-orange-500' : 'text-green-600'}`}>
+                              {qty > 0 ? `${qty.toFixed(qty < 10 ? 1 : 0)} ${ing.unit}` : '—'}
+                            </span>
+                          )
+                        })()}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => openEdit(ing)} className="text-sheen-gold hover:text-sheen-brown text-xs font-medium transition-colors">{t('edit')}</button>

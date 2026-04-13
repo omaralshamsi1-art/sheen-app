@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { getExpensesByDateRange, insertExpense } from '../services/db'
 import { logAudit } from '../lib/audit'
 import { supabase } from '../lib/supabase'
+import { addStock } from '../services/stock'
 
 const router = Router()
 
@@ -72,6 +73,10 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const expense = await insertExpense(sanitized)
+
+    // Auto-add to ingredient stock (best-effort)
+    try { await addStock(sanitized.ingredient_name, qty_bought) } catch {}
+
     await logAudit(req, { action: 'create', entity: 'expense', entity_id: expense.id, details: { page: 'Expenses', ingredient: sanitized.ingredient_name, category: sanitized.category, qty: `${sanitized.qty_bought} ${sanitized.unit ?? ''}`, total_cost: sanitized.total_cost } })
     res.status(201).json(expense)
   } catch (err: any) {

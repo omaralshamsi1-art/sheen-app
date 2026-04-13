@@ -35,6 +35,7 @@ export interface Ingredient {
   pack_size: string | null;
   pack_cost: number;
   cost_per_unit: number;
+  stock_qty: number;
   notes: string | null;
   updated_at: string;
 }
