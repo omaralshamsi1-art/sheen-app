@@ -26,6 +26,8 @@ import PettyCash from './pages/PettyCash'
 import MyCard from './pages/MyCard'
 import MyOrders from './pages/MyOrders'
 import MyProfile from './pages/MyProfile'
+import Terms from './pages/Terms'
+import Privacy from './pages/Privacy'
 import LoyaltyScan from './pages/LoyaltyScan'
 import OrderNotifier from './components/OrderNotifier'
 
@@ -60,6 +62,8 @@ export default function App() {
           <Route path="/" element={<PublicMenu />} />
           <Route path="/login" element={<Login />} />
           <Route path="/public-menu" element={<PublicMenu />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/sales" element={<Sales />} />

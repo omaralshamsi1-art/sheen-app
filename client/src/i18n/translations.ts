@@ -359,6 +359,12 @@ export const translations = {
   catInsurance: { en: 'Insurance', ar: 'تأمين' },
   catEquipment: { en: 'Equipment', ar: 'معدات' },
   catMarketing: { en: 'Marketing', ar: 'تسويق' },
+  termsAndConditions: { en: 'Terms & Conditions', ar: 'الشروط والأحكام' },
+  privacyPolicy: { en: 'Privacy Policy', ar: 'سياسة الخصوصية' },
+  allPricesInAED: { en: 'All prices in AED', ar: 'جميع الأسعار بالدرهم الإماراتي' },
+  deleteAccount: { en: 'Delete My Account', ar: 'حذف حسابي' },
+  accountDeleted: { en: 'Your account has been deleted.', ar: 'تم حذف حسابك.' },
+  tradeLicense: { en: 'Trade License', ar: 'الرخصة التجارية' },
 } as const
 
 export type TranslationKey = keyof typeof translations

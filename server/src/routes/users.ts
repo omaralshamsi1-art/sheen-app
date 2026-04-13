@@ -338,6 +338,44 @@ router.patch('/:id/toggle-ban', async (req: Request, res: Response) => {
   }
 })
 
+// DELETE /api/users/account/:userId — customer deletes their own account (UAE PDPL compliance)
+router.delete('/account/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params
+
+    // Get user info before deletion for audit
+    const { data: roleRecord } = await supabase
+      .from('user_roles')
+      .select('email')
+      .eq('user_id', userId)
+      .single()
+
+    // 1. Delete user_roles record (removes PII: name, phone, plate, location)
+    await supabase.from('user_roles').delete().eq('user_id', userId)
+
+    // 2. Anonymize orders (keep for business records, strip PII)
+    await supabase
+      .from('orders')
+      .update({ customer_email: null, customer_name: 'Deleted User', notes: null })
+      .eq('customer_id', userId)
+
+    // 3. Delete from Supabase Auth
+    await supabase.auth.admin.deleteUser(userId)
+
+    // 4. Audit log
+    await logAudit(req, {
+      action: 'delete',
+      entity: 'user_account',
+      entity_id: userId,
+      details: { email: roleRecord?.email, reason: 'Self-service account deletion (PDPL)' },
+    })
+
+    res.json({ message: 'Account deleted successfully' })
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // DELETE /api/users/:id — remove a user role record
 router.delete('/:id', async (req: Request, res: Response) => {
   try {

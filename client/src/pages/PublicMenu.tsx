@@ -5,6 +5,7 @@ import { useMenuItems } from '../hooks/useFixedCosts'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
 import api from '../lib/api'
+import Footer from '../components/layout/Footer'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
@@ -245,12 +246,7 @@ export default function PublicMenu() {
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="text-center py-6 border-t border-sheen-muted/20 mt-8">
-        <p className="text-xs font-body text-sheen-muted">
-          &copy; {new Date().getFullYear()} {t('allRightsReserved')}
-        </p>
-      </footer>
+      <Footer />
     </div>
   )
 }

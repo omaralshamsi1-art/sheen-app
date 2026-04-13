@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useRole } from '../hooks/useRole'
 import api from '../lib/api'
+import { supabase } from '../lib/supabase'
 import TopBar from '../components/layout/TopBar'
 import toast from 'react-hot-toast'
 
@@ -52,6 +54,7 @@ function LocationPicker({ position, onChange }: { position: LatLng | null; onCha
 }
 
 export default function MyProfile() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { fullName, phone, plateNumber, homeLat, homeLng, homeAddress, roleLoading } = useRole()
 
@@ -264,6 +267,32 @@ export default function MyProfile() {
           className="w-full py-3 rounded-xl bg-sheen-brown text-white font-body font-semibold text-sm hover:bg-sheen-brown/90 transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
+
+        {/* Delete Account */}
+        <div className="mt-8 bg-red-50 rounded-xl border border-red-200 p-5 space-y-3">
+          <h2 className="font-display text-base font-semibold text-red-700">Delete My Account</h2>
+          <p className="font-body text-xs text-red-600 leading-relaxed">
+            This will permanently delete your account and all your personal data (name, phone, plate number, home location). Your order history will be anonymized. This action cannot be undone.
+          </p>
+          <button
+            onClick={async () => {
+              if (!user) return
+              const ok = window.confirm('Are you sure you want to permanently delete your account? This cannot be undone.')
+              if (!ok) return
+              try {
+                await api.delete(`/api/users/account/${user.id}`)
+                toast.success('Your account has been deleted.')
+                await supabase.auth.signOut()
+                navigate('/')
+              } catch {
+                toast.error('Failed to delete account')
+              }
+            }}
+            className="px-4 py-2 rounded-lg bg-red-600 text-white font-body text-sm font-medium hover:bg-red-700 transition-colors"
+          >
+            Delete My Account
+          </button>
+        </div>
       </main>
     </div>
   )

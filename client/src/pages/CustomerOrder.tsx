@@ -617,10 +617,11 @@ export default function CustomerOrder() {
 
                 {/* Total + Submit */}
                 <div className="border-t border-sheen-cream pt-4">
-                  <div className="flex justify-between mb-4">
+                  <div className="flex justify-between mb-1">
                     <span className="font-body font-semibold text-sheen-black">{t('total')}</span>
                     <span className="font-display text-xl font-bold text-sheen-brown">{cartTotal.toFixed(2)} AED</span>
                   </div>
+                  <p className="font-body text-[10px] text-sheen-muted text-right mb-3">{t('allPricesInAED' as any)}</p>
 
                   {/* Stripe checkout form for card payments */}
                   {stripeClientSecret && paymentMethod === 'card' ? (
