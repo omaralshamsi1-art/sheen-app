@@ -14,8 +14,7 @@ export default function RevenueChart({ data }: RevenueChartProps) {
   }))
 
   return (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-sheen-cream">
-      <h3 className="font-display font-semibold text-sheen-black mb-4">{t('revenueVsExpenses7d')}</h3>
+    <div>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={formatted} barGap={4}>
           <CartesianGrid strokeDasharray="3 3" stroke="#F5F0E8" />
