@@ -1,7 +1,10 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useMenuItems } from '../hooks/useFixedCosts'
+import { useAuth } from '../hooks/useAuth'
+import { useRole } from '../hooks/useRole'
+import { defaultRoute } from '../config/roles'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
 import api from '../lib/api'
@@ -16,7 +19,16 @@ const PENDING_ORDER_KEY = 'sheen-pending-order'
 export default function PublicMenu() {
   const { t, lang, setLang } = useLanguage()
   const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
+  const { role } = useRole()
   const { data: menuItems = [], isLoading } = useMenuItems()
+
+  // If user is already logged in (e.g. landed here via magic link callback), redirect
+  useEffect(() => {
+    if (!authLoading && user && role) {
+      navigate(defaultRoute[role as keyof typeof defaultRoute] || '/order', { replace: true })
+    }
+  }, [authLoading, user, role])
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)

@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
+import { useRole } from '../hooks/useRole'
+import { defaultRoute } from '../config/roles'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
 
@@ -9,6 +12,15 @@ type LoginMode = 'password' | 'otp'
 export default function Login() {
   const { t } = useLanguage()
   const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
+  const { role } = useRole()
+
+  // If already logged in, redirect to role's default page
+  useEffect(() => {
+    if (!authLoading && user && role) {
+      navigate(defaultRoute[role as keyof typeof defaultRoute] || '/dashboard', { replace: true })
+    }
+  }, [authLoading, user, role])
   const [mode, setMode] = useState<LoginMode>('password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -44,7 +56,10 @@ export default function Login() {
     setSuccess(null)
     setLoading(true)
     try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({ email })
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+      })
       if (otpError) { setError(otpError.message); return }
       setOtpSent(true)
       setSuccess(t('otpSent'))
