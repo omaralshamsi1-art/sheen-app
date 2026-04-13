@@ -57,7 +57,7 @@ export function useDeleteSale() {
 export function useDashboardKPIs() {
   return useQuery({
     queryKey: ['dashboard', 'kpis'],
-    queryFn: salesService.getDashboardKPIs,
+    queryFn: () => salesService.getDashboardKPIs(),
     staleTime: 30_000,
   })
 }
