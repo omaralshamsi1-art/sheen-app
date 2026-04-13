@@ -160,7 +160,7 @@ export default function Sales() {
     for (const [id, qty] of Object.entries(quantities)) {
       const item = menuItems.find((m: MenuItem) => m.id === id)
       if (!item) continue
-      const beanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[id] || beanOptions[0]?.name || '') : 0
+      const beanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0
       const milkPremium = item.available_milks?.length ? getMilkPremium(milkChoices[id] || item.available_milks[0] || '') : 0
       const unit = item.selling_price + beanPremium + milkPremium
       total += unit * qty
@@ -247,14 +247,14 @@ export default function Sales() {
       .filter(([, qty]) => qty > 0)
       .map(([id, qty]) => {
         const menuItem = menuItems.find((m: MenuItem) => m.id === id)
-        const saleBeanPremium = menuItem?.category === 'Coffee' ? getBeanPremium(beanChoices[id] || beanOptions[0]?.name || '') : 0
+        const saleBeanPremium = menuItem?.category === 'Coffee' ? getBeanPremium(beanChoices[id] || menuItem?.available_beans?.[0] || beanOptions[0]?.name || '') : 0
         const saleMilkPremium = menuItem?.available_milks?.length ? getMilkPremium(milkChoices[id] || menuItem.available_milks[0] || '') : 0
         const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium + saleMilkPremium
         return {
           menu_item_id: id,
           name: (() => {
             let n = menuItem?.name ?? ''
-            if (menuItem?.category === 'Coffee') n += ` (${beanChoices[id] || beanOptions[0]?.name || 'Ethiopia'})`
+            if (menuItem?.category === 'Coffee') n += ` (${beanChoices[id] || menuItem?.available_beans?.[0] || beanOptions[0]?.name || 'Ethiopia'})`
             if (menuItem?.available_milks?.length) n += ` [${milkChoices[id] || menuItem.available_milks[0] || ''}]`
             return n
           })(),
@@ -421,7 +421,7 @@ export default function Sales() {
                       </p>
                       <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
                         {item.selling_price
-                          + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '') : 0)
+                          + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
                           + (item.available_milks?.length ? getMilkPremium(milkChoices[item.id] || item.available_milks[0] || '') : 0)} د.إ
                       </p>
                     </div>
@@ -435,7 +435,7 @@ export default function Sales() {
                           key={bean.name}
                           onClick={() => setBeanChoices(prev => ({ ...prev, [item.id]: bean.name }))}
                           className={`px-2.5 py-1 rounded-full text-[11px] font-body font-medium transition-colors ${
-                            (beanChoices[item.id] || beanOptions[0]?.name) === bean.name
+                            (beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name) === bean.name
                               ? 'bg-sheen-brown text-white'
                               : 'bg-sheen-cream text-sheen-muted'
                           }`}
@@ -455,8 +455,8 @@ export default function Sales() {
                           onClick={() => setMilkChoices(prev => ({ ...prev, [item.id]: milk.name }))}
                           className={`px-2.5 py-1 rounded-full text-[11px] font-body font-medium transition-colors ${
                             (milkChoices[item.id] || item.available_milks![0]) === milk.name
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-blue-50 text-blue-600'
+                              ? 'bg-sheen-brown text-white'
+                              : 'bg-sheen-cream text-sheen-muted'
                           }`}
                         >
                           {milk.name}{milk.premium > 0 ? ` +${milk.premium}` : ''}

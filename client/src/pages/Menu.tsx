@@ -725,7 +725,7 @@ export default function Menu() {
                       <label
                         key={milk.name}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors border ${
-                          checked ? 'bg-blue-50 border-blue-300' : 'bg-sheen-cream border-sheen-muted/20'
+                          checked ? 'bg-sheen-gold/10 border-sheen-gold/40' : 'bg-sheen-cream border-sheen-muted/20'
                         }`}
                       >
                         <input
@@ -736,7 +736,7 @@ export default function Menu() {
                               checked ? prev.filter(m => m !== milk.name) : [...prev, milk.name]
                             )
                           }}
-                          className="h-4 w-4 accent-blue-500 cursor-pointer"
+                          className="h-4 w-4 accent-sheen-gold cursor-pointer"
                         />
                         <span className={`font-body text-xs font-medium ${checked ? 'text-sheen-black' : 'text-sheen-muted'}`}>
                           {milk.name}{milk.premium > 0 ? ` +${milk.premium}` : ''}
