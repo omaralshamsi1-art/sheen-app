@@ -1,5 +1,8 @@
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useLanguage } from '../i18n/LanguageContext'
-import { useDashboardKPIs, useHourlySales, useTopSellers, useLast7DaysRevenue } from '../hooks/useSales'
+import { useDashboardKPIs, useHourlySales, useTopSellers } from '../hooks/useSales'
+import salesService from '../services/salesService'
 import { useFixedCosts } from '../hooks/useFixedCosts'
 import { useAutoInsight } from '../hooks/useAI'
 import TopBar from '../components/layout/TopBar'
@@ -40,7 +43,12 @@ export default function Dashboard() {
   const { data: kpis, isLoading: kpisLoading } = useDashboardKPIs()
   const { data: hourlySales, isLoading: hourlyLoading } = useHourlySales(todayStr)
   const { data: topSellers, isLoading: sellersLoading } = useTopSellers(todayStr, 5)
-  const { data: last7Days, isLoading: revenueLoading } = useLast7DaysRevenue()
+  const [chartPeriod, setChartPeriod] = useState<7 | 14 | 30>(7)
+  const { data: chartData, isLoading: revenueLoading } = useQuery({
+    queryKey: ['dashboard', 'revenue-chart', chartPeriod],
+    queryFn: () => salesService.getRevenueByDays(chartPeriod),
+    staleTime: 30_000,
+  })
   const { data: fixedCosts, isLoading: costsLoading } = useFixedCosts()
   const { insight, isLoading: insightLoading, fetchInsight: refreshInsight } = useAutoInsight()
 
@@ -136,16 +144,32 @@ export default function Dashboard() {
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Charts (2 cols) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Revenue vs Expenses -- Last 7 Days */}
+            {/* Revenue vs Expenses */}
             <div className="bg-sheen-white rounded-xl shadow-sm p-5">
-              <h2 className="font-display text-lg text-sheen-black mb-4">
-                {t('revenueVsExpenses')}
-              </h2>
-              <p className="font-body text-xs text-sheen-muted mb-3">{t('last7Days')}</p>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-display text-lg text-sheen-black">
+                  {t('revenueVsExpenses')}
+                </h2>
+                <div className="flex gap-1">
+                  {([7, 14, 30] as const).map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setChartPeriod(d)}
+                      className={`px-3 py-1 rounded-full text-xs font-body font-medium transition-colors ${
+                        chartPeriod === d
+                          ? 'bg-sheen-brown text-white'
+                          : 'bg-sheen-cream text-sheen-muted hover:bg-sheen-gold/10'
+                      }`}
+                    >
+                      {d === 7 ? '7 Days' : d === 14 ? '14 Days' : '30 Days'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {revenueLoading ? (
                 <Skeleton className="h-56 w-full" />
               ) : (
-                <RevenueChart data={last7Days ?? []} />
+                <RevenueChart data={chartData ?? []} />
               )}
             </div>
 

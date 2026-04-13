@@ -134,12 +134,14 @@ router.get('/top-sellers', async (req: Request, res: Response) => {
 })
 
 // GET /api/sales/last-7-days — revenue + expenses per day
-router.get('/last-7-days', async (_req: Request, res: Response) => {
+// Optional query param: ?days=30 (default 7)
+router.get('/last-7-days', async (req: Request, res: Response) => {
   try {
+    const numDays = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 90)
     const today = new Date()
     const days: { date: string; revenue: number; expenses: number }[] = []
 
-    for (let i = 6; i >= 0; i--) {
+    for (let i = numDays - 1; i >= 0; i--) {
       const d = new Date(today)
       d.setDate(d.getDate() - i)
       const dateStr = d.toISOString().slice(0, 10)

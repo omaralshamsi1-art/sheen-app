@@ -46,4 +46,9 @@ export const salesService = {
     const { data } = await api.get('/api/sales/last-7-days')
     return data
   },
+
+  async getRevenueByDays(days: number): Promise<{ date: string; revenue: number; expenses: number }[]> {
+    const { data } = await api.get(`/api/sales/last-7-days?days=${days}`)
+    return data
+  },
 }
