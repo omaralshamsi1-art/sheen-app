@@ -57,15 +57,16 @@ export default function Dashboard() {
   const totalRevenue = kpis?.total_revenue ?? 0
   const cupsSold = kpis?.total_cups ?? 0
   const totalExpenses = kpis?.total_expenses ?? 0
+  const pettyCashSpent = (kpis as any)?.petty_cash_spent ?? 0
 
-  // Net Profit = Revenue - Expenses - (Fixed Costs / 30)
+  // Net Profit = Revenue - Expenses - Petty Cash - (Fixed Costs / 30)
   const monthlyFixedTotal =
     fixedCosts?.reduce(
       (sum: number, fc: { amount: number }) => sum + (fc.amount ?? 0),
       0,
     ) ?? 0
   const dailyFixedCost = monthlyFixedTotal / 30
-  const netProfit = totalRevenue - totalExpenses - dailyFixedCost
+  const netProfit = totalRevenue - totalExpenses - pettyCashSpent - dailyFixedCost
 
   // Upcoming unpaid fixed costs (due within 7 days)
   const today = new Date()
@@ -107,6 +108,17 @@ export default function Dashboard() {
       ),
     },
     {
+      title: 'Petty Cash Spent',
+      value: `${pettyCashSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.إ`,
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2" />
+          <path d="M2 10H22" />
+          <path d="M6 14H10" />
+        </svg>
+      ),
+    },
+    {
       title: t('netProfitToday'),
       value: `${netProfit >= 0 ? '' : '-'}${Math.abs(netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.إ`,
       icon: (
@@ -127,9 +139,9 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* ---------- KPI Row ---------- */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {kpisLoading || costsLoading
-            ? Array.from({ length: 4 }).map((_, i) => <KPISkeleton key={i} />)
+            ? Array.from({ length: 5 }).map((_, i) => <KPISkeleton key={i} />)
             : kpiCards.map((card) => (
                 <StatCard
                   key={card.title}

@@ -43,9 +43,20 @@ router.get('/kpis/today', async (_req: Request, res: Response) => {
 
     const total_expenses = (expenses ?? []).reduce((s, e) => s + Number(e.total_cost), 0)
 
-    const net_profit = total_revenue - total_expenses
+    // Petty cash withdrawals today
+    const { data: petty, error: pettyErr } = await supabase
+      .from('petty_cash_transactions')
+      .select('amount, type')
+      .eq('date', today)
+      .eq('type', 'withdrawal')
 
-    res.json({ total_revenue, total_cups, total_expenses, net_profit })
+    if (pettyErr) throw pettyErr
+
+    const petty_cash_spent = (petty ?? []).reduce((s, p) => s + Number(p.amount), 0)
+    const combined_expenses = total_expenses + petty_cash_spent
+    const net_profit = total_revenue - combined_expenses
+
+    res.json({ total_revenue, total_cups, total_expenses, petty_cash_spent, net_profit })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
@@ -139,20 +150,19 @@ router.get('/last-7-days', async (req: Request, res: Response) => {
   try {
     const numDays = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 90)
     const today = new Date()
-    const days: { date: string; revenue: number; expenses: number }[] = []
+    const days: { date: string; revenue: number; expenses: number; petty_cash: number }[] = []
 
     for (let i = numDays - 1; i >= 0; i--) {
       const d = new Date(today)
       d.setDate(d.getDate() - i)
       const dateStr = d.toISOString().slice(0, 10)
-      days.push({ date: dateStr, revenue: 0, expenses: 0 })
+      days.push({ date: dateStr, revenue: 0, expenses: 0, petty_cash: 0 })
     }
 
-    // Fetch sales for range
     const from = days[0].date
     const to = days[days.length - 1].date
 
-    const [salesRes, expRes] = await Promise.all([
+    const [salesRes, expRes, pettyRes] = await Promise.all([
       supabase
         .from('sales')
         .select('sale_date, total_revenue')
@@ -163,10 +173,17 @@ router.get('/last-7-days', async (req: Request, res: Response) => {
         .select('expense_date, total_cost')
         .gte('expense_date', from)
         .lte('expense_date', to),
+      supabase
+        .from('petty_cash_transactions')
+        .select('date, amount, type')
+        .eq('type', 'withdrawal')
+        .gte('date', from)
+        .lte('date', to),
     ])
 
     if (salesRes.error) throw salesRes.error
     if (expRes.error) throw expRes.error
+    if (pettyRes.error) throw pettyRes.error
 
     for (const sale of salesRes.data ?? []) {
       const day = days.find((d) => d.date === sale.sale_date)
@@ -176,6 +193,11 @@ router.get('/last-7-days', async (req: Request, res: Response) => {
     for (const exp of expRes.data ?? []) {
       const day = days.find((d) => d.date === exp.expense_date)
       if (day) day.expenses += Number(exp.total_cost)
+    }
+
+    for (const p of pettyRes.data ?? []) {
+      const day = days.find((d) => d.date === p.date)
+      if (day) day.petty_cash += Number(p.amount)
     }
 
     res.json(days)

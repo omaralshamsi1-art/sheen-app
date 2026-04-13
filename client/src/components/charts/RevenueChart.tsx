@@ -2,7 +2,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useLanguage } from '../../i18n/LanguageContext'
 
 interface RevenueChartProps {
-  data: { date: string; revenue: number; expenses: number }[]
+  data: { date: string; revenue: number; expenses: number; petty_cash?: number }[]
 }
 
 export default function RevenueChart({ data }: RevenueChartProps) {
@@ -27,6 +27,7 @@ export default function RevenueChart({ data }: RevenueChartProps) {
           <Legend />
           <Bar dataKey="revenue" fill="#D4A843" radius={[4, 4, 0, 0]} name={t('revenueLabel')} />
           <Bar dataKey="expenses" fill="#8B4513" radius={[4, 4, 0, 0]} name={t('expensesLabel')} />
+          <Bar dataKey="petty_cash" fill="#C0392B" radius={[4, 4, 0, 0]} name="Petty Cash" />
         </BarChart>
       </ResponsiveContainer>
     </div>
