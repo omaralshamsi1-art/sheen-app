@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import type { Request } from 'express'
 
 export type AuditAction = 'create' | 'update' | 'delete'
-export type AuditEntity = 'sale' | 'expense' | 'fixed_cost' | 'menu_item' | 'order' | 'user_role'
+export type AuditEntity = 'sale' | 'expense' | 'fixed_cost' | 'menu_item' | 'order' | 'user_role' | 'user_account'
 
 interface AuditEntry {
   action: AuditAction

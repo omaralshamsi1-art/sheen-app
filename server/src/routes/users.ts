@@ -360,7 +360,7 @@ router.delete('/account/:userId', async (req: Request, res: Response) => {
       .eq('customer_id', userId)
 
     // 3. Delete from Supabase Auth
-    await supabase.auth.admin.deleteUser(userId)
+    await supabase.auth.admin.deleteUser(String(userId))
 
     // 4. Audit log
     await logAudit(req, {
