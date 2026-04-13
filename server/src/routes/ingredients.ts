@@ -90,65 +90,80 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
 // GET /api/ingredients/stock — calculate stock levels
 // Stock = total purchased (expenses) - total used (sales × recipe qty)
+// Bean substitution: if a sale item is "Americano (Brazil)", the Coffee
+// ingredient in the recipe is swapped to the ingredient matching "Brazil".
 router.get('/stock', async (_req: Request, res: Response) => {
   try {
-    // Get all ingredients
     const { data: ingredients, error: ingErr } = await supabase
-      .from('ingredients')
-      .select('*')
-      .order('category')
-      .order('name')
+      .from('ingredients').select('*').order('category').order('name')
     if (ingErr) throw ingErr
 
-    // Get all purchases (expenses) grouped by ingredient name
     const { data: expenses, error: expErr } = await supabase
-      .from('expenses')
-      .select('ingredient_name, qty_bought, unit')
+      .from('expenses').select('ingredient_name, qty_bought')
     if (expErr) throw expErr
 
-    // Get all recipe lines to know how much each sale uses
-    const { data: recipes, error: recErr } = await supabase
-      .from('recipe_lines')
-      .select('ingredient_id, qty')
+    const { data: recipeLines, error: recErr } = await supabase
+      .from('recipe_lines').select('ingredient_id, menu_item_id, qty')
     if (recErr) throw recErr
 
-    // Get total cups sold per menu item (all time)
+    // Get every individual sale item (need name for bean extraction)
     const { data: saleItems, error: saleErr } = await supabase
-      .from('sale_items')
-      .select('menu_item_id, qty')
+      .from('sale_items').select('menu_item_id, name, qty')
     if (saleErr) throw saleErr
 
-    // Calculate cups sold per menu item
-    const cupsByItem: Record<string, number> = {}
-    for (const si of saleItems ?? []) {
-      cupsByItem[si.menu_item_id] = (cupsByItem[si.menu_item_id] || 0) + si.qty
+    const ingredientList = ingredients ?? []
+    const ingredientMap = new Map(ingredientList.map((i: any) => [i.id, i]))
+
+    // Group recipe lines by menu_item_id for fast lookup
+    const recipesByItem: Record<string, Array<{ ingredient_id: string; qty: number }>> = {}
+    for (const rl of recipeLines ?? []) {
+      if (!recipesByItem[rl.menu_item_id]) recipesByItem[rl.menu_item_id] = []
+      recipesByItem[rl.menu_item_id].push({ ingredient_id: rl.ingredient_id, qty: Number(rl.qty) })
     }
 
-    // Calculate total usage per ingredient (from recipes × cups sold)
-    const usageByIngredient: Record<string, number> = {}
-    // We need recipe lines with menu_item_id
-    const { data: fullRecipes, error: frErr } = await supabase
-      .from('recipe_lines')
-      .select('ingredient_id, menu_item_id, qty')
-    if (frErr) throw frErr
+    // Calculate usage per ingredient — process each sale item individually
+    // so we can handle bean substitution from the item name.
+    const usageById: Record<string, number> = {}
+    for (const si of saleItems ?? []) {
+      const recipe = recipesByItem[si.menu_item_id]
+      if (!recipe) continue
 
-    for (const rl of fullRecipes ?? []) {
-      const cupsSold = cupsByItem[rl.menu_item_id] || 0
-      const used = rl.qty * cupsSold
-      usageByIngredient[rl.ingredient_id] = (usageByIngredient[rl.ingredient_id] || 0) + used
+      // Extract bean choice from name: "Americano (Ethiopia)" → "Ethiopia"
+      const beanMatch = (si.name as string).match(/\(([^)]+)\)$/)
+      const beanChoice = beanMatch ? beanMatch[1] : null
+
+      for (const line of recipe) {
+        let targetId = line.ingredient_id
+
+        // Bean substitution: if this line's ingredient is Coffee-category
+        // and the sale had a specific bean choice, swap the target.
+        if (beanChoice) {
+          const recipeIng = ingredientMap.get(line.ingredient_id)
+          if (recipeIng && recipeIng.category === 'Coffee') {
+            const chosenBean = ingredientList.find(
+              (i: any) =>
+                i.category === 'Coffee' &&
+                i.name.toLowerCase().includes(beanChoice.toLowerCase())
+            )
+            if (chosenBean) targetId = chosenBean.id
+          }
+        }
+
+        usageById[targetId] = (usageById[targetId] || 0) + line.qty * si.qty
+      }
     }
 
     // Calculate total purchased per ingredient (match by name)
     const purchasedByName: Record<string, number> = {}
     for (const exp of expenses ?? []) {
-      const name = exp.ingredient_name.toLowerCase().trim()
+      const name = (exp.ingredient_name as string).toLowerCase().trim()
       purchasedByName[name] = (purchasedByName[name] || 0) + Number(exp.qty_bought)
     }
 
     // Build stock report
-    const stock = (ingredients ?? []).map((ing: any) => {
+    const stock = ingredientList.map((ing: any) => {
       const purchased = purchasedByName[ing.name.toLowerCase().trim()] || 0
-      const used = usageByIngredient[ing.id] || 0
+      const used = usageById[ing.id] || 0
       const remaining = purchased - used
       return {
         id: ing.id,
@@ -160,7 +175,7 @@ router.get('/stock', async (_req: Request, res: Response) => {
         purchased,
         used: Math.round(used * 100) / 100,
         remaining: Math.round(remaining * 100) / 100,
-        low_stock: remaining < purchased * 0.2, // less than 20% remaining
+        low_stock: remaining > 0 && remaining < purchased * 0.2,
       }
     })
 
