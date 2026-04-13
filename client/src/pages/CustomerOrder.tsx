@@ -238,7 +238,7 @@ export default function CustomerOrder() {
       customer_name: user!.user_metadata?.full_name || user!.user_metadata?.name || user!.email?.split('@')[0] || user!.email,
       items: itemsToSubmit.map((i) => ({
         menu_item_id: i.id,
-        name: i.category === 'Coffee' && beanChoices[i.id] ? `${i.name} (${beanChoices[i.id]})` : i.name,
+        name: i.category === 'Coffee' ? `${i.name} (${beanChoices[i.id] || 'Ethiopia'})` : i.name,
         price: i.selling_price,
         qty: i.qty,
       })),

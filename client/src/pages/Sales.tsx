@@ -233,7 +233,7 @@ export default function Sales() {
         const unitPrice = (menuItem?.selling_price ?? 0) + (isColombia ? COLOMBIA_PREMIUM : 0)
         return {
           menu_item_id: id,
-          name: menuItem?.category === 'Coffee' && beanChoices[id] ? `${menuItem?.name ?? ''} (${beanChoices[id]})` : (menuItem?.name ?? ''),
+          name: menuItem?.category === 'Coffee' ? `${menuItem?.name ?? ''} (${beanChoices[id] || 'Ethiopia'})` : (menuItem?.name ?? ''),
           category: menuItem?.category ?? '',
           price: unitPrice,
           qty,
