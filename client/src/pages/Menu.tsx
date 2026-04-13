@@ -50,11 +50,19 @@ export default function Menu() {
   const [editImageFile, setEditImageFile] = useState<File | null>(null)
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
   const [editDescription, setEditDescription] = useState('')
+  const [editBeans, setEditBeans] = useState<string[]>([])
   const [addingRecipeTo, setAddingRecipeTo] = useState<string | null>(null)
   const [newIngredientId, setNewIngredientId] = useState('')
   const [newQty, setNewQty] = useState('')
 
   const { data: ingredients = [] } = useIngredients()
+  const { data: globalBeans = [] } = useQuery({
+    queryKey: ['settings', 'bean_options'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/bean_options')
+      return (data as Array<{ name: string; premium: number }>) ?? []
+    },
+  })
 
   // Add item state
   const [showAddForm, setShowAddForm] = useState(false)
@@ -97,6 +105,7 @@ export default function Menu() {
     setEditImageFile(null)
     setEditImagePreview(null)
     setEditDescription(item.description ?? '')
+    setEditBeans(item.available_beans ?? [])
   }
 
   function handleEditImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -135,6 +144,7 @@ export default function Menu() {
         selling_price: Number(editPrice),
         is_active: editActive,
         description: editDescription || null,
+        available_beans: editItem.category === 'Coffee' && editBeans.length > 0 ? editBeans : null,
         ...(image_url ? { image_url } : {}),
       })
       toast.success(t('menuItemUpdated'))
@@ -657,6 +667,41 @@ export default function Menu() {
                 {t('activeOnMenu')}
               </label>
             </div>
+
+            {/* Bean selection for Coffee items */}
+            {editItem.category === 'Coffee' && globalBeans.length > 0 && (
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-2">Available Beans</label>
+                <p className="font-body text-[10px] text-sheen-muted mb-2">Uncheck all to show all beans. Check specific ones to restrict.</p>
+                <div className="flex flex-wrap gap-2">
+                  {globalBeans.map(bean => {
+                    const checked = editBeans.includes(bean.name)
+                    return (
+                      <label
+                        key={bean.name}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors border ${
+                          checked ? 'bg-sheen-gold/10 border-sheen-gold/40' : 'bg-sheen-cream border-sheen-muted/20'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setEditBeans(prev =>
+                              checked ? prev.filter(b => b !== bean.name) : [...prev, bean.name]
+                            )
+                          }}
+                          className="h-4 w-4 accent-sheen-gold cursor-pointer"
+                        />
+                        <span className={`font-body text-xs font-medium ${checked ? 'text-sheen-black' : 'text-sheen-muted'}`}>
+                          {bean.name}{bean.premium > 0 ? ` +${bean.premium}` : ''}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Image upload */}
             <div>

@@ -12,6 +12,7 @@ export interface MenuItem {
   gross_margin: number;
   image_url: string | null;
   description: string | null;
+  available_beans: string[] | null;
   created_at: string;
 }
 

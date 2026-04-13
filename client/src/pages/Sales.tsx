@@ -413,7 +413,7 @@ export default function Sales() {
                   {/* Bean options (Coffee only) */}
                   {item.category === 'Coffee' && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
-                      {beanOptions.map(bean => (
+                      {beanOptions.filter(b => !item.available_beans || item.available_beans.length === 0 || item.available_beans.includes(b.name)).map(bean => (
                         <button
                           key={bean.name}
                           onClick={() => setBeanChoices(prev => ({ ...prev, [item.id]: bean.name }))}

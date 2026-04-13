@@ -221,7 +221,7 @@ export default function PublicMenu() {
                   {/* Bean selector for coffee */}
                   {item.category === 'Coffee' && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {beanOptions.map(bean => (
+                      {beanOptions.filter(b => !item.available_beans || item.available_beans.length === 0 || item.available_beans.includes(b.name)).map(bean => (
                         <button
                           key={bean.name}
                           onClick={(e) => { e.stopPropagation(); setBeanChoices(prev => ({ ...prev, [item.id]: bean.name })) }}
