@@ -51,6 +51,7 @@ export default function Menu() {
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
   const [editDescription, setEditDescription] = useState('')
   const [editBeans, setEditBeans] = useState<string[]>([])
+  const [editMilks, setEditMilks] = useState<string[]>([])
   const [addingRecipeTo, setAddingRecipeTo] = useState<string | null>(null)
   const [newIngredientId, setNewIngredientId] = useState('')
   const [newQty, setNewQty] = useState('')
@@ -60,6 +61,13 @@ export default function Menu() {
     queryKey: ['settings', 'bean_options'],
     queryFn: async () => {
       const { data } = await api.get('/api/settings/bean_options')
+      return (data as Array<{ name: string; premium: number }>) ?? []
+    },
+  })
+  const { data: globalMilks = [] } = useQuery({
+    queryKey: ['settings', 'milk_options'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/milk_options')
       return (data as Array<{ name: string; premium: number }>) ?? []
     },
   })
@@ -106,6 +114,7 @@ export default function Menu() {
     setEditImagePreview(null)
     setEditDescription(item.description ?? '')
     setEditBeans(item.available_beans ?? [])
+    setEditMilks(item.available_milks ?? [])
   }
 
   function handleEditImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -145,6 +154,7 @@ export default function Menu() {
         is_active: editActive,
         description: editDescription || null,
         available_beans: editItem.category === 'Coffee' && editBeans.length > 0 ? editBeans : null,
+        available_milks: editMilks.length > 0 ? editMilks : null,
         ...(image_url ? { image_url } : {}),
       })
       toast.success(t('menuItemUpdated'))
@@ -695,6 +705,41 @@ export default function Menu() {
                         />
                         <span className={`font-body text-xs font-medium ${checked ? 'text-sheen-black' : 'text-sheen-muted'}`}>
                           {bean.name}{bean.premium > 0 ? ` +${bean.premium}` : ''}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Milk selection */}
+            {globalMilks.length > 0 && (
+              <div>
+                <label className="block text-sm font-body text-sheen-muted mb-2">Available Milks</label>
+                <p className="font-body text-[10px] text-sheen-muted mb-2">Uncheck all to use recipe default. Check specific ones to let staff/customer choose.</p>
+                <div className="flex flex-wrap gap-2">
+                  {globalMilks.map(milk => {
+                    const checked = editMilks.includes(milk.name)
+                    return (
+                      <label
+                        key={milk.name}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors border ${
+                          checked ? 'bg-blue-50 border-blue-300' : 'bg-sheen-cream border-sheen-muted/20'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setEditMilks(prev =>
+                              checked ? prev.filter(m => m !== milk.name) : [...prev, milk.name]
+                            )
+                          }}
+                          className="h-4 w-4 accent-blue-500 cursor-pointer"
+                        />
+                        <span className={`font-body text-xs font-medium ${checked ? 'text-sheen-black' : 'text-sheen-muted'}`}>
+                          {milk.name}{milk.premium > 0 ? ` +${milk.premium}` : ''}
                         </span>
                       </label>
                     )

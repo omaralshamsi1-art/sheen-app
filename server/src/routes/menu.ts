@@ -116,6 +116,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
       updates.available_beans = req.body.available_beans
     }
 
+    if (req.body.available_milks !== undefined) {
+      updates.available_milks = req.body.available_milks
+    }
+
     if (req.body.estimated_cogs !== undefined) {
       updates.estimated_cogs = Number(req.body.estimated_cogs)
     }

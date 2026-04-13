@@ -36,6 +36,16 @@ export default function Sales() {
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
+  const [milkChoices, setMilkChoices] = useState<Record<string, string>>({})
+
+  const { data: milkOptions = [] } = useQuery({
+    queryKey: ['settings', 'milk_options'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/milk_options')
+      return (data as Array<{ name: string; premium: number }>) ?? []
+    },
+  })
+  const getMilkPremium = (milkName: string) => milkOptions.find(m => m.name === milkName)?.premium ?? 0
 
   // Fetch bean options from settings (dynamic, managed by admin)
   const { data: beanOptions = [] } = useQuery({
@@ -151,7 +161,8 @@ export default function Sales() {
       const item = menuItems.find((m: MenuItem) => m.id === id)
       if (!item) continue
       const beanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[id] || beanOptions[0]?.name || '') : 0
-      const unit = item.selling_price + beanPremium
+      const milkPremium = item.available_milks?.length ? getMilkPremium(milkChoices[id] || item.available_milks[0] || '') : 0
+      const unit = item.selling_price + beanPremium + milkPremium
       total += unit * qty
     }
     return total
@@ -237,10 +248,16 @@ export default function Sales() {
       .map(([id, qty]) => {
         const menuItem = menuItems.find((m: MenuItem) => m.id === id)
         const saleBeanPremium = menuItem?.category === 'Coffee' ? getBeanPremium(beanChoices[id] || beanOptions[0]?.name || '') : 0
-        const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium
+        const saleMilkPremium = menuItem?.available_milks?.length ? getMilkPremium(milkChoices[id] || menuItem.available_milks[0] || '') : 0
+        const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium + saleMilkPremium
         return {
           menu_item_id: id,
-          name: menuItem?.category === 'Coffee' ? `${menuItem?.name ?? ''} (${beanChoices[id] || beanOptions[0]?.name || 'Ethiopia'})` : (menuItem?.name ?? ''),
+          name: (() => {
+            let n = menuItem?.name ?? ''
+            if (menuItem?.category === 'Coffee') n += ` (${beanChoices[id] || beanOptions[0]?.name || 'Ethiopia'})`
+            if (menuItem?.available_milks?.length) n += ` [${milkChoices[id] || menuItem.available_milks[0] || ''}]`
+            return n
+          })(),
           category: menuItem?.category ?? '',
           price: unitPrice,
           qty,
@@ -403,9 +420,9 @@ export default function Sales() {
                         {item.name}
                       </p>
                       <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
-                        {item.category === 'Coffee'
-                          ? item.selling_price + getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '')
-                          : item.selling_price} د.إ
+                        {item.selling_price
+                          + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '') : 0)
+                          + (item.available_milks?.length ? getMilkPremium(milkChoices[item.id] || item.available_milks[0] || '') : 0)} د.إ
                       </p>
                     </div>
                   </div>
@@ -424,6 +441,25 @@ export default function Sales() {
                           }`}
                         >
                           {bean.name}{bean.premium > 0 ? ` +${bean.premium}` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Milk options */}
+                  {item.available_milks && item.available_milks.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {milkOptions.filter(m => item.available_milks!.includes(m.name)).map(milk => (
+                        <button
+                          key={milk.name}
+                          onClick={() => setMilkChoices(prev => ({ ...prev, [item.id]: milk.name }))}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-body font-medium transition-colors ${
+                            (milkChoices[item.id] || item.available_milks![0]) === milk.name
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-blue-50 text-blue-600'
+                          }`}
+                        >
+                          {milk.name}{milk.premium > 0 ? ` +${milk.premium}` : ''}
                         </button>
                       ))}
                     </div>

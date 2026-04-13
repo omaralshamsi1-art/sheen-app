@@ -124,6 +124,32 @@ export default function Settings() {
     onError: () => toast.error('Failed to save'),
   })
 
+  // Milk options management
+  const { data: milkData } = useQuery({
+    queryKey: ['settings', 'milk_options'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/milk_options')
+      return data as BeanOption[] | null
+    },
+  })
+  const [milks, setMilks] = useState<BeanOption[]>([])
+  const [newMilkName, setNewMilkName] = useState('')
+  const [newMilkPremium, setNewMilkPremium] = useState('')
+  useEffect(() => {
+    if (milkData) setMilks(milkData)
+  }, [milkData])
+
+  const saveMilksMut = useMutation({
+    mutationFn: async (updated: BeanOption[]) => {
+      await api.put('/api/settings/milk_options', { value: updated })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings', 'milk_options'] })
+      toast.success('Milks updated')
+    },
+    onError: () => toast.error('Failed to save'),
+  })
+
   // Default payment methods
   const { data: defaultMethods } = useQuery({
     queryKey: ['default-payment-methods'],
@@ -398,6 +424,77 @@ export default function Settings() {
               setNewBeanName('')
               setNewBeanPremium('')
             }} disabled={!newBeanName.trim()}>
+              {t('add')}
+            </Button>
+          </div>
+        </div>
+
+        {/* Milk Options */}
+        <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
+          <h2 className="font-display text-lg text-sheen-black mb-1">Milk Options</h2>
+          <p className="font-body text-xs text-sheen-muted mb-4">
+            Manage the milk options. Names must match your Dairy ingredients.
+          </p>
+
+          <div className="space-y-2 mb-4">
+            {milks.map((milk, idx) => (
+              <div key={idx} className="flex items-center gap-3 bg-sheen-cream/50 rounded-lg px-4 py-3">
+                <span className="font-body text-sm text-sheen-black font-medium flex-1">{milk.name}</span>
+                {milk.premium > 0 && (
+                  <span className="font-body text-xs text-sheen-gold font-medium">+{milk.premium} AED</span>
+                )}
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={milk.premium}
+                  onChange={(e) => {
+                    const updated = milks.map((m, i) => i === idx ? { ...m, premium: Number(e.target.value) || 0 } : m)
+                    setMilks(updated)
+                    saveMilksMut.mutate(updated)
+                  }}
+                  placeholder="Premium"
+                  className="w-20 px-2 py-1 rounded-lg border border-sheen-muted/30 font-body text-sm text-right focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+                <span className="font-body text-xs text-sheen-muted">AED</span>
+                <button
+                  onClick={() => {
+                    const updated = milks.filter((_, i) => i !== idx)
+                    setMilks(updated)
+                    saveMilksMut.mutate(updated)
+                  }}
+                  className="text-red-400 hover:text-red-600 text-xs transition-colors"
+                >
+                  {t('delete')}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newMilkName}
+              onChange={e => setNewMilkName(e.target.value)}
+              placeholder="Milk name (must match ingredient)"
+              className="flex-1 px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+            />
+            <input
+              type="number"
+              min="0"
+              value={newMilkPremium}
+              onChange={e => setNewMilkPremium(e.target.value)}
+              placeholder="+AED"
+              className="w-20 px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+            />
+            <Button onClick={() => {
+              if (!newMilkName.trim()) return
+              const updated = [...milks, { name: newMilkName.trim(), premium: Number(newMilkPremium) || 0 }]
+              setMilks(updated)
+              saveMilksMut.mutate(updated)
+              setNewMilkName('')
+              setNewMilkPremium('')
+            }} disabled={!newMilkName.trim()}>
               {t('add')}
             </Button>
           </div>

@@ -128,25 +128,35 @@ router.get('/stock', async (_req: Request, res: Response) => {
       const recipe = recipesByItem[si.menu_item_id]
       if (!recipe) continue
 
-      // Extract bean choice from name: "Americano (Ethiopia)" → "Ethiopia"
-      const beanMatch = (si.name as string).match(/\(([^)]+)\)$/)
+      // Extract bean choice from parentheses: "Americano (Ethiopia)" → "Ethiopia"
+      const beanMatch = (si.name as string).match(/\(([^)]+)\)/)
       const beanChoice = beanMatch ? beanMatch[1] : null
+      // Extract milk choice from brackets: "Latte (Ethiopia) [Oat Milk]" → "Oat Milk"
+      const milkMatch = (si.name as string).match(/\[([^\]]+)\]/)
+      const milkChoice = milkMatch ? milkMatch[1] : null
 
       for (const line of recipe) {
         let targetId = line.ingredient_id
+        const recipeIng = ingredientMap.get(line.ingredient_id)
 
-        // Bean substitution: if this line's ingredient is Coffee-category
-        // and the sale had a specific bean choice, swap the target.
-        if (beanChoice) {
-          const recipeIng = ingredientMap.get(line.ingredient_id)
-          if (recipeIng && recipeIng.category === 'Coffee') {
-            const chosenBean = ingredientList.find(
-              (i: any) =>
-                i.category === 'Coffee' &&
-                i.name.toLowerCase().includes(beanChoice.toLowerCase())
-            )
-            if (chosenBean) targetId = chosenBean.id
-          }
+        // Bean substitution: Coffee-category ingredient swapped to chosen bean
+        if (beanChoice && recipeIng && recipeIng.category === 'Coffee') {
+          const chosenBean = ingredientList.find(
+            (i: any) =>
+              i.category === 'Coffee' &&
+              i.name.toLowerCase().includes(beanChoice.toLowerCase())
+          )
+          if (chosenBean) targetId = chosenBean.id
+        }
+
+        // Milk substitution: Dairy-category ingredient swapped to chosen milk
+        if (milkChoice && recipeIng && recipeIng.category === 'Dairy') {
+          const chosenMilk = ingredientList.find(
+            (i: any) =>
+              i.category === 'Dairy' &&
+              i.name.toLowerCase().includes(milkChoice.toLowerCase())
+          )
+          if (chosenMilk) targetId = chosenMilk.id
         }
 
         usageById[targetId] = (usageById[targetId] || 0) + line.qty * si.qty

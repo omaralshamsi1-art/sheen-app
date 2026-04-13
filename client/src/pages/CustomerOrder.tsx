@@ -106,6 +106,16 @@ export default function CustomerOrder() {
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({}) // itemId → bean name
+  const [milkChoices, setMilkChoices] = useState<Record<string, string>>({}) // itemId → milk name
+
+  const { data: milkOptions = [] } = useQuery({
+    queryKey: ['settings', 'milk_options'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/milk_options')
+      return (data as Array<{ name: string; premium: number }>) ?? []
+    },
+  })
+  const getMilkPremium = (milkName: string) => milkOptions.find(m => m.name === milkName)?.premium ?? 0
 
   // Load pending order saved by PublicMenu before login (one-shot)
   useEffect(() => {
@@ -204,7 +214,8 @@ export default function CustomerOrder() {
         if (!item) return null
         // Colombia premium: +5 AED per coffee
         const cartBeanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '') : 0
-        const effectivePrice = item.selling_price + cartBeanPremium
+        const cartMilkPremium = item.available_milks?.length ? getMilkPremium(milkChoices[item.id] || item.available_milks[0] || '') : 0
+        const effectivePrice = item.selling_price + cartBeanPremium + cartMilkPremium
         return { ...item, selling_price: effectivePrice, qty, total: effectivePrice * qty }
       })
       .filter(Boolean) as (MenuItem & { qty: number; total: number })[]
@@ -244,7 +255,12 @@ export default function CustomerOrder() {
       customer_name: user!.user_metadata?.full_name || user!.user_metadata?.name || user!.email?.split('@')[0] || user!.email,
       items: itemsToSubmit.map((i) => ({
         menu_item_id: i.id,
-        name: i.category === 'Coffee' ? `${i.name} (${beanChoices[i.id] || beanOptions[0]?.name || 'Ethiopia'})` : i.name,
+        name: (() => {
+          let n = i.name
+          if (i.category === 'Coffee') n += ` (${beanChoices[i.id] || beanOptions[0]?.name || 'Ethiopia'})`
+          if (i.available_milks?.length) n += ` [${milkChoices[i.id] || i.available_milks[0] || ''}]`
+          return n
+        })(),
         price: i.selling_price,
         qty: i.qty,
       })),
@@ -460,10 +476,28 @@ export default function CustomerOrder() {
                         ))}
                       </div>
                     )}
+                    {/* Milk selector */}
+                    {item.available_milks && item.available_milks.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {milkOptions.filter(m => item.available_milks!.includes(m.name)).map(milk => (
+                          <button
+                            key={milk.name}
+                            onClick={(e) => { e.stopPropagation(); setMilkChoices(prev => ({ ...prev, [item.id]: milk.name })) }}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-body font-medium transition-colors ${
+                              (milkChoices[item.id] || item.available_milks![0]) === milk.name
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-blue-50 text-blue-600'
+                            }`}
+                          >
+                            {milk.name}{milk.premium > 0 ? ` +${milk.premium}` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>
-                      {item.category === 'Coffee'
-                        ? item.selling_price + getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '')
-                        : item.selling_price} AED
+                      {item.selling_price
+                        + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '') : 0)
+                        + (item.available_milks?.length ? getMilkPremium(milkChoices[item.id] || item.available_milks[0] || '') : 0)} AED
                     </p>
                     {orderingEnabled && (
                       <div className="flex items-center gap-1 mt-2">
