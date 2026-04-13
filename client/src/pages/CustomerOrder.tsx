@@ -124,8 +124,14 @@ export default function CustomerOrder() {
     }
   }, [])
 
-  const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia Tobacco'] as const
-  const COLOMBIA_PREMIUM = 5 // AED extra per coffee when Colombia beans are selected
+  const { data: beanOptions = [] } = useQuery({
+    queryKey: ['settings', 'bean_options'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/bean_options')
+      return (data as Array<{ name: string; premium: number }>) ?? []
+    },
+  })
+  const getBeanPremium = (beanName: string) => beanOptions.find(b => b.name === beanName)?.premium ?? 0
   const [stripeLoading, setStripeLoading] = useState(false)
 
   // Refs
@@ -197,8 +203,8 @@ export default function CustomerOrder() {
         const item = menuItems.find((m: MenuItem) => m.id === id)
         if (!item) return null
         // Colombia premium: +5 AED per coffee
-        const isColombia = item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
-        const effectivePrice = item.selling_price + (isColombia ? COLOMBIA_PREMIUM : 0)
+        const cartBeanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '') : 0
+        const effectivePrice = item.selling_price + cartBeanPremium
         return { ...item, selling_price: effectivePrice, qty, total: effectivePrice * qty }
       })
       .filter(Boolean) as (MenuItem & { qty: number; total: number })[]
@@ -238,7 +244,7 @@ export default function CustomerOrder() {
       customer_name: user!.user_metadata?.full_name || user!.user_metadata?.name || user!.email?.split('@')[0] || user!.email,
       items: itemsToSubmit.map((i) => ({
         menu_item_id: i.id,
-        name: i.category === 'Coffee' ? `${i.name} (${beanChoices[i.id] || 'Ethiopia'})` : i.name,
+        name: i.category === 'Coffee' ? `${i.name} (${beanChoices[i.id] || beanOptions[0]?.name || 'Ethiopia'})` : i.name,
         price: i.selling_price,
         qty: i.qty,
       })),
@@ -439,24 +445,24 @@ export default function CustomerOrder() {
                     {/* Bean selector for coffee */}
                     {item.category === 'Coffee' && (
                       <div className="flex flex-wrap gap-1 mt-1.5">
-                        {BEAN_OPTIONS.map(bean => (
+                        {beanOptions.map(bean => (
                           <button
-                            key={bean}
-                            onClick={(e) => { e.stopPropagation(); setBeanChoices(prev => ({ ...prev, [item.id]: bean })) }}
+                            key={bean.name}
+                            onClick={(e) => { e.stopPropagation(); setBeanChoices(prev => ({ ...prev, [item.id]: bean.name })) }}
                             className={`px-2 py-0.5 rounded-full text-[10px] font-body font-medium transition-colors ${
-                              (beanChoices[item.id] || 'Ethiopia') === bean
+                              (beanChoices[item.id] || beanOptions[0]?.name) === bean.name
                                 ? 'bg-sheen-brown text-white'
                                 : 'bg-sheen-cream text-sheen-muted'
                             }`}
                           >
-                            {bean}{bean === 'Colombia Tobacco' ? ' +5' : ''}
+                            {bean.name}{bean.premium > 0 ? ` +${bean.premium}` : ''}
                           </button>
                         ))}
                       </div>
                     )}
                     <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>
-                      {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
-                        ? item.selling_price + COLOMBIA_PREMIUM
+                      {item.category === 'Coffee'
+                        ? item.selling_price + getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '')
                         : item.selling_price} AED
                     </p>
                     {orderingEnabled && (

@@ -18,6 +18,8 @@ interface OrderSource {
   vat: boolean  // apply 5% VAT on commission
 }
 
+interface BeanOption { name: string; premium: number }
+
 export default function Settings() {
   const { t } = useLanguage()
   const qc = useQueryClient()
@@ -94,6 +96,32 @@ export default function Settings() {
       toast.success(enabled ? 'Online ordering enabled' : 'Online ordering disabled')
     },
     onError: () => toast.error('Failed to update'),
+  })
+
+  // Bean options management
+  const { data: beanData } = useQuery({
+    queryKey: ['settings', 'bean_options'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/bean_options')
+      return data as BeanOption[] | null
+    },
+  })
+  const [beans, setBeans] = useState<BeanOption[]>([])
+  const [newBeanName, setNewBeanName] = useState('')
+  const [newBeanPremium, setNewBeanPremium] = useState('')
+  useEffect(() => {
+    if (beanData) setBeans(beanData)
+  }, [beanData])
+
+  const saveBeansMut = useMutation({
+    mutationFn: async (updated: BeanOption[]) => {
+      await api.put('/api/settings/bean_options', { value: updated })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings', 'bean_options'] })
+      toast.success('Beans updated')
+    },
+    onError: () => toast.error('Failed to save'),
   })
 
   // Default payment methods
@@ -301,6 +329,77 @@ export default function Settings() {
                 </label>
               )
             })}
+          </div>
+        </div>
+
+        {/* Bean Options */}
+        <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
+          <h2 className="font-display text-lg text-sheen-black mb-1">Coffee Beans</h2>
+          <p className="font-body text-xs text-sheen-muted mb-4">
+            Manage the bean options customers and staff can choose from. Names must match your ingredients.
+          </p>
+
+          <div className="space-y-2 mb-4">
+            {beans.map((bean, idx) => (
+              <div key={idx} className="flex items-center gap-3 bg-sheen-cream/50 rounded-lg px-4 py-3">
+                <span className="font-body text-sm text-sheen-black font-medium flex-1">{bean.name}</span>
+                {bean.premium > 0 && (
+                  <span className="font-body text-xs text-sheen-gold font-medium">+{bean.premium} AED</span>
+                )}
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={bean.premium}
+                  onChange={(e) => {
+                    const updated = beans.map((b, i) => i === idx ? { ...b, premium: Number(e.target.value) || 0 } : b)
+                    setBeans(updated)
+                    saveBeansMut.mutate(updated)
+                  }}
+                  placeholder="Premium"
+                  className="w-20 px-2 py-1 rounded-lg border border-sheen-muted/30 font-body text-sm text-right focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+                <span className="font-body text-xs text-sheen-muted">AED</span>
+                <button
+                  onClick={() => {
+                    const updated = beans.filter((_, i) => i !== idx)
+                    setBeans(updated)
+                    saveBeansMut.mutate(updated)
+                  }}
+                  className="text-red-400 hover:text-red-600 text-xs transition-colors"
+                >
+                  {t('delete')}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newBeanName}
+              onChange={e => setNewBeanName(e.target.value)}
+              placeholder="Bean name (must match ingredient)"
+              className="flex-1 px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+            />
+            <input
+              type="number"
+              min="0"
+              value={newBeanPremium}
+              onChange={e => setNewBeanPremium(e.target.value)}
+              placeholder="+AED"
+              className="w-20 px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+            />
+            <Button onClick={() => {
+              if (!newBeanName.trim()) return
+              const updated = [...beans, { name: newBeanName.trim(), premium: Number(newBeanPremium) || 0 }]
+              setBeans(updated)
+              saveBeansMut.mutate(updated)
+              setNewBeanName('')
+              setNewBeanPremium('')
+            }} disabled={!newBeanName.trim()}>
+              {t('add')}
+            </Button>
           </div>
         </div>
 

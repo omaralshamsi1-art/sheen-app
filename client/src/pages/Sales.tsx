@@ -37,8 +37,15 @@ export default function Sales() {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
 
-  const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia Tobacco'] as const
-  const COLOMBIA_PREMIUM = 5 // AED extra per coffee when Colombia beans are selected
+  // Fetch bean options from settings (dynamic, managed by admin)
+  const { data: beanOptions = [] } = useQuery({
+    queryKey: ['settings', 'bean_options'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/bean_options')
+      return (data as Array<{ name: string; premium: number }>) ?? []
+    },
+  })
+  const getBeanPremium = (beanName: string) => beanOptions.find(b => b.name === beanName)?.premium ?? 0
   const [orderSource, setOrderSource] = useState('POS')
   const [orderNote, setOrderNote] = useState('')
   const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -143,8 +150,8 @@ export default function Sales() {
     for (const [id, qty] of Object.entries(quantities)) {
       const item = menuItems.find((m: MenuItem) => m.id === id)
       if (!item) continue
-      const isColombia = item.category === 'Coffee' && beanChoices[id] === 'Colombia Tobacco'
-      const unit = item.selling_price + (isColombia ? COLOMBIA_PREMIUM : 0)
+      const beanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[id] || beanOptions[0]?.name || '') : 0
+      const unit = item.selling_price + beanPremium
       total += unit * qty
     }
     return total
@@ -229,11 +236,11 @@ export default function Sales() {
       .filter(([, qty]) => qty > 0)
       .map(([id, qty]) => {
         const menuItem = menuItems.find((m: MenuItem) => m.id === id)
-        const isColombia = menuItem?.category === 'Coffee' && beanChoices[id] === 'Colombia Tobacco'
-        const unitPrice = (menuItem?.selling_price ?? 0) + (isColombia ? COLOMBIA_PREMIUM : 0)
+        const saleBeanPremium = menuItem?.category === 'Coffee' ? getBeanPremium(beanChoices[id] || beanOptions[0]?.name || '') : 0
+        const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium
         return {
           menu_item_id: id,
-          name: menuItem?.category === 'Coffee' ? `${menuItem?.name ?? ''} (${beanChoices[id] || 'Ethiopia'})` : (menuItem?.name ?? ''),
+          name: menuItem?.category === 'Coffee' ? `${menuItem?.name ?? ''} (${beanChoices[id] || beanOptions[0]?.name || 'Ethiopia'})` : (menuItem?.name ?? ''),
           category: menuItem?.category ?? '',
           price: unitPrice,
           qty,
@@ -396,8 +403,8 @@ export default function Sales() {
                         {item.name}
                       </p>
                       <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
-                        {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
-                          ? item.selling_price + COLOMBIA_PREMIUM
+                        {item.category === 'Coffee'
+                          ? item.selling_price + getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '')
                           : item.selling_price} د.إ
                       </p>
                     </div>
@@ -406,17 +413,17 @@ export default function Sales() {
                   {/* Bean options (Coffee only) */}
                   {item.category === 'Coffee' && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
-                      {BEAN_OPTIONS.map(bean => (
+                      {beanOptions.map(bean => (
                         <button
-                          key={bean}
-                          onClick={() => setBeanChoices(prev => ({ ...prev, [item.id]: bean }))}
+                          key={bean.name}
+                          onClick={() => setBeanChoices(prev => ({ ...prev, [item.id]: bean.name }))}
                           className={`px-2.5 py-1 rounded-full text-[11px] font-body font-medium transition-colors ${
-                            (beanChoices[item.id] || 'Ethiopia') === bean
+                            (beanChoices[item.id] || beanOptions[0]?.name) === bean.name
                               ? 'bg-sheen-brown text-white'
                               : 'bg-sheen-cream text-sheen-muted'
                           }`}
                         >
-                          {bean === 'Colombia Tobacco' ? 'Colombia +5' : bean}
+                          {bean.name}{bean.premium > 0 ? ` +${bean.premium}` : ''}
                         </button>
                       ))}
                     </div>

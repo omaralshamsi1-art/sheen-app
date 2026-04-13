@@ -12,8 +12,6 @@ import Footer from '../components/layout/Footer'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
-const BEAN_OPTIONS = ['Ethiopia', 'Brazil', 'Colombia Tobacco'] as const
-const COLOMBIA_PREMIUM = 5
 const PENDING_ORDER_KEY = 'sheen-pending-order'
 
 export default function PublicMenu() {
@@ -33,6 +31,15 @@ export default function PublicMenu() {
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
+
+  const { data: beanOptions = [] } = useQuery({
+    queryKey: ['settings', 'bean_options'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/bean_options')
+      return (data as Array<{ name: string; premium: number }>) ?? []
+    },
+  })
+  const getBeanPremium = (beanName: string) => beanOptions.find(b => b.name === beanName)?.premium ?? 0
 
   const { data: orderingEnabled = true } = useQuery({
     queryKey: ['settings', 'online_ordering_enabled'],
@@ -214,25 +221,25 @@ export default function PublicMenu() {
                   {/* Bean selector for coffee */}
                   {item.category === 'Coffee' && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {BEAN_OPTIONS.map(bean => (
+                      {beanOptions.map(bean => (
                         <button
-                          key={bean}
-                          onClick={(e) => { e.stopPropagation(); setBeanChoices(prev => ({ ...prev, [item.id]: bean })) }}
+                          key={bean.name}
+                          onClick={(e) => { e.stopPropagation(); setBeanChoices(prev => ({ ...prev, [item.id]: bean.name })) }}
                           className={`px-2 py-0.5 rounded-full text-[10px] font-body font-medium transition-colors ${
-                            (beanChoices[item.id] || 'Ethiopia') === bean
+                            (beanChoices[item.id] || beanOptions[0]?.name) === bean.name
                               ? 'bg-sheen-brown text-white'
                               : 'bg-sheen-cream text-sheen-muted'
                           }`}
                         >
-                          {bean}{bean === 'Colombia Tobacco' ? ' +5' : ''}
+                          {bean.name}{bean.premium > 0 ? ` +${bean.premium}` : ''}
                         </button>
                       ))}
                     </div>
                   )}
                   <div className="flex items-center justify-between mt-2">
                     <p className={`font-display font-semibold text-sheen-brown ${activeCategory === 'Beans' ? 'text-xl' : 'text-lg'}`}>
-                      {item.category === 'Coffee' && beanChoices[item.id] === 'Colombia Tobacco'
-                        ? item.selling_price + COLOMBIA_PREMIUM
+                      {item.category === 'Coffee'
+                        ? item.selling_price + getBeanPremium(beanChoices[item.id] || beanOptions[0]?.name || '')
                         : item.selling_price} <span className="text-sm">AED</span>
                     </p>
                     {orderingEnabled && (
