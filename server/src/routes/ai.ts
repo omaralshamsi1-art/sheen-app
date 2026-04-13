@@ -6,10 +6,13 @@ const router = Router()
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
-const SYSTEM_INSTRUCTION = `You are "Barista AI", an expert coffee shop business analyst for SHEEN café.
-Provide concise, specific, actionable advice. Always reference actual numbers.
+const SYSTEM_INSTRUCTION = `You are "Barista AI", an expert coffee shop business analyst for SHEEN Speciality Coffee.
+Business: SHEEN Speciality Coffee, Trade License 63802, located at Saqr bin Mohammed City, AlDhait 03, RAK, UAE. Phone: 0557306030, Website: sheencafe.ae.
+You know EVERYTHING about this café — sales, expenses, menu, recipes, ingredients, stock levels, petty cash, orders, customers, beans, milks.
+Provide concise, specific, actionable advice. Always reference actual numbers from the data provided.
 Keep responses under 200 words unless a detailed analysis is requested.
-Tone: warm, professional, direct.`
+Tone: warm, professional, direct.
+If asked about something not in the data, say so honestly.`
 
 // ─── Helper: build business context from Supabase ───
 async function fetchBusinessContext() {
@@ -19,7 +22,7 @@ async function fetchBusinessContext() {
   const to = now.toISOString().slice(0, 10)
   const currentMonth = to.slice(0, 7)
 
-  const [salesRes, expensesRes, fixedCostsRes, menuRes] = await Promise.all([
+  const [salesRes, expensesRes, fixedCostsRes, menuRes, pettyRes, ingredientsRes, recipesRes, ordersRes, beanSettingsRes, milkSettingsRes] = await Promise.all([
     supabase
       .from('sales')
       .select('*, sale_items(*)')
@@ -41,6 +44,35 @@ async function fetchBusinessContext() {
       .select('*')
       .eq('is_active', true)
       .order('category'),
+    supabase
+      .from('petty_cash_transactions')
+      .select('*')
+      .gte('date', from)
+      .lte('date', to),
+    supabase
+      .from('ingredients')
+      .select('*')
+      .order('category'),
+    supabase
+      .from('recipe_lines')
+      .select('menu_item_id, ingredient_id, qty, unit'),
+    supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .gte('created_at', `${from}T00:00:00`)
+      .lte('created_at', `${to}T23:59:59`)
+      .order('created_at', { ascending: false })
+      .limit(50),
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'bean_options')
+      .single(),
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'milk_options')
+      .single(),
   ])
 
   if (salesRes.error) throw salesRes.error
@@ -52,6 +84,12 @@ async function fetchBusinessContext() {
   const expenses = expensesRes.data ?? []
   const fixedCosts = fixedCostsRes.data ?? []
   const menu = menuRes.data ?? []
+  const pettyTx = pettyRes.data ?? []
+  const ingredients = ingredientsRes.data ?? []
+  const recipes = recipesRes.data ?? []
+  const orders = ordersRes.data ?? []
+  const beanOptions = beanSettingsRes.data?.value ?? []
+  const milkOptions = milkSettingsRes.data?.value ?? []
 
   const totalRevenue = sales.reduce((s, r) => s + Number(r.total_revenue), 0)
   const totalCups = sales.reduce((s, r) => s + r.total_cups, 0)
@@ -91,22 +129,74 @@ async function fetchBusinessContext() {
     )
     .join('; ')
 
-  return { salesContext, expensesContext, fixedCostsContext, menuContext, netProfit }
+  // Petty cash
+  const pettyDeposits = pettyTx.filter((t: any) => t.type === 'deposit').reduce((s: number, t: any) => s + Number(t.amount), 0)
+  const pettyWithdrawals = pettyTx.filter((t: any) => t.type === 'withdrawal').reduce((s: number, t: any) => s + Number(t.amount), 0)
+  const pettyCashContext = `Deposits: ${pettyDeposits.toFixed(2)} AED. Withdrawals: ${pettyWithdrawals.toFixed(2)} AED. Net: ${(pettyDeposits - pettyWithdrawals).toFixed(2)} AED.`
+
+  // Ingredients & stock
+  const ingredientMap = new Map(ingredients.map((i: any) => [i.id, i]))
+  const ingredientsContext = ingredients.map((i: any) =>
+    `${i.name} (${i.category}, ${i.unit}): pack ${i.pack_cost} AED, cost/unit ${Number(i.cost_per_unit).toFixed(4)} AED`
+  ).join('; ')
+
+  // Recipes
+  const recipesByItem: Record<string, string[]> = {}
+  for (const r of recipes) {
+    const ing = ingredientMap.get(r.ingredient_id)
+    if (!ing) continue
+    if (!recipesByItem[r.menu_item_id]) recipesByItem[r.menu_item_id] = []
+    recipesByItem[r.menu_item_id].push(`${(ing as any).name} ${r.qty}${r.unit}`)
+  }
+  const recipesContext = Object.entries(recipesByItem)
+    .map(([itemId, parts]) => {
+      const item = menu.find((m: any) => m.id === itemId)
+      return `${item?.name ?? itemId}: ${parts.join(', ')}`
+    })
+    .join('; ')
+
+  // Orders summary
+  const ordersByStatus: Record<string, number> = {}
+  for (const o of orders) {
+    ordersByStatus[o.status] = (ordersByStatus[o.status] || 0) + 1
+  }
+  const totalOrderRevenue = orders.reduce((s: number, o: any) => s + Number(o.total_amount), 0)
+  const ordersContext = `Last 30 days: ${orders.length} orders, ${totalOrderRevenue.toFixed(2)} AED. By status: ${Object.entries(ordersByStatus).map(([k, v]) => `${k}: ${v}`).join(', ')}`
+
+  // Top items from orders
+  const itemCounts: Record<string, number> = {}
+  for (const o of orders) {
+    for (const item of (o.order_items ?? [])) {
+      itemCounts[item.name] = (itemCounts[item.name] || 0) + item.qty
+    }
+  }
+  const topOrderedItems = Object.entries(itemCounts).sort((a, b) => b[1] - a[1]).slice(0, 10)
+    .map(([name, qty]) => `${name}: ${qty}`).join(', ')
+
+  // Bean & milk options
+  const beansContext = Array.isArray(beanOptions) ? beanOptions.map((b: any) => `${b.name}${b.premium > 0 ? ` +${b.premium} AED` : ''}`).join(', ') : 'None configured'
+  const milksContext = Array.isArray(milkOptions) ? milkOptions.map((m: any) => `${m.name}${m.premium > 0 ? ` +${m.premium} AED` : ''}`).join(', ') : 'None configured'
+
+  return { salesContext, expensesContext, fixedCostsContext, menuContext, netProfit, pettyCashContext, ingredientsContext, recipesContext, ordersContext, topOrderedItems, beansContext, milksContext }
 }
 
 // Build the data block that goes into prompts
-function buildDataBlock(context: {
-  salesContext: string
-  expensesContext: string
-  fixedCostsContext: string
-  menuContext: string
-  netProfit: number
-}) {
-  return `SALES (last 30 days): ${context.salesContext}
-EXPENSES (last 30 days): ${context.expensesContext}
-FIXED COSTS (this month): ${context.fixedCostsContext}
-MENU & MARGINS: ${context.menuContext}
-NET PROFIT THIS MONTH: ${context.netProfit.toFixed(2)} AED`
+function buildDataBlock(context: Record<string, any>) {
+  const lines = [
+    `SALES (last 30 days): ${context.salesContext}`,
+    `EXPENSES (last 30 days): ${context.expensesContext}`,
+    `PETTY CASH (last 30 days): ${context.pettyCashContext ?? 'N/A'}`,
+    `FIXED COSTS (this month): ${context.fixedCostsContext}`,
+    `NET PROFIT THIS MONTH: ${context.netProfit?.toFixed?.(2) ?? context.netProfit} AED`,
+    `MENU & MARGINS: ${context.menuContext}`,
+    `RECIPES: ${context.recipesContext ?? 'N/A'}`,
+    `INGREDIENTS: ${context.ingredientsContext ?? 'N/A'}`,
+    `BEAN OPTIONS: ${context.beansContext ?? 'N/A'}`,
+    `MILK OPTIONS: ${context.milksContext ?? 'N/A'}`,
+    `ORDERS (last 30 days): ${context.ordersContext ?? 'N/A'}`,
+    `TOP ORDERED ITEMS: ${context.topOrderedItems ?? 'N/A'}`,
+  ]
+  return lines.join('\n')
 }
 
 // ─── GET /api/ai/context ───
