@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLanguage } from '../i18n/LanguageContext'
-import { useDashboardKPIs, useHourlySales, useTopSellers } from '../hooks/useSales'
+import { useHourlySales, useTopSellers } from '../hooks/useSales'
 import salesService from '../services/salesService'
 import { useFixedCosts } from '../hooks/useFixedCosts'
 import { useAutoInsight } from '../hooks/useAI'
@@ -40,9 +40,14 @@ function KPISkeleton() {
 export default function Dashboard() {
   const { t } = useLanguage()
   const todayStr = new Date().toISOString().split('T')[0]
-  const { data: kpis, isLoading: kpisLoading } = useDashboardKPIs()
-  const { data: hourlySales, isLoading: hourlyLoading } = useHourlySales(todayStr)
-  const { data: topSellers, isLoading: sellersLoading } = useTopSellers(todayStr, 5)
+  const [selectedDate, setSelectedDate] = useState(todayStr)
+  const { data: kpis, isLoading: kpisLoading } = useQuery({
+    queryKey: ['dashboard', 'kpis', selectedDate],
+    queryFn: () => salesService.getDashboardKPIs(selectedDate),
+    staleTime: 30_000,
+  })
+  const { data: hourlySales, isLoading: hourlyLoading } = useHourlySales(selectedDate)
+  const { data: topSellers, isLoading: sellersLoading } = useTopSellers(selectedDate, 5)
   const [chartPeriod, setChartPeriod] = useState<7 | 14 | 30>(7)
   const { data: chartData, isLoading: revenueLoading } = useQuery({
     queryKey: ['dashboard', 'revenue-chart', chartPeriod],
@@ -138,6 +143,30 @@ export default function Dashboard() {
       <TopBar title={t('dashboard')} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* ---------- Date Picker ---------- */}
+        <div className="flex items-center gap-3">
+          <input
+            type="date"
+            value={selectedDate}
+            max={todayStr}
+            onChange={(e) => setSelectedDate(e.target.value || todayStr)}
+            className="px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold bg-sheen-white"
+          />
+          {selectedDate !== todayStr && (
+            <button
+              onClick={() => setSelectedDate(todayStr)}
+              className="px-3 py-2 rounded-lg bg-sheen-brown text-white text-xs font-body font-medium hover:bg-sheen-brown/90 transition-colors"
+            >
+              Today
+            </button>
+          )}
+          {selectedDate !== todayStr && (
+            <span className="font-body text-xs text-sheen-muted">
+              Viewing: {format(parseISO(selectedDate), 'EEEE, MMMM d, yyyy')}
+            </span>
+          )}
+        </div>
+
         {/* ---------- KPI Row ---------- */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {kpisLoading || costsLoading
@@ -158,18 +187,18 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-6">
             {/* Revenue vs Expenses */}
             <div className="bg-sheen-white rounded-xl shadow-sm p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <h2 className="font-display text-lg text-sheen-black">
                   {t('revenueVsExpenses')}
                 </h2>
-                <div className="flex gap-1">
+                <div className="flex gap-1.5">
                   {([7, 14, 30] as const).map(d => (
                     <button
                       key={d}
                       onClick={() => setChartPeriod(d)}
-                      className={`px-3 py-1 rounded-full text-xs font-body font-medium transition-colors ${
+                      className={`px-4 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
                         chartPeriod === d
-                          ? 'bg-sheen-brown text-white'
+                          ? 'bg-sheen-brown text-white shadow-sm'
                           : 'bg-sheen-cream text-sheen-muted hover:bg-sheen-gold/10'
                       }`}
                     >

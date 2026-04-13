@@ -18,9 +18,10 @@ router.get('/', async (req: Request, res: Response) => {
 })
 
 // GET /api/sales/kpis/today — dashboard KPIs
-router.get('/kpis/today', async (_req: Request, res: Response) => {
+// Optional query param: ?date=YYYY-MM-DD (default today)
+router.get('/kpis/today', async (req: Request, res: Response) => {
   try {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = (req.query.date as string) || new Date().toISOString().slice(0, 10)
 
     // Revenue + cups from sales
     const { data: sales, error: salesErr } = await supabase

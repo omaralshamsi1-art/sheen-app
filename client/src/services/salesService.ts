@@ -27,8 +27,8 @@ export const salesService = {
     await api.delete(`/api/sales/${id}`)
   },
 
-  async getDashboardKPIs(): Promise<DashboardKPIs> {
-    const { data } = await api.get('/api/sales/kpis/today')
+  async getDashboardKPIs(date?: string): Promise<DashboardKPIs & { petty_cash_spent?: number }> {
+    const { data } = await api.get('/api/sales/kpis/today', { params: date ? { date } : {} })
     return data
   },
 
