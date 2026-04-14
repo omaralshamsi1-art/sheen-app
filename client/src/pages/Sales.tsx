@@ -39,6 +39,15 @@ export default function Sales() {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
   const [milkChoices, setMilkChoices] = useState<Record<string, string>>({})
+  const [shotChoices, setShotChoices] = useState<Record<string, number>>({})
+
+  const { data: extraShotPrice = 5 } = useQuery({
+    queryKey: ['settings', 'extra_shot_price'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/extra_shot_price')
+      return Number(data) || 5
+    },
+  })
 
   const { data: milkOptions = [] } = useQuery({
     queryKey: ['settings', 'milk_options'],
@@ -164,7 +173,8 @@ export default function Sales() {
       if (!item) continue
       const beanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0
       const milkPremium = milkChoices[id] ? getMilkPremium(milkChoices[id]) : 0
-      const unit = item.selling_price + beanPremium + milkPremium
+      const shotPremium = (shotChoices[id] ?? 0) * extraShotPrice
+      const unit = item.selling_price + beanPremium + milkPremium + shotPremium
       total += unit * qty
     }
     return total
@@ -251,7 +261,8 @@ export default function Sales() {
         const menuItem = menuItems.find((m: MenuItem) => m.id === id)
         const saleBeanPremium = menuItem?.category === 'Coffee' ? getBeanPremium(beanChoices[id] || menuItem?.available_beans?.[0] || beanOptions[0]?.name || '') : 0
         const saleMilkPremium = milkChoices[id] ? getMilkPremium(milkChoices[id]) : 0
-        const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium + saleMilkPremium
+        const saleShotPremium = (shotChoices[id] ?? 0) * extraShotPrice
+        const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium + saleMilkPremium + saleShotPremium
         return {
           menu_item_id: id,
           name: (() => {
@@ -259,6 +270,7 @@ export default function Sales() {
             if (menuItem?.category === 'Coffee') n += ` (${beanChoices[id] || menuItem?.available_beans?.[0] || beanOptions[0]?.name || 'Ethiopia'})`
             // Only include milk in name if an add-on was explicitly chosen
             if (milkChoices[id]) n += ` [${milkChoices[id]}]`
+            if ((shotChoices[id] ?? 0) > 0) n += ` +${shotChoices[id]}shot`
             return n
           })(),
           category: menuItem?.category ?? '',
@@ -425,34 +437,69 @@ export default function Sales() {
                       <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
                         {item.selling_price
                           + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
-                          + (milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0)} د.إ
+                          + (milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0)
+                          + ((shotChoices[item.id] ?? 0) * extraShotPrice)} د.إ
                       </p>
                     </div>
                   </div>
 
-                  {/* Bean options (Coffee only) */}
+                  {/* Bean dropdown (Coffee only) */}
+                  {item.category === 'Coffee' && beanOptions.length > 0 && (
+                    <div className="mt-3">
+                      <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider mb-1">
+                        Bean: <span className="text-sheen-brown font-semibold normal-case tracking-normal">
+                          {beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || 'Default'}
+                        </span>
+                      </p>
+                      <select
+                        value={beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || ''}
+                        onChange={(e) => setBeanChoices(prev => ({ ...prev, [item.id]: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-xs text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                      >
+                        {beanOptions.filter(b => !item.available_beans || item.available_beans.length === 0 || item.available_beans.includes(b.name)).map(bean => (
+                          <option key={bean.name} value={bean.name}>
+                            {bean.name}{bean.premium > 0 ? ` (+${bean.premium} AED)` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Extra Shot dropdown (Coffee only) */}
                   {item.category === 'Coffee' && (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {beanOptions.filter(b => !item.available_beans || item.available_beans.length === 0 || item.available_beans.includes(b.name)).map(bean => (
-                        <button
-                          key={bean.name}
-                          onClick={() => setBeanChoices(prev => ({ ...prev, [item.id]: bean.name }))}
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-body font-medium transition-colors ${
-                            (beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name) === bean.name
-                              ? 'bg-sheen-brown text-white'
-                              : 'bg-sheen-cream text-sheen-muted'
-                          }`}
-                        >
-                          {bean.name}{bean.premium > 0 ? ` +${bean.premium}` : ''}
-                        </button>
-                      ))}
+                    <div className="mt-2">
+                      <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider mb-1">
+                        Extra Shot: <span className="text-sheen-brown font-semibold normal-case tracking-normal">
+                          {shotChoices[item.id] ? `${shotChoices[item.id]} shot${shotChoices[item.id] > 1 ? 's' : ''}` : 'None'}
+                        </span>
+                      </p>
+                      <select
+                        value={shotChoices[item.id] ?? 0}
+                        onChange={(e) => setShotChoices(prev => {
+                          const next = { ...prev }
+                          const n = Number(e.target.value)
+                          if (n > 0) next[item.id] = n
+                          else delete next[item.id]
+                          return next
+                        })}
+                        className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-xs text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                      >
+                        <option value={0}>None</option>
+                        <option value={1}>1 shot (+{extraShotPrice} AED)</option>
+                        <option value={2}>2 shots (+{extraShotPrice * 2} AED)</option>
+                        <option value={3}>3 shots (+{extraShotPrice * 3} AED)</option>
+                      </select>
                     </div>
                   )}
 
                   {/* Milk add-on dropdown */}
                   {item.available_milks && item.available_milks.length > 0 && (
                     <div className="mt-2">
-                      <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider mb-1">Add-on Milk</p>
+                      <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider mb-1">
+                        Milk: <span className="text-sheen-brown font-semibold normal-case tracking-normal">
+                          {milkChoices[item.id] || 'Fresh Milk'}
+                        </span>
+                      </p>
                       <select
                         value={milkChoices[item.id] || ''}
                         onChange={(e) => setMilkChoices(prev => {

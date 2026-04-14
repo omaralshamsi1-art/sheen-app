@@ -107,6 +107,15 @@ export default function CustomerOrder() {
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({}) // itemId → bean name
   const [milkChoices, setMilkChoices] = useState<Record<string, string>>({}) // itemId → milk name
+  const [shotChoices, setShotChoices] = useState<Record<string, number>>({})
+
+  const { data: extraShotPrice = 5 } = useQuery({
+    queryKey: ['settings', 'extra_shot_price'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/extra_shot_price')
+      return Number(data) || 5
+    },
+  })
 
   const { data: milkOptions = [] } = useQuery({
     queryKey: ['settings', 'milk_options'],
@@ -215,7 +224,8 @@ export default function CustomerOrder() {
         // Colombia premium: +5 AED per coffee
         const cartBeanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0
         const cartMilkPremium = milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0
-        const effectivePrice = item.selling_price + cartBeanPremium + cartMilkPremium
+        const cartShotPremium = (shotChoices[item.id] ?? 0) * extraShotPrice
+        const effectivePrice = item.selling_price + cartBeanPremium + cartMilkPremium + cartShotPremium
         return { ...item, selling_price: effectivePrice, qty, total: effectivePrice * qty }
       })
       .filter(Boolean) as (MenuItem & { qty: number; total: number })[]
@@ -259,6 +269,7 @@ export default function CustomerOrder() {
           let n = i.name
           if (i.category === 'Coffee') n += ` (${beanChoices[i.id] || i.available_beans?.[0] || beanOptions[0]?.name || 'Ethiopia'})`
           if (milkChoices[i.id]) n += ` [${milkChoices[i.id]}]`
+          if ((shotChoices[i.id] ?? 0) > 0) n += ` +${shotChoices[i.id]}shot`
           return n
         })(),
         price: i.selling_price,
@@ -458,28 +469,64 @@ export default function CustomerOrder() {
                         })()}
                       </div>
                     )}
-                    {/* Bean selector for coffee */}
+                    {/* Bean dropdown (Coffee only) */}
+                    {item.category === 'Coffee' && beanOptions.length > 0 && (
+                      <div className="mt-1.5">
+                        <p className="font-body text-[9px] text-sheen-muted uppercase tracking-wider mb-1">
+                          Bean: <span className="text-sheen-brown font-semibold normal-case tracking-normal">
+                            {beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || ''}
+                          </span>
+                        </p>
+                        <select
+                          value={beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || ''}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setBeanChoices(prev => ({ ...prev, [item.id]: e.target.value }))}
+                          className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-[10px] text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                        >
+                          {beanOptions.filter(b => !item.available_beans || item.available_beans.length === 0 || item.available_beans.includes(b.name)).map(bean => (
+                            <option key={bean.name} value={bean.name}>
+                              {bean.name}{bean.premium > 0 ? ` (+${bean.premium} AED)` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Extra Shot dropdown (Coffee only) */}
                     {item.category === 'Coffee' && (
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {beanOptions.filter(b => !item.available_beans || item.available_beans.length === 0 || item.available_beans.includes(b.name)).map(bean => (
-                          <button
-                            key={bean.name}
-                            onClick={(e) => { e.stopPropagation(); setBeanChoices(prev => ({ ...prev, [item.id]: bean.name })) }}
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-body font-medium transition-colors ${
-                              (beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name) === bean.name
-                                ? 'bg-sheen-brown text-white'
-                                : 'bg-sheen-cream text-sheen-muted'
-                            }`}
-                          >
-                            {bean.name}{bean.premium > 0 ? ` +${bean.premium}` : ''}
-                          </button>
-                        ))}
+                      <div className="mt-1.5">
+                        <p className="font-body text-[9px] text-sheen-muted uppercase tracking-wider mb-1">
+                          Extra Shot: <span className="text-sheen-brown font-semibold normal-case tracking-normal">
+                            {shotChoices[item.id] ? `${shotChoices[item.id]}` : 'None'}
+                          </span>
+                        </p>
+                        <select
+                          value={shotChoices[item.id] ?? 0}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setShotChoices(prev => {
+                            const next = { ...prev }
+                            const n = Number(e.target.value)
+                            if (n > 0) next[item.id] = n
+                            else delete next[item.id]
+                            return next
+                          })}
+                          className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-[10px] text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                        >
+                          <option value={0}>None</option>
+                          <option value={1}>1 shot (+{extraShotPrice} AED)</option>
+                          <option value={2}>2 shots (+{extraShotPrice * 2} AED)</option>
+                          <option value={3}>3 shots (+{extraShotPrice * 3} AED)</option>
+                        </select>
                       </div>
                     )}
                     {/* Milk add-on dropdown */}
                     {item.available_milks && item.available_milks.length > 0 && (
                       <div className="mt-1.5">
-                        <p className="font-body text-[9px] text-sheen-muted uppercase tracking-wider mb-1">Add-on Milk</p>
+                        <p className="font-body text-[9px] text-sheen-muted uppercase tracking-wider mb-1">
+                          Milk: <span className="text-sheen-brown font-semibold normal-case tracking-normal">
+                            {milkChoices[item.id] || 'Fresh Milk'}
+                          </span>
+                        </p>
                         <select
                           value={milkChoices[item.id] || ''}
                           onClick={(e) => e.stopPropagation()}
@@ -503,7 +550,8 @@ export default function CustomerOrder() {
                     <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>
                       {item.selling_price
                         + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
-                        + (milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0)} AED
+                        + (milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0)
+                        + ((shotChoices[item.id] ?? 0) * extraShotPrice)} AED
                     </p>
                     {orderingEnabled && (
                       <div className="flex items-center gap-1 mt-2">

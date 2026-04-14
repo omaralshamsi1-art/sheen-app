@@ -124,6 +124,28 @@ export default function Settings() {
     onError: () => toast.error('Failed to save'),
   })
 
+  // Extra shot price
+  const { data: shotPriceData } = useQuery({
+    queryKey: ['settings', 'extra_shot_price'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/extra_shot_price')
+      return (data as number) ?? 5
+    },
+  })
+  const [extraShotPrice, setExtraShotPrice] = useState<number>(5)
+  useEffect(() => { if (shotPriceData !== undefined) setExtraShotPrice(Number(shotPriceData) || 5) }, [shotPriceData])
+
+  const saveShotPriceMut = useMutation({
+    mutationFn: async (price: number) => {
+      await api.put('/api/settings/extra_shot_price', { value: price })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings', 'extra_shot_price'] })
+      toast.success('Extra shot price updated')
+    },
+    onError: () => toast.error('Failed to save'),
+  })
+
   // Milk options management
   const { data: milkData } = useQuery({
     queryKey: ['settings', 'milk_options'],
@@ -426,6 +448,26 @@ export default function Settings() {
             }} disabled={!newBeanName.trim()}>
               {t('add')}
             </Button>
+          </div>
+        </div>
+
+        {/* Extra Shot Price */}
+        <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
+          <h2 className="font-display text-lg text-sheen-black mb-1">Extra Shot Price</h2>
+          <p className="font-body text-xs text-sheen-muted mb-4">
+            Price added per extra espresso shot. Shown as an add-on on coffee items.
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={extraShotPrice}
+              onChange={(e) => setExtraShotPrice(Number(e.target.value) || 0)}
+              onBlur={() => saveShotPriceMut.mutate(extraShotPrice)}
+              className="w-32 px-3 py-2 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-sm text-right focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+            />
+            <span className="font-body text-sm text-sheen-muted">AED per shot</span>
           </div>
         </div>
 
