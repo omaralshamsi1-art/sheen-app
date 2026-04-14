@@ -18,39 +18,44 @@ router.get('/', async (req: Request, res: Response) => {
 })
 
 // GET /api/sales/kpis/today — dashboard KPIs
-// Optional query param: ?date=YYYY-MM-DD (default today)
+// Query params:
+//   ?date=YYYY-MM-DD (single day, default today)
+//   ?from=YYYY-MM-DD&to=YYYY-MM-DD (date range, overrides date)
 router.get('/kpis/today', async (req: Request, res: Response) => {
   try {
-    const today = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+    const fromParam = req.query.from as string | undefined
+    const toParam = req.query.to as string | undefined
+    const isRange = !!(fromParam && toParam)
+
+    const single = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+    const from = isRange ? fromParam! : single
+    const to = isRange ? toParam! : single
 
     // Revenue + cups from sales
-    const { data: sales, error: salesErr } = await supabase
-      .from('sales')
-      .select('total_revenue, total_cups')
-      .eq('sale_date', today)
+    const salesQ = supabase.from('sales').select('total_revenue, total_cups')
+    const { data: sales, error: salesErr } = await (
+      isRange ? salesQ.gte('sale_date', from).lte('sale_date', to) : salesQ.eq('sale_date', single)
+    )
 
     if (salesErr) throw salesErr
 
     const total_revenue = (sales ?? []).reduce((s, r) => s + Number(r.total_revenue), 0)
     const total_cups = (sales ?? []).reduce((s, r) => s + r.total_cups, 0)
 
-    // Expenses today
-    const { data: expenses, error: expErr } = await supabase
-      .from('expenses')
-      .select('total_cost')
-      .eq('expense_date', today)
-
+    // Expenses
+    const expQ = supabase.from('expenses').select('total_cost')
+    const { data: expenses, error: expErr } = await (
+      isRange ? expQ.gte('expense_date', from).lte('expense_date', to) : expQ.eq('expense_date', single)
+    )
     if (expErr) throw expErr
 
     const total_expenses = (expenses ?? []).reduce((s, e) => s + Number(e.total_cost), 0)
 
-    // Petty cash withdrawals today
-    const { data: petty, error: pettyErr } = await supabase
-      .from('petty_cash_transactions')
-      .select('amount, type')
-      .eq('date', today)
-      .eq('type', 'withdrawal')
-
+    // Petty cash withdrawals
+    const pettyQ = supabase.from('petty_cash_transactions').select('amount, type').eq('type', 'withdrawal')
+    const { data: petty, error: pettyErr } = await (
+      isRange ? pettyQ.gte('date', from).lte('date', to) : pettyQ.eq('date', single)
+    )
     if (pettyErr) throw pettyErr
 
     const petty_cash_spent = (petty ?? []).reduce((s, p) => s + Number(p.amount), 0)
@@ -149,12 +154,15 @@ router.get('/top-sellers', async (req: Request, res: Response) => {
 // Optional query param: ?date=YYYY-MM-DD (default today)
 router.get('/by-source', async (req: Request, res: Response) => {
   try {
-    const today = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+    const fromParam = req.query.from as string | undefined
+    const toParam = req.query.to as string | undefined
+    const isRange = !!(fromParam && toParam)
+    const single = (req.query.date as string) || new Date().toISOString().slice(0, 10)
 
-    const { data: sales, error } = await supabase
-      .from('sales')
-      .select('recorded_by, total_revenue, total_cups')
-      .eq('sale_date', today)
+    const q = supabase.from('sales').select('recorded_by, total_revenue, total_cups')
+    const { data: sales, error } = await (
+      isRange ? q.gte('sale_date', fromParam!).lte('sale_date', toParam!) : q.eq('sale_date', single)
+    )
 
     if (error) throw error
 

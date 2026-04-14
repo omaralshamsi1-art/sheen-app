@@ -27,8 +27,11 @@ export const salesService = {
     await api.delete(`/api/sales/${id}`)
   },
 
-  async getDashboardKPIs(date?: string): Promise<DashboardKPIs & { petty_cash_spent?: number }> {
-    const { data } = await api.get('/api/sales/kpis/today', { params: date ? { date } : {} })
+  async getDashboardKPIs(dateOrRange?: string | { from: string; to: string }): Promise<DashboardKPIs & { petty_cash_spent?: number }> {
+    let params: Record<string, string> = {}
+    if (typeof dateOrRange === 'string') params.date = dateOrRange
+    else if (dateOrRange) { params.from = dateOrRange.from; params.to = dateOrRange.to }
+    const { data } = await api.get('/api/sales/kpis/today', { params })
     return data
   },
 
@@ -52,8 +55,11 @@ export const salesService = {
     return data
   },
 
-  async getSalesBySource(date?: string): Promise<{ source: string; total: number; cups: number; count: number }[]> {
-    const { data } = await api.get('/api/sales/by-source', { params: date ? { date } : {} })
+  async getSalesBySource(dateOrRange?: string | { from: string; to: string }): Promise<{ source: string; total: number; cups: number; count: number }[]> {
+    let params: Record<string, string> = {}
+    if (typeof dateOrRange === 'string') params.date = dateOrRange
+    else if (dateOrRange) { params.from = dateOrRange.from; params.to = dateOrRange.to }
+    const { data } = await api.get('/api/sales/by-source', { params })
     return data
   },
 }

@@ -40,17 +40,23 @@ function KPISkeleton() {
 export default function Dashboard() {
   const { t } = useLanguage()
   const todayStr = new Date().toISOString().split('T')[0]
+  // Single-day mode when range is null; otherwise range.
+  const [range, setRange] = useState<{ from: string; to: string } | null>(null)
   const [selectedDate, setSelectedDate] = useState(todayStr)
+
+  const kpiKey = range ? `${range.from}_${range.to}` : selectedDate
+  const dateArg = range ?? selectedDate
+
   const { data: kpis, isLoading: kpisLoading } = useQuery({
-    queryKey: ['dashboard', 'kpis', selectedDate],
-    queryFn: () => salesService.getDashboardKPIs(selectedDate),
+    queryKey: ['dashboard', 'kpis', kpiKey],
+    queryFn: () => salesService.getDashboardKPIs(dateArg),
     staleTime: 30_000,
   })
-  const { data: hourlySales, isLoading: hourlyLoading } = useHourlySales(selectedDate)
-  const { data: topSellers, isLoading: sellersLoading } = useTopSellers(selectedDate, 5)
+  const { data: hourlySales, isLoading: hourlyLoading } = useHourlySales(range ? range.to : selectedDate)
+  const { data: topSellers, isLoading: sellersLoading } = useTopSellers(range ? range.to : selectedDate, 5)
   const { data: salesBySource = [] } = useQuery({
-    queryKey: ['dashboard', 'by-source', selectedDate],
-    queryFn: () => salesService.getSalesBySource(selectedDate),
+    queryKey: ['dashboard', 'by-source', kpiKey],
+    queryFn: () => salesService.getSalesBySource(dateArg),
     staleTime: 30_000,
   })
   const [chartPeriod, setChartPeriod] = useState<7 | 14 | 30>(7)
@@ -148,28 +154,70 @@ export default function Dashboard() {
       <TopBar title={t('dashboard')} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* ---------- Date Picker ---------- */}
-        <div className="flex items-center gap-3">
-          <input
-            type="date"
-            value={selectedDate}
-            max={todayStr}
-            onChange={(e) => setSelectedDate(e.target.value || todayStr)}
-            className="px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold bg-sheen-white"
-          />
-          {selectedDate !== todayStr && (
-            <button
-              onClick={() => setSelectedDate(todayStr)}
-              className="px-3 py-2 rounded-lg bg-sheen-brown text-white text-xs font-body font-medium hover:bg-sheen-brown/90 transition-colors"
-            >
-              Today
-            </button>
-          )}
-          {selectedDate !== todayStr && (
-            <span className="font-body text-xs text-sheen-muted">
-              Viewing: {format(parseISO(selectedDate), 'EEEE, MMMM d, yyyy')}
+        {/* ---------- Date / Range Picker ---------- */}
+        <div className="bg-sheen-white rounded-xl shadow-sm p-4 space-y-3">
+          {/* Preset buttons */}
+          <div className="flex flex-wrap gap-2">
+            {(() => {
+              const daysAgo = (n: number) => {
+                const d = new Date(); d.setDate(d.getDate() - n + 1)
+                return d.toISOString().slice(0, 10)
+              }
+              const presets: Array<[string, () => void]> = [
+                ['Today', () => { setRange(null); setSelectedDate(todayStr) }],
+                ['7 Days', () => setRange({ from: daysAgo(7), to: todayStr })],
+                ['30 Days', () => setRange({ from: daysAgo(30), to: todayStr })],
+                ['3 Months', () => setRange({ from: daysAgo(90), to: todayStr })],
+                ['6 Months', () => setRange({ from: daysAgo(180), to: todayStr })],
+                ['1 Year', () => setRange({ from: daysAgo(365), to: todayStr })],
+                ['All Time', () => setRange({ from: '2020-01-01', to: todayStr })],
+              ]
+              return presets.map(([label, on]) => (
+                <button
+                  key={label}
+                  onClick={on}
+                  className="px-3 py-1.5 rounded-full text-xs font-body font-medium bg-sheen-cream text-sheen-muted hover:bg-sheen-gold/10 hover:text-sheen-brown transition-colors"
+                >
+                  {label}
+                </button>
+              ))
+            })()}
+          </div>
+
+          {/* Manual from-to inputs */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-body text-xs text-sheen-muted">From</span>
+            <input
+              type="date"
+              value={range ? range.from : selectedDate}
+              max={todayStr}
+              onChange={(e) => {
+                const v = e.target.value
+                if (range) setRange({ ...range, from: v })
+                else setRange({ from: v, to: todayStr })
+              }}
+              className="px-3 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-xs text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold bg-sheen-cream"
+            />
+            <span className="font-body text-xs text-sheen-muted">To</span>
+            <input
+              type="date"
+              value={range ? range.to : selectedDate}
+              max={todayStr}
+              onChange={(e) => {
+                const v = e.target.value
+                if (range) setRange({ ...range, to: v })
+                else { setRange({ from: selectedDate, to: v }) }
+              }}
+              className="px-3 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-xs text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold bg-sheen-cream"
+            />
+            <span className="font-body text-xs text-sheen-muted ml-2">
+              {range
+                ? `Viewing: ${format(parseISO(range.from), 'MMM d, yyyy')} → ${format(parseISO(range.to), 'MMM d, yyyy')}`
+                : selectedDate === todayStr
+                  ? 'Viewing: Today'
+                  : `Viewing: ${format(parseISO(selectedDate), 'EEEE, MMMM d, yyyy')}`}
             </span>
-          )}
+          </div>
         </div>
 
         {/* ---------- KPI Row ---------- */}
