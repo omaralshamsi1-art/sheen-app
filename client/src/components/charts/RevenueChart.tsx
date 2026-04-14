@@ -46,7 +46,7 @@ export default function RevenueChart({ data }: RevenueChartProps) {
           <YAxis tick={{ fontSize: 12, fill: '#A0785A' }} />
           <Tooltip
             contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontFamily: '"DM Sans"' }}
-            labelFormatter={(label: string) => label.replace('\n', ' • ')}
+            labelFormatter={(label) => typeof label === 'string' ? label.replace('\n', ' • ') : label}
           />
           <Legend />
           <Bar dataKey="revenue" fill="#D4A843" radius={[4, 4, 0, 0]} name={t('revenueLabel')} />
