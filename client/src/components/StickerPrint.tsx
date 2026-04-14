@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
 import { useLanguage } from '../i18n/LanguageContext'
-import toast from 'react-hot-toast'
 
 interface StickerMessage {
   id: string
@@ -137,46 +136,6 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     }
   }, [sticker, labelIdx, customerName])
 
-  // Save image for the NIIMBOT app (Android downloads; iOS/desktop use share sheet)
-  const handleShare = async () => {
-    const url = renderToCanvas()
-    if (!url) return
-
-    const isAndroid = /Android/i.test(navigator.userAgent)
-
-    // On Android, NIIMBOT doesn't register as a share target, so the share
-    // sheet is useless. Download directly and tell the user what to do next.
-    if (isAndroid) {
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'sheen-sticker.png'
-      a.click()
-      toast.success('Saved to Downloads — open NIIMBOT → Import from gallery', { duration: 6000 })
-      return
-    }
-
-    // iOS/desktop: use the Web Share API (works well on iPad for NIIMBOT extension)
-    try {
-      const res = await fetch(url)
-      const blob = await res.blob()
-      const file = new File([blob], 'sheen-sticker.png', { type: 'image/png' })
-
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'SHEEN Sticker' })
-      } else {
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'sheen-sticker.png'
-        a.click()
-      }
-    } catch {
-      const a = document.createElement('a')
-      a.href = url!
-      a.download = 'sheen-sticker.png'
-      a.click()
-    }
-  }
-
   // Print via browser print dialog
   const handlePrint = () => {
     const url = renderToCanvas()
@@ -259,14 +218,8 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
             {t('shuffle')}
           </button>
           <button
-            onClick={handleShare}
-            className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors"
-          >
-            {t('shareToApp')}
-          </button>
-          <button
             onClick={handlePrint}
-            className="px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors"
+            className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors"
           >
             {t('printSticker')}
           </button>
