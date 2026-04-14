@@ -476,34 +476,28 @@ export default function CustomerOrder() {
                         ))}
                       </div>
                     )}
-                    {/* Milk add-ons */}
+                    {/* Milk add-on dropdown */}
                     {item.available_milks && item.available_milks.length > 0 && (
                       <div className="mt-1.5">
                         <p className="font-body text-[9px] text-sheen-muted uppercase tracking-wider mb-1">Add-on Milk</p>
-                        <div className="flex flex-wrap gap-1">
-                          {milkOptions.filter(m => item.available_milks!.includes(m.name)).map(milk => {
-                            const selected = milkChoices[item.id] === milk.name
-                            return (
-                              <button
-                                key={milk.name}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setMilkChoices(prev => {
-                                    const next = { ...prev }
-                                    if (selected) delete next[item.id]
-                                    else next[item.id] = milk.name
-                                    return next
-                                  })
-                                }}
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-body font-medium transition-colors ${
-                                  selected ? 'bg-sheen-brown text-white' : 'bg-sheen-cream text-sheen-muted'
-                                }`}
-                              >
-                                {milk.name}{milk.premium > 0 ? ` +${milk.premium}` : ''}
-                              </button>
-                            )
+                        <select
+                          value={milkChoices[item.id] || ''}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setMilkChoices(prev => {
+                            const next = { ...prev }
+                            if (e.target.value) next[item.id] = e.target.value
+                            else delete next[item.id]
+                            return next
                           })}
-                        </div>
+                          className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-[10px] text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                        >
+                          <option value="">Fresh Milk (default)</option>
+                          {milkOptions.filter(m => item.available_milks!.includes(m.name)).map(milk => (
+                            <option key={milk.name} value={milk.name}>
+                              {milk.name}{milk.premium > 0 ? ` (+${milk.premium} AED)` : ''}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                     <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>
