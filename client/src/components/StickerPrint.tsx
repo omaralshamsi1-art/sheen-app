@@ -116,11 +116,11 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
       y += enFontSize * 1.15
     }
 
-    // @SheenCafe
+    // @SheenCafe + website
     y += unit * 0.15
     ctx.fillStyle = '#000000'
     ctx.font = `bold ${Math.round(unit * 0.7)}px Arial, Helvetica, sans-serif`
-    ctx.fillText('@SheenCafe', cx, y)
+    ctx.fillText('@SheenCafe  •  sheencafe.ae', cx, y)
 
     return canvas.toDataURL('image/png')
   }
