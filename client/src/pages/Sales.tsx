@@ -163,7 +163,7 @@ export default function Sales() {
       const item = menuItems.find((m: MenuItem) => m.id === id)
       if (!item) continue
       const beanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0
-      const milkPremium = item.available_milks?.length ? getMilkPremium(milkChoices[id] || item.available_milks[0] || '') : 0
+      const milkPremium = 0 // milk always Fresh Milk (no premium)
       const unit = item.selling_price + beanPremium + milkPremium
       total += unit * qty
     }
@@ -250,14 +250,14 @@ export default function Sales() {
       .map(([id, qty]) => {
         const menuItem = menuItems.find((m: MenuItem) => m.id === id)
         const saleBeanPremium = menuItem?.category === 'Coffee' ? getBeanPremium(beanChoices[id] || menuItem?.available_beans?.[0] || beanOptions[0]?.name || '') : 0
-        const saleMilkPremium = menuItem?.available_milks?.length ? getMilkPremium(milkChoices[id] || menuItem.available_milks[0] || '') : 0
+        const saleMilkPremium = 0 // milk always Fresh Milk (no premium)
         const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium + saleMilkPremium
         return {
           menu_item_id: id,
           name: (() => {
             let n = menuItem?.name ?? ''
             if (menuItem?.category === 'Coffee') n += ` (${beanChoices[id] || menuItem?.available_beans?.[0] || beanOptions[0]?.name || 'Ethiopia'})`
-            if (menuItem?.available_milks?.length) n += ` [${milkChoices[id] || menuItem.available_milks[0] || ''}]`
+            // Milk no longer added to sale name — stock deduction uses recipe default
             return n
           })(),
           category: menuItem?.category ?? '',
@@ -423,8 +423,7 @@ export default function Sales() {
                       </p>
                       <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
                         {item.selling_price
-                          + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
-                          + (item.available_milks?.length ? getMilkPremium(milkChoices[item.id] || item.available_milks[0] || '') : 0)} د.إ
+                          + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)} د.إ
                       </p>
                     </div>
                   </div>
@@ -443,25 +442,6 @@ export default function Sales() {
                           }`}
                         >
                           {bean.name}{bean.premium > 0 ? ` +${bean.premium}` : ''}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Milk options */}
-                  {item.available_milks && item.available_milks.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {milkOptions.filter(m => item.available_milks!.includes(m.name)).map(milk => (
-                        <button
-                          key={milk.name}
-                          onClick={() => setMilkChoices(prev => ({ ...prev, [item.id]: milk.name }))}
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-body font-medium transition-colors ${
-                            (milkChoices[item.id] || item.available_milks![0]) === milk.name
-                              ? 'bg-sheen-brown text-white'
-                              : 'bg-sheen-cream text-sheen-muted'
-                          }`}
-                        >
-                          {milk.name}{milk.premium > 0 ? ` +${milk.premium}` : ''}
                         </button>
                       ))}
                     </div>

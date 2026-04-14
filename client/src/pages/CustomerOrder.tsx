@@ -214,7 +214,7 @@ export default function CustomerOrder() {
         if (!item) return null
         // Colombia premium: +5 AED per coffee
         const cartBeanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0
-        const cartMilkPremium = item.available_milks?.length ? getMilkPremium(milkChoices[item.id] || item.available_milks[0] || '') : 0
+        const cartMilkPremium = 0 // milk always Fresh Milk (no premium)
         const effectivePrice = item.selling_price + cartBeanPremium + cartMilkPremium
         return { ...item, selling_price: effectivePrice, qty, total: effectivePrice * qty }
       })
@@ -258,7 +258,7 @@ export default function CustomerOrder() {
         name: (() => {
           let n = i.name
           if (i.category === 'Coffee') n += ` (${beanChoices[i.id] || i.available_beans?.[0] || beanOptions[0]?.name || 'Ethiopia'})`
-          if (i.available_milks?.length) n += ` [${milkChoices[i.id] || i.available_milks[0] || ''}]`
+          // Milk not in sale name — stock deduction uses recipe default (Fresh Milk)
           return n
         })(),
         price: i.selling_price,
@@ -476,28 +476,9 @@ export default function CustomerOrder() {
                         ))}
                       </div>
                     )}
-                    {/* Milk selector */}
-                    {item.available_milks && item.available_milks.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {milkOptions.filter(m => item.available_milks!.includes(m.name)).map(milk => (
-                          <button
-                            key={milk.name}
-                            onClick={(e) => { e.stopPropagation(); setMilkChoices(prev => ({ ...prev, [item.id]: milk.name })) }}
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-body font-medium transition-colors ${
-                              (milkChoices[item.id] || item.available_milks![0]) === milk.name
-                                ? 'bg-sheen-brown text-white'
-                                : 'bg-sheen-cream text-sheen-muted'
-                            }`}
-                          >
-                            {milk.name}{milk.premium > 0 ? ` +${milk.premium}` : ''}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                     <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>
                       {item.selling_price
-                        + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
-                        + (item.available_milks?.length ? getMilkPremium(milkChoices[item.id] || item.available_milks[0] || '') : 0)} AED
+                        + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)} AED
                     </p>
                     {orderingEnabled && (
                       <div className="flex items-center gap-1 mt-2">
