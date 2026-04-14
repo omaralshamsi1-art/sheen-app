@@ -214,7 +214,7 @@ export default function CustomerOrder() {
         if (!item) return null
         // Colombia premium: +5 AED per coffee
         const cartBeanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0
-        const cartMilkPremium = 0 // milk always Fresh Milk (no premium)
+        const cartMilkPremium = milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0
         const effectivePrice = item.selling_price + cartBeanPremium + cartMilkPremium
         return { ...item, selling_price: effectivePrice, qty, total: effectivePrice * qty }
       })
@@ -258,7 +258,7 @@ export default function CustomerOrder() {
         name: (() => {
           let n = i.name
           if (i.category === 'Coffee') n += ` (${beanChoices[i.id] || i.available_beans?.[0] || beanOptions[0]?.name || 'Ethiopia'})`
-          // Milk not in sale name — stock deduction uses recipe default (Fresh Milk)
+          if (milkChoices[i.id]) n += ` [${milkChoices[i.id]}]`
           return n
         })(),
         price: i.selling_price,
@@ -476,9 +476,40 @@ export default function CustomerOrder() {
                         ))}
                       </div>
                     )}
+                    {/* Milk add-ons */}
+                    {item.available_milks && item.available_milks.length > 0 && (
+                      <div className="mt-1.5">
+                        <p className="font-body text-[9px] text-sheen-muted uppercase tracking-wider mb-1">Add-on Milk</p>
+                        <div className="flex flex-wrap gap-1">
+                          {milkOptions.filter(m => item.available_milks!.includes(m.name)).map(milk => {
+                            const selected = milkChoices[item.id] === milk.name
+                            return (
+                              <button
+                                key={milk.name}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setMilkChoices(prev => {
+                                    const next = { ...prev }
+                                    if (selected) delete next[item.id]
+                                    else next[item.id] = milk.name
+                                    return next
+                                  })
+                                }}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-body font-medium transition-colors ${
+                                  selected ? 'bg-sheen-brown text-white' : 'bg-sheen-cream text-sheen-muted'
+                                }`}
+                              >
+                                {milk.name}{milk.premium > 0 ? ` +${milk.premium}` : ''}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <p className={`font-display font-semibold text-sheen-brown mt-1 ${activeCategory === 'Beans' ? 'text-lg' : 'text-base'}`}>
                       {item.selling_price
-                        + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)} AED
+                        + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
+                        + (milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0)} AED
                     </p>
                     {orderingEnabled && (
                       <div className="flex items-center gap-1 mt-2">
