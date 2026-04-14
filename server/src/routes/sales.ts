@@ -145,6 +145,38 @@ router.get('/top-sellers', async (req: Request, res: Response) => {
   }
 })
 
+// GET /api/sales/by-source — today's revenue grouped by recorded_by source
+// Optional query param: ?date=YYYY-MM-DD (default today)
+router.get('/by-source', async (req: Request, res: Response) => {
+  try {
+    const today = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+
+    const { data: sales, error } = await supabase
+      .from('sales')
+      .select('recorded_by, total_revenue, total_cups')
+      .eq('sale_date', today)
+
+    if (error) throw error
+
+    const bySource: Record<string, { total: number; cups: number; count: number }> = {}
+    for (const s of sales ?? []) {
+      const src = (s.recorded_by as string) || 'POS'
+      if (!bySource[src]) bySource[src] = { total: 0, cups: 0, count: 0 }
+      bySource[src].total += Number(s.total_revenue)
+      bySource[src].cups += Number(s.total_cups)
+      bySource[src].count += 1
+    }
+
+    const result = Object.entries(bySource)
+      .map(([source, d]) => ({ source, total: d.total, cups: d.cups, count: d.count }))
+      .sort((a, b) => b.total - a.total)
+
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // GET /api/sales/last-7-days — revenue + expenses per day
 // Optional query param: ?days=30 (default 7)
 router.get('/last-7-days', async (req: Request, res: Response) => {

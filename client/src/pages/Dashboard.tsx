@@ -48,6 +48,11 @@ export default function Dashboard() {
   })
   const { data: hourlySales, isLoading: hourlyLoading } = useHourlySales(selectedDate)
   const { data: topSellers, isLoading: sellersLoading } = useTopSellers(selectedDate, 5)
+  const { data: salesBySource = [] } = useQuery({
+    queryKey: ['dashboard', 'by-source', selectedDate],
+    queryFn: () => salesService.getSalesBySource(selectedDate),
+    staleTime: 30_000,
+  })
   const [chartPeriod, setChartPeriod] = useState<7 | 14 | 30>(7)
   const { data: chartData, isLoading: revenueLoading } = useQuery({
     queryKey: ['dashboard', 'revenue-chart', chartPeriod],
@@ -232,6 +237,32 @@ export default function Dashboard() {
 
           {/* Right: Sidebar (1 col) */}
           <div className="space-y-6">
+            {/* Sales by Source */}
+            <div className="bg-sheen-white rounded-xl shadow-sm p-5">
+              <h2 className="font-display text-lg text-sheen-black mb-4">Sales by Source</h2>
+              {salesBySource.length === 0 ? (
+                <p className="font-body text-sm text-sheen-muted">No sales recorded.</p>
+              ) : (
+                <div className="space-y-2">
+                  {salesBySource.map((s) => (
+                    <div key={s.source} className="flex items-center justify-between px-3 py-2 rounded-lg bg-sheen-cream/50">
+                      <div className="flex flex-col">
+                        <span className="font-body text-sm font-medium text-sheen-black">{s.source}</span>
+                        <span className="font-body text-[10px] text-sheen-muted">{s.count} {s.count === 1 ? 'sale' : 'sales'} · {s.cups} cups</span>
+                      </div>
+                      <span className="font-display text-sm font-bold text-sheen-brown">{s.total.toFixed(2)} د.إ</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between px-3 py-2 mt-2 border-t border-sheen-cream">
+                    <span className="font-body text-xs font-semibold text-sheen-muted uppercase tracking-wider">Total</span>
+                    <span className="font-display text-base font-bold text-sheen-brown">
+                      {salesBySource.reduce((s, x) => s + x.total, 0).toFixed(2)} د.إ
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Top 5 Best Sellers */}
             <div className="bg-sheen-white rounded-xl shadow-sm p-5">
               <h2 className="font-display text-lg text-sheen-black mb-4">

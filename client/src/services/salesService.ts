@@ -51,4 +51,9 @@ export const salesService = {
     const { data } = await api.get(`/api/sales/last-7-days?days=${days}`)
     return data
   },
+
+  async getSalesBySource(date?: string): Promise<{ source: string; total: number; cups: number; count: number }[]> {
+    const { data } = await api.get('/api/sales/by-source', { params: date ? { date } : {} })
+    return data
+  },
 }
