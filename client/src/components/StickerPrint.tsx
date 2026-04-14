@@ -116,11 +116,77 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
       y += enFontSize * 1.15
     }
 
-    // @SheenCafe + website
+    // @SheenCafe.uae + www.sheencafe.ae on two lines with icons
     y += unit * 0.15
     ctx.fillStyle = '#000000'
-    ctx.font = `bold ${Math.round(unit * 0.7)}px Arial, Helvetica, sans-serif`
-    ctx.fillText('@SheenCafe.uae  •  www.sheencafe.ae', cx, y)
+    const footerSize = Math.round(unit * 0.6)
+    const iconSize = footerSize * 0.95
+    const iconGap = footerSize * 0.3
+    ctx.font = `bold ${footerSize}px Arial, Helvetica, sans-serif`
+
+    const drawLine = (icon: 'instagram' | 'globe', text: string, yPos: number) => {
+      const textWidth = ctx.measureText(text).width
+      const totalWidth = iconSize + iconGap + textWidth
+      const startX = cx - totalWidth / 2
+      const iconY = yPos - iconSize / 2
+
+      if (icon === 'instagram') {
+        const s = iconSize
+        const r = s * 0.22
+        ctx.lineWidth = Math.max(1.5, s * 0.1)
+        ctx.strokeStyle = '#000000'
+        // Rounded square
+        ctx.beginPath()
+        ctx.moveTo(startX + r, iconY)
+        ctx.arcTo(startX + s, iconY, startX + s, iconY + s, r)
+        ctx.arcTo(startX + s, iconY + s, startX, iconY + s, r)
+        ctx.arcTo(startX, iconY + s, startX, iconY, r)
+        ctx.arcTo(startX, iconY, startX + s, iconY, r)
+        ctx.closePath()
+        ctx.stroke()
+        // Lens
+        ctx.beginPath()
+        ctx.arc(startX + s / 2, iconY + s / 2, s * 0.25, 0, Math.PI * 2)
+        ctx.stroke()
+        // Dot top-right
+        ctx.beginPath()
+        ctx.arc(startX + s * 0.76, iconY + s * 0.24, s * 0.08, 0, Math.PI * 2)
+        ctx.fill()
+      } else {
+        const s = iconSize
+        const ccx = startX + s / 2
+        const ccy = iconY + s / 2
+        const cr = s / 2 - s * 0.06
+        ctx.lineWidth = Math.max(1.5, s * 0.09)
+        ctx.strokeStyle = '#000000'
+        // Outer circle
+        ctx.beginPath()
+        ctx.arc(ccx, ccy, cr, 0, Math.PI * 2)
+        ctx.stroke()
+        // Horizontal (equator)
+        ctx.beginPath()
+        ctx.moveTo(ccx - cr, ccy)
+        ctx.lineTo(ccx + cr, ccy)
+        ctx.stroke()
+        // Vertical
+        ctx.beginPath()
+        ctx.moveTo(ccx, ccy - cr)
+        ctx.lineTo(ccx, ccy + cr)
+        ctx.stroke()
+        // Curved meridian
+        ctx.beginPath()
+        ctx.ellipse(ccx, ccy, cr * 0.5, cr, 0, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+
+      ctx.textAlign = 'left'
+      ctx.fillText(text, startX + iconSize + iconGap, yPos)
+      ctx.textAlign = 'center'
+    }
+
+    drawLine('instagram', '@SheenCafe.uae', y)
+    y += footerSize * 1.35
+    drawLine('globe', 'www.sheencafe.ae', y)
 
     return canvas.toDataURL('image/png')
   }
