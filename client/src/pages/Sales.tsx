@@ -14,6 +14,7 @@ import { downloadDailyReport, previewDailyReport } from '../utils/dailyReport'
 import toast from 'react-hot-toast'
 import { printReceipt } from '../utils/printReceipt'
 import { printZReport } from '../utils/printZReport'
+import StickerPrint from '../components/StickerPrint'
 
 const CATEGORIES: MenuCategory[] = [
   'Coffee',
@@ -34,6 +35,7 @@ export default function Sales() {
   const deleteSale = useDeleteSale()
 
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
+  const [stickerForSale, setStickerForSale] = useState<{ customerName?: string } | null>(null)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
   const [milkChoices, setMilkChoices] = useState<Record<string, string>>({})
@@ -695,6 +697,12 @@ export default function Sales() {
                       {t('printReceipt')}
                     </button>
                     <button
+                      onClick={() => setStickerForSale({ customerName: sale.notes || undefined })}
+                      className="text-sheen-gold hover:text-sheen-brown text-xs font-body transition-colors"
+                    >
+                      {t('printSticker')}
+                    </button>
+                    <button
                       onClick={() => deleteSale.mutate(sale.id)}
                       disabled={deleteSale.isPending}
                       className="text-red-500 hover:text-red-700 text-xs font-body transition-colors disabled:opacity-50"
@@ -782,6 +790,13 @@ export default function Sales() {
             </div>
           </div>
         </div>
+      )}
+
+      {stickerForSale && (
+        <StickerPrint
+          customerName={stickerForSale.customerName}
+          onClose={() => setStickerForSale(null)}
+        />
       )}
     </div>
   )
