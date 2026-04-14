@@ -131,14 +131,16 @@ export default function Menu() {
     try {
       let image_url: string | undefined
 
-      // Upload new image if selected
+      // Upload new image if selected — use a timestamped filename so each
+      // upload gets a unique public URL and the browser can't serve a stale
+      // cached copy of a previous image.
       if (editImageFile) {
-        const ext = editImageFile.name.split('.').pop() || 'jpg'
-        const filePath = `${editItem.id}.${ext}`
+        const ext = editImageFile.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const filePath = `${editItem.id}-${Date.now()}.${ext}`
 
         const { error: uploadErr } = await supabase.storage
           .from('menu-images')
-          .upload(filePath, editImageFile, { upsert: true })
+          .upload(filePath, editImageFile, { upsert: true, cacheControl: '3600' })
 
         if (uploadErr) throw uploadErr
 
@@ -518,6 +520,21 @@ export default function Menu() {
                         className="rounded-lg px-3 py-1.5 text-xs font-body text-sheen-gold hover:bg-sheen-gold/10 transition-colors"
                       >
                         {t('edit')}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return
+                          try {
+                            await api.delete(`/api/menu/${item.id}`)
+                            toast.success(`${item.name} deleted`)
+                            queryClient.invalidateQueries({ queryKey: ['menu-items'] })
+                          } catch {
+                            toast.error('Failed to delete')
+                          }
+                        }}
+                        className="rounded-lg px-3 py-1.5 text-xs font-body text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        {t('delete')}
                       </button>
                     </div>
                   </div>
