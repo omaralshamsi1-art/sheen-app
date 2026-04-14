@@ -108,6 +108,7 @@ export default function CustomerOrder() {
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({}) // itemId → bean name
   const [milkChoices, setMilkChoices] = useState<Record<string, string>>({}) // itemId → milk name
   const [shotChoices, setShotChoices] = useState<Record<string, number>>({})
+  const [addonChoices, setAddonChoices] = useState<Record<string, string[]>>({})
 
   const { data: extraShotPrice = 5 } = useQuery({
     queryKey: ['settings', 'extra_shot_price'],
@@ -225,7 +226,11 @@ export default function CustomerOrder() {
         const cartBeanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0
         const cartMilkPremium = milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0
         const cartShotPremium = (shotChoices[item.id] ?? 0) * extraShotPrice
-        const effectivePrice = item.selling_price + cartBeanPremium + cartMilkPremium + cartShotPremium
+        const cartAddonPremium = (addonChoices[item.id] ?? []).reduce((s, name) => {
+          const a = item.addons?.find(x => x.name === name)
+          return s + (a?.price ?? 0)
+        }, 0)
+        const effectivePrice = item.selling_price + cartBeanPremium + cartMilkPremium + cartShotPremium + cartAddonPremium
         return { ...item, selling_price: effectivePrice, qty, total: effectivePrice * qty }
       })
       .filter(Boolean) as (MenuItem & { qty: number; total: number })[]
@@ -270,6 +275,7 @@ export default function CustomerOrder() {
           if (i.category === 'Coffee') n += ` (${beanChoices[i.id] || i.available_beans?.[0] || beanOptions[0]?.name || 'Ethiopia'})`
           if (milkChoices[i.id]) n += ` [${milkChoices[i.id]}]`
           if ((shotChoices[i.id] ?? 0) > 0) n += ` +${shotChoices[i.id]}shot`
+          if ((addonChoices[i.id]?.length ?? 0) > 0) n += ` +${addonChoices[i.id].join(', ')}`
           return n
         })(),
         price: i.selling_price,
@@ -519,6 +525,37 @@ export default function CustomerOrder() {
                         </select>
                       </div>
                     )}
+
+                    {/* Add-ons (any item) */}
+                    {item.addons && item.addons.length > 0 && (
+                      <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+                        <p className="font-body text-[9px] text-sheen-muted uppercase tracking-wider mb-1">
+                          Add-ons {addonChoices[item.id]?.length ? <span className="text-sheen-brown font-semibold normal-case tracking-normal">({addonChoices[item.id].length})</span> : ''}
+                        </p>
+                        <div className="space-y-1">
+                          {item.addons.map((addon, i) => {
+                            const checked = addonChoices[item.id]?.includes(addon.name) ?? false
+                            return (
+                              <label key={i} className={`flex items-center gap-2 px-2 py-1 rounded text-[10px] cursor-pointer ${checked ? 'bg-sheen-gold/10' : 'bg-sheen-cream'}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => setAddonChoices(prev => {
+                                    const list = prev[item.id] ?? []
+                                    const next = checked ? list.filter(n => n !== addon.name) : [...list, addon.name]
+                                    return { ...prev, [item.id]: next }
+                                  })}
+                                  className="h-3 w-3 accent-sheen-gold cursor-pointer"
+                                />
+                                <span className="font-body flex-1 text-sheen-black">{addon.name}</span>
+                                <span className="font-body text-sheen-gold font-semibold">+{addon.price}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Milk add-on dropdown */}
                     {item.available_milks && item.available_milks.length > 0 && (
                       <div className="mt-1.5">
@@ -551,7 +588,8 @@ export default function CustomerOrder() {
                       {item.selling_price
                         + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
                         + (milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0)
-                        + ((shotChoices[item.id] ?? 0) * extraShotPrice)} AED
+                        + ((shotChoices[item.id] ?? 0) * extraShotPrice)
+                        + (addonChoices[item.id] ?? []).reduce((s, name) => s + (item.addons?.find(a => a.name === name)?.price ?? 0), 0)} AED
                     </p>
                     {orderingEnabled && (
                       <div className="flex items-center gap-1 mt-2">

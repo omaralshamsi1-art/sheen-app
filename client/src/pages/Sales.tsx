@@ -40,6 +40,7 @@ export default function Sales() {
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
   const [milkChoices, setMilkChoices] = useState<Record<string, string>>({})
   const [shotChoices, setShotChoices] = useState<Record<string, number>>({})
+  const [addonChoices, setAddonChoices] = useState<Record<string, string[]>>({}) // itemId → array of selected add-on names
 
   const { data: extraShotPrice = 5 } = useQuery({
     queryKey: ['settings', 'extra_shot_price'],
@@ -174,7 +175,11 @@ export default function Sales() {
       const beanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0
       const milkPremium = milkChoices[id] ? getMilkPremium(milkChoices[id]) : 0
       const shotPremium = (shotChoices[id] ?? 0) * extraShotPrice
-      const unit = item.selling_price + beanPremium + milkPremium + shotPremium
+      const addonPremium = (addonChoices[id] ?? []).reduce((s, name) => {
+        const a = item.addons?.find(x => x.name === name)
+        return s + (a?.price ?? 0)
+      }, 0)
+      const unit = item.selling_price + beanPremium + milkPremium + shotPremium + addonPremium
       total += unit * qty
     }
     return total
@@ -262,7 +267,11 @@ export default function Sales() {
         const saleBeanPremium = menuItem?.category === 'Coffee' ? getBeanPremium(beanChoices[id] || menuItem?.available_beans?.[0] || beanOptions[0]?.name || '') : 0
         const saleMilkPremium = milkChoices[id] ? getMilkPremium(milkChoices[id]) : 0
         const saleShotPremium = (shotChoices[id] ?? 0) * extraShotPrice
-        const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium + saleMilkPremium + saleShotPremium
+        const saleAddonPremium = (addonChoices[id] ?? []).reduce((s, name) => {
+          const a = menuItem?.addons?.find(x => x.name === name)
+          return s + (a?.price ?? 0)
+        }, 0)
+        const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium + saleMilkPremium + saleShotPremium + saleAddonPremium
         return {
           menu_item_id: id,
           name: (() => {
@@ -271,6 +280,7 @@ export default function Sales() {
             // Only include milk in name if an add-on was explicitly chosen
             if (milkChoices[id]) n += ` [${milkChoices[id]}]`
             if ((shotChoices[id] ?? 0) > 0) n += ` +${shotChoices[id]}shot`
+            if ((addonChoices[id]?.length ?? 0) > 0) n += ` +${addonChoices[id].join(', ')}`
             return n
           })(),
           category: menuItem?.category ?? '',
@@ -438,7 +448,8 @@ export default function Sales() {
                         {item.selling_price
                           + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
                           + (milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0)
-                          + ((shotChoices[item.id] ?? 0) * extraShotPrice)} د.إ
+                          + ((shotChoices[item.id] ?? 0) * extraShotPrice)
+                          + (addonChoices[item.id] ?? []).reduce((s, name) => s + (item.addons?.find(a => a.name === name)?.price ?? 0), 0)} د.إ
                       </p>
                     </div>
                   </div>
@@ -517,6 +528,36 @@ export default function Sales() {
                           </option>
                         ))}
                       </select>
+                    </div>
+                  )}
+
+                  {/* Add-ons (any item with addons configured) */}
+                  {item.addons && item.addons.length > 0 && (
+                    <div className="mt-2">
+                      <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider mb-1">
+                        Add-ons {addonChoices[item.id]?.length ? <span className="text-sheen-brown font-semibold normal-case tracking-normal">({addonChoices[item.id].length} selected)</span> : ''}
+                      </p>
+                      <div className="space-y-1">
+                        {item.addons.map((addon, i) => {
+                          const checked = addonChoices[item.id]?.includes(addon.name) ?? false
+                          return (
+                            <label key={i} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer text-xs ${checked ? 'bg-sheen-gold/10' : 'bg-sheen-cream'}`}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => setAddonChoices(prev => {
+                                  const list = prev[item.id] ?? []
+                                  const next = checked ? list.filter(n => n !== addon.name) : [...list, addon.name]
+                                  return { ...prev, [item.id]: next }
+                                })}
+                                className="h-4 w-4 accent-sheen-gold cursor-pointer"
+                              />
+                              <span className="font-body flex-1 text-sheen-black">{addon.name}</span>
+                              <span className="font-body text-sheen-gold font-semibold">+{addon.price}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
 

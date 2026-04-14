@@ -120,6 +120,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
       updates.available_milks = req.body.available_milks
     }
 
+    if (req.body.addons !== undefined) {
+      updates.addons = req.body.addons
+    }
+
     if (req.body.estimated_cogs !== undefined) {
       updates.estimated_cogs = Number(req.body.estimated_cogs)
     }

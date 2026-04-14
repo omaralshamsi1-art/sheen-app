@@ -14,6 +14,7 @@ export interface MenuItem {
   description: string | null;
   available_beans: string[] | null;
   available_milks: string[] | null;
+  addons: { name: string; price: number }[] | null;
   created_at: string;
 }
 

@@ -52,6 +52,9 @@ export default function Menu() {
   const [editDescription, setEditDescription] = useState('')
   const [editBeans, setEditBeans] = useState<string[]>([])
   const [editMilks, setEditMilks] = useState<string[]>([])
+  const [editAddons, setEditAddons] = useState<{ name: string; price: number }[]>([])
+  const [newAddonName, setNewAddonName] = useState('')
+  const [newAddonPrice, setNewAddonPrice] = useState('')
   const [addingRecipeTo, setAddingRecipeTo] = useState<string | null>(null)
   const [newIngredientId, setNewIngredientId] = useState('')
   const [newQty, setNewQty] = useState('')
@@ -115,6 +118,7 @@ export default function Menu() {
     setEditDescription(item.description ?? '')
     setEditBeans(item.available_beans ?? [])
     setEditMilks(item.available_milks ?? [])
+    setEditAddons(item.addons ?? [])
   }
 
   function handleEditImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -157,6 +161,7 @@ export default function Menu() {
         description: editDescription || null,
         available_beans: editItem.category === 'Coffee' && editBeans.length > 0 ? editBeans : null,
         available_milks: editMilks.length > 0 ? editMilks : null,
+        addons: editAddons.length > 0 ? editAddons : null,
         ...(image_url ? { image_url } : {}),
       })
       toast.success(t('menuItemUpdated'))
@@ -764,6 +769,55 @@ export default function Menu() {
                 </div>
               </div>
             )}
+
+            {/* Add-ons */}
+            <div>
+              <label className="block text-sm font-body text-sheen-muted mb-2">Add-ons (optional)</label>
+              <p className="font-body text-[10px] text-sheen-muted mb-2">e.g. Extra Peanut Butter +5, Extra Granola +3. Customers/staff can pick any combination at order time.</p>
+              <div className="space-y-2 mb-2">
+                {editAddons.map((addon, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-sheen-cream/50 rounded-lg px-3 py-2">
+                    <span className="font-body text-sm text-sheen-black flex-1">{addon.name}</span>
+                    <span className="font-body text-xs text-sheen-gold font-medium">+{addon.price} AED</span>
+                    <button
+                      onClick={() => setEditAddons(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-red-400 hover:text-red-600 text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newAddonName}
+                  onChange={(e) => setNewAddonName(e.target.value)}
+                  placeholder="Add-on name (e.g. Extra Granola)"
+                  className="flex-1 px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={newAddonPrice}
+                  onChange={(e) => setNewAddonPrice(e.target.value)}
+                  placeholder="Price"
+                  className="w-20 px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm text-right focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                />
+                <Button
+                  onClick={() => {
+                    if (!newAddonName.trim()) return
+                    setEditAddons(prev => [...prev, { name: newAddonName.trim(), price: Number(newAddonPrice) || 0 }])
+                    setNewAddonName('')
+                    setNewAddonPrice('')
+                  }}
+                  disabled={!newAddonName.trim()}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
 
             {/* Image upload */}
             <div>
