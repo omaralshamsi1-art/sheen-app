@@ -82,9 +82,27 @@ export default function StickerPrint({ customerName, onClose }: StickerPrintProp
     let y = unit * 1.25
     ctx.fillText('SHEEN', cx, y)
 
+    // Decorative divider under SHEEN
+    y += unit * 0.9
+    const lineWidth = w * 0.7
+    const lineX = cx - lineWidth / 2
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = Math.max(1, unit * 0.06)
+    // Main horizontal line
+    ctx.beginPath()
+    ctx.moveTo(lineX, y)
+    ctx.lineTo(lineX + lineWidth, y)
+    ctx.stroke()
+    // Thin line below for a double-line effect
+    ctx.lineWidth = Math.max(0.5, unit * 0.03)
+    ctx.beginPath()
+    ctx.moveTo(lineX + lineWidth * 0.1, y + unit * 0.12)
+    ctx.lineTo(lineX + lineWidth * 0.9, y + unit * 0.12)
+    ctx.stroke()
+
     // Customer name
     if (customerName) {
-      y += unit * 1.2
+      y += unit * 0.9
       ctx.font = `bold ${Math.round(unit * 1.0)}px Arial, Helvetica, sans-serif`
       ctx.fillStyle = '#000000'
       ctx.fillText(customerName, cx, y)
