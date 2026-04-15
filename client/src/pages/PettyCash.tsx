@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import TopBar from '../components/layout/TopBar'
 import { useAuth } from '../hooks/useAuth'
+import { useRole } from '../hooks/useRole'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 
@@ -22,6 +23,7 @@ interface PettyCashTx {
 
 export default function PettyCash() {
   const { user } = useAuth()
+  const { isAdmin } = useRole()
   const qc = useQueryClient()
   const today = format(new Date(), 'yyyy-MM-dd')
 
@@ -172,13 +174,15 @@ export default function PettyCash() {
                     <p className={`font-body text-sm font-semibold ${tx.type === 'deposit' ? 'text-green-600' : 'text-red-500'}`}>
                       {tx.type === 'deposit' ? '+' : '−'}{Number(tx.amount).toFixed(2)}
                     </p>
-                    <button
-                      onClick={() => deleteMut.mutate(tx.id)}
-                      disabled={deleteMut.isPending}
-                      className="text-sheen-muted hover:text-red-500 text-[10px] font-body transition-colors"
-                    >
-                      delete
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => deleteMut.mutate(tx.id)}
+                        disabled={deleteMut.isPending}
+                        className="text-sheen-muted hover:text-red-500 text-[10px] font-body transition-colors"
+                      >
+                        delete
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
