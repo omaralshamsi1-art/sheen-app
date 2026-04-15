@@ -42,6 +42,19 @@ export default function Sales() {
   const [shotChoices, setShotChoices] = useState<Record<string, number>>({})
   const [addonChoices, setAddonChoices] = useState<Record<string, string[]>>({}) // itemId → array of selected add-on names
 
+  // AI Scan Z Report state
+  const [showScanModal, setShowScanModal] = useState(false)
+  const [scanImages, setScanImages] = useState<File[]>([])
+  const [scanPreviews, setScanPreviews] = useState<string[]>([])
+  const [scanning, setScanning] = useState(false)
+  const [scanResult, setScanResult] = useState<{
+    items: { name: string; qty: number; matchedId?: string; price?: number }[]
+    payments: { method: string; amount: number }[]
+    total: number
+    report_date: string | null
+  } | null>(null)
+  const [scanImportSource, setScanImportSource] = useState('POS')
+
   const { data: extraShotPrice = 5 } = useQuery({
     queryKey: ['settings', 'extra_shot_price'],
     queryFn: async () => {
@@ -238,6 +251,88 @@ export default function Sales() {
       toast.error(t('emailFailed'))
     }
     setEmailSending(false)
+  }
+
+  // ── AI Scan Z Report ──
+  const fileToBase64 = (file: File) => new Promise<string>((res, rej) => {
+    const r = new FileReader()
+    r.onloadend = () => res(r.result as string)
+    r.onerror = rej
+    r.readAsDataURL(file)
+  })
+
+  const fuzzyMatch = (name: string): MenuItem | undefined => {
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const target = norm(name)
+    // Exact normalized match
+    let m = menuItems.find((mi: MenuItem) => norm(mi.name) === target)
+    if (m) return m
+    // Contains match either direction
+    m = menuItems.find((mi: MenuItem) => norm(mi.name).includes(target) || target.includes(norm(mi.name)))
+    return m
+  }
+
+  const runScan = async () => {
+    if (scanImages.length === 0) { toast.error('Attach at least one image'); return }
+    setScanning(true)
+    try {
+      const images = await Promise.all(scanImages.map(fileToBase64))
+      const { data } = await api.post('/api/ai/scan-z-report', { images })
+      // Match each item to menu
+      const items = (data.items ?? []).map((it: any) => {
+        const match = fuzzyMatch(it.name)
+        return {
+          name: it.name,
+          qty: Number(it.qty) || 1,
+          matchedId: match?.id,
+          price: match?.selling_price ?? 0,
+        }
+      })
+      setScanResult({ items, payments: data.payments ?? [], total: data.total ?? 0, report_date: data.report_date })
+      toast.success('Scan complete — review and confirm')
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Scan failed')
+    }
+    setScanning(false)
+  }
+
+  const confirmScanImport = async () => {
+    if (!scanResult) return
+    const items = scanResult.items
+      .filter(it => it.matchedId && it.qty > 0)
+      .map(it => {
+        const mi = menuItems.find((m: MenuItem) => m.id === it.matchedId)
+        return {
+          menu_item_id: it.matchedId!,
+          name: mi?.name ?? it.name,
+          category: mi?.category ?? '',
+          price: it.price ?? 0,
+          qty: it.qty,
+          total: (it.price ?? 0) * it.qty,
+        }
+      })
+    if (items.length === 0) { toast.error('No matched items to record'); return }
+
+    const paymentNote = scanResult.payments.map(p => `${p.method}: ${Number(p.amount).toFixed(2)}`).join(', ')
+    const saleDate = scanResult.report_date || new Date().toISOString().slice(0, 10)
+
+    try {
+      await api.post('/api/sales', {
+        sale_date: saleDate,
+        items,
+        recorded_by: scanImportSource,
+        notes: paymentNote ? `AI scan import — ${paymentNote}` : 'AI scan import',
+      })
+      toast.success(`Recorded ${items.length} items totaling ${items.reduce((s, i) => s + i.total, 0).toFixed(2)} AED`)
+      queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      setShowScanModal(false)
+      setScanResult(null)
+      setScanImages([])
+      setScanPreviews([])
+    } catch {
+      toast.error('Failed to record sale')
+    }
   }
 
   // End of Day handler — uses selected reportDate
@@ -715,6 +810,14 @@ export default function Sales() {
           </div>
         </div>
 
+        {/* ── AI Scan Z Report ── */}
+        <button
+          onClick={() => { setScanResult(null); setShowScanModal(true) }}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-sheen-gold text-white font-body text-base font-semibold hover:shadow-md transition-all mb-3"
+        >
+          🤖 AI Scan Z Report
+        </button>
+
         {/* ── End of Day ── */}
         <button
           onClick={handleEndOfDay}
@@ -891,6 +994,165 @@ export default function Sales() {
           customerName={stickerForSale.customerName}
           onClose={() => setStickerForSale(null)}
         />
+      )}
+
+      {/* ── AI Scan Z Report Modal ── */}
+      {showScanModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => !scanning && setShowScanModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl my-4" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-sheen-cream flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
+              <h2 className="font-display text-lg font-bold text-sheen-black">AI Scan Z Report</h2>
+              <button onClick={() => setShowScanModal(false)} className="text-sheen-muted hover:text-sheen-black text-xl">&times;</button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {!scanResult ? (
+                <>
+                  <p className="font-body text-xs text-sheen-muted">
+                    Take photos of your end-of-day sales report (products list + Z report / payment breakdown). AI will extract items and payments and record them as a sale.
+                  </p>
+
+                  {/* Upload buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex items-center justify-center gap-2 px-3 py-4 rounded-lg border border-dashed border-sheen-muted/40 cursor-pointer hover:border-sheen-gold hover:bg-sheen-gold/5 transition-colors">
+                      <span className="font-body text-sm text-sheen-muted">📷 Take photo(s)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        multiple
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files ?? [])
+                          setScanImages(prev => [...prev, ...files])
+                          setScanPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))])
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                    <label className="flex items-center justify-center gap-2 px-3 py-4 rounded-lg border border-dashed border-sheen-muted/40 cursor-pointer hover:border-sheen-gold hover:bg-sheen-gold/5 transition-colors">
+                      <span className="font-body text-sm text-sheen-muted">📁 Upload image(s)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files ?? [])
+                          setScanImages(prev => [...prev, ...files])
+                          setScanPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))])
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Previews */}
+                  {scanPreviews.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {scanPreviews.map((src, i) => (
+                        <div key={i} className="relative">
+                          <img src={src} alt="" className="w-full h-32 object-cover rounded-lg border border-sheen-muted/20" />
+                          <button
+                            onClick={() => {
+                              setScanImages(prev => prev.filter((_, idx) => idx !== i))
+                              setScanPreviews(prev => prev.filter((_, idx) => idx !== i))
+                            }}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={runScan}
+                    disabled={scanning || scanImages.length === 0}
+                    className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-sheen-gold text-white font-body text-sm font-semibold disabled:opacity-50"
+                  >
+                    {scanning ? 'Scanning...' : `🤖 Scan ${scanImages.length} image${scanImages.length !== 1 ? 's' : ''}`}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Preview of scanned results */}
+                  <div className="space-y-2">
+                    <p className="font-body text-sm font-semibold text-sheen-black">Extracted Items</p>
+                    <p className="font-body text-xs text-sheen-muted">Unmatched items are skipped. Adjust the qty if wrong.</p>
+                    <div className="space-y-1 max-h-56 overflow-y-auto">
+                      {scanResult.items.map((it, idx) => (
+                        <div key={idx} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${it.matchedId ? 'bg-sheen-cream/50' : 'bg-red-50'}`}>
+                          <span className="flex-1 font-body text-xs">
+                            <span className={it.matchedId ? 'text-sheen-black' : 'text-red-600'}>{it.name}</span>
+                            {it.matchedId && <span className="text-sheen-muted"> → {menuItems.find((m: MenuItem) => m.id === it.matchedId)?.name}</span>}
+                            {!it.matchedId && <span className="text-red-600"> (no match in menu)</span>}
+                          </span>
+                          {it.matchedId && <span className="font-body text-[10px] text-sheen-muted">{it.price} × </span>}
+                          <input
+                            type="number"
+                            min={0}
+                            value={it.qty}
+                            onChange={(e) => {
+                              const next = [...scanResult.items]
+                              next[idx] = { ...next[idx], qty: Math.max(0, Number(e.target.value) || 0) }
+                              setScanResult({ ...scanResult, items: next })
+                            }}
+                            className="w-14 px-2 py-1 text-right rounded border border-sheen-muted/30 text-xs font-semibold"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-body text-sm font-semibold text-sheen-black">Payment Breakdown</p>
+                    <div className="space-y-1">
+                      {scanResult.payments.map((p, i) => (
+                        <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-sheen-cream/50">
+                          <span className="font-body text-xs text-sheen-black">{p.method}</span>
+                          <span className="font-body text-xs text-sheen-brown font-semibold">{Number(p.amount).toFixed(2)} د.إ</span>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-sheen-gold/10 border-t border-sheen-muted/20 mt-1">
+                        <span className="font-body text-xs font-bold text-sheen-black">Total</span>
+                        <span className="font-display text-sm font-bold text-sheen-brown">{Number(scanResult.total).toFixed(2)} د.إ</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-body text-xs text-sheen-muted mb-1">Recorded by (Source)</label>
+                    <input
+                      type="text"
+                      value={scanImportSource}
+                      onChange={e => setScanImportSource(e.target.value)}
+                      placeholder="POS, Talabat, Careem, Beanz..."
+                      className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                    />
+                    <p className="font-body text-[10px] text-sheen-muted mt-1">
+                      Sale date: {scanResult.report_date || 'Today'}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setScanResult(null); setScanImages([]); setScanPreviews([]) }}
+                      className="px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-muted font-body text-sm font-medium"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={confirmScanImport}
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-sheen-brown text-white font-body text-sm font-semibold hover:bg-sheen-brown/90"
+                    >
+                      Record Sale
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
