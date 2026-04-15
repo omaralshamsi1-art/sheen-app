@@ -319,6 +319,59 @@ router.post('/analyze', async (_req: Request, res: Response) => {
   }
 })
 
+// ─── POST /api/ai/read-receipt ───
+// Accepts a base64 image and returns extracted receipt fields
+router.post('/read-receipt', async (req: Request, res: Response) => {
+  try {
+    const { image } = req.body as { image?: string }
+    if (!image || typeof image !== 'string') {
+      res.status(400).json({ message: 'image (base64 data URL) is required' })
+      return
+    }
+
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.2-90b-vision-preview',
+      max_tokens: 400,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Extract from this receipt/bill image these fields:
+- amount: the TOTAL amount paid (number only, in AED or local currency)
+- description: a short 2-5 word summary of what was bought (e.g. "Taxi to supplier", "Cleaning supplies", "Printer ink")
+- category: MUST be exactly one of: Transport, Cleaning, Supplies, Maintenance, Food, Printing, Other
+- date: the date on the receipt in YYYY-MM-DD format, or null if unreadable
+
+Respond ONLY with a valid JSON object. No explanation, no markdown, no code fence.
+Example: {"amount": 15.50, "description": "Taxi to supplier", "category": "Transport", "date": "2026-04-14"}
+If a field can't be determined, use null for that field.`,
+            },
+            { type: 'image_url', image_url: { url: image } },
+          ],
+        },
+      ],
+    })
+
+    const content = response.choices[0]?.message?.content ?? ''
+    const match = content.match(/\{[\s\S]*\}/)
+    if (!match) {
+      res.status(500).json({ message: 'AI did not return JSON' })
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(match[0])
+      res.json(parsed)
+    } catch {
+      res.status(500).json({ message: 'Failed to parse AI response' })
+    }
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // ─── GET /api/ai/history ───
 router.get('/history', async (req: Request, res: Response) => {
   try {

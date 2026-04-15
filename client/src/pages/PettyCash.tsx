@@ -38,7 +38,34 @@ export default function PettyCash() {
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
+  const [scanning, setScanning] = useState(false)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
+
+  // Scan receipt image with AI → auto-fill form fields
+  const scanReceipt = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('AI scan works on image files only')
+      return
+    }
+    setScanning(true)
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const { data } = await api.post('/api/ai/read-receipt', { image: base64 })
+      if (data.amount) setAmount(String(data.amount))
+      if (data.description) setDescription(data.description)
+      if (data.category && PETTY_CATEGORIES.includes(data.category)) setCategory(data.category)
+      if (data.date) setDate(data.date)
+      toast.success('Bill scanned and filled')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to scan bill')
+    }
+    setScanning(false)
+  }
 
   const { data: transactions = [], isLoading } = useQuery<PettyCashTx[]>({
     queryKey: ['petty-cash'],
@@ -281,17 +308,36 @@ export default function PettyCash() {
                 <div>
                   <label className="block font-body text-xs text-sheen-muted mb-1">Receipt (optional)</label>
                   {receiptPreview ? (
-                    <div className="relative">
-                      <img
-                        src={receiptPreview}
-                        alt="Receipt preview"
-                        className="w-full max-h-48 object-contain rounded-lg border border-sheen-muted/20 bg-sheen-cream"
-                      />
+                    <div>
+                      <div className="relative mb-2">
+                        <img
+                          src={receiptPreview}
+                          alt="Receipt preview"
+                          className="w-full max-h-48 object-contain rounded-lg border border-sheen-muted/20 bg-sheen-cream"
+                        />
+                        <button
+                          onClick={() => { setReceiptFile(null); setReceiptPreview(null) }}
+                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white text-xs font-bold hover:bg-red-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
                       <button
-                        onClick={() => { setReceiptFile(null); setReceiptPreview(null) }}
-                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white text-xs font-bold hover:bg-red-600"
+                        onClick={() => receiptFile && scanReceipt(receiptFile)}
+                        disabled={scanning || !receiptFile}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-sheen-gold text-white font-body text-xs font-semibold shadow-sm hover:shadow-md transition-all disabled:opacity-60"
                       >
-                        ✕
+                        {scanning ? (
+                          <>
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                            </svg>
+                            Reading bill...
+                          </>
+                        ) : (
+                          <>🤖 Scan with AI to fill form</>
+                        )}
                       </button>
                     </div>
                   ) : (
