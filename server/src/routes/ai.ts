@@ -374,65 +374,6 @@ If a field can't be determined, use null for that field.`,
   }
 })
 
-// ─── POST /api/ai/scan-z-report ───
-// Accepts 1 or more base64 images of a daily sales report (Z report + items list)
-// and returns { items: [{name, qty}], payments: [{method, amount}], total, report_date }
-router.post('/scan-z-report', async (req: Request, res: Response) => {
-  try {
-    const { images } = req.body as { images?: string[] }
-    if (!Array.isArray(images) || images.length === 0) {
-      res.status(400).json({ message: 'images array is required' })
-      return
-    }
-
-    const content: any[] = [
-      {
-        type: 'text',
-        text: `You are reading images from a coffee shop end-of-day (Z Report) sales printout.
-
-CRITICAL: Read EVERY single line of the PRODUCTS section top to bottom. DO NOT SKIP any row. The last product is usually followed by "Items count" or a total. Include every product between the header and that total.
-
-Extract these fields:
-- items: array of EVERY product with name and qty. Read from the PRODUCTS section line by line.
-  * name: the product name exactly as printed (e.g. "AMERICANO", "V60", "SPANISH LATTE", "CAPPUCINNO")
-  * qty: the INTEGER number at the END of that line (the column on the right side)
-  * IMPORTANT: each product is ONE row. Each row has exactly ONE qty. Match them carefully row-by-row. If you see 10 products, the output array MUST have 10 objects.
-- payments: array of payment breakdowns from the "Tender types" or payment section.
-  * method: "Card" or "Cash" or "Talabat" or "Beanz" or whatever the label is
-  * amount: the total for that method (number in AED)
-- total: the grand total amount (number in AED)
-- report_date: the date on the report in YYYY-MM-DD format, or null
-
-Respond ONLY with a valid JSON object (no markdown, no code fence, no explanation).
-Example: {"items":[{"name":"AMERICANO","qty":2},{"name":"V60","qty":4}],"payments":[{"method":"Card","amount":356},{"method":"Cash","amount":67}],"total":423,"report_date":"2026-04-15"}`,
-      },
-    ]
-    for (const img of images) {
-      content.push({ type: 'image_url', image_url: { url: img } })
-    }
-
-    const response = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-      max_tokens: 2000,
-      messages: [{ role: 'user', content }],
-    })
-
-    const text = response.choices[0]?.message?.content ?? ''
-    const match = text.match(/\{[\s\S]*\}/)
-    if (!match) {
-      res.status(500).json({ message: 'AI did not return JSON' })
-      return
-    }
-    try {
-      res.json(JSON.parse(match[0]))
-    } catch {
-      res.status(500).json({ message: 'Failed to parse AI response' })
-    }
-  } catch (err: any) {
-    res.status(500).json({ message: err.message })
-  }
-})
-
 // ─── GET /api/ai/history ───
 router.get('/history', async (req: Request, res: Response) => {
   try {
