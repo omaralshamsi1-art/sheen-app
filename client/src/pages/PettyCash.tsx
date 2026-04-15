@@ -60,6 +60,13 @@ export default function PettyCash() {
       if (data.description) setDescription(data.description)
       if (data.category && PETTY_CATEGORIES.includes(data.category)) setCategory(data.category)
       if (data.date) setDate(data.date)
+
+      // Build notes from supplier + phone (both optional)
+      const notesParts: string[] = []
+      if (data.supplier) notesParts.push(`Supplier: ${data.supplier}`)
+      if (data.phone) notesParts.push(`Phone: ${data.phone}`)
+      if (notesParts.length > 0) setNotes(notesParts.join(' · '))
+
       toast.success('Bill scanned and filled')
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to scan bill')

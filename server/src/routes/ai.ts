@@ -343,9 +343,11 @@ router.post('/read-receipt', async (req: Request, res: Response) => {
 - description: a short 2-5 word summary of what was bought (e.g. "Taxi to supplier", "Cleaning supplies", "Printer ink")
 - category: MUST be exactly one of: Transport, Cleaning, Supplies, Maintenance, Food, Printing, Other
 - date: the date on the receipt in YYYY-MM-DD format, or null if unreadable
+- supplier: the supplier/vendor/shop name printed on the receipt, or null
+- phone: the supplier's phone or mobile or tel number if printed anywhere on the receipt (keep original formatting like +971 50 1234567 or 050-1234567), or null
 
 Respond ONLY with a valid JSON object. No explanation, no markdown, no code fence.
-Example: {"amount": 15.50, "description": "Taxi to supplier", "category": "Transport", "date": "2026-04-14"}
+Example: {"amount": 15.50, "description": "Taxi to supplier", "category": "Transport", "date": "2026-04-14", "supplier": "ABC Grocery", "phone": "0501234567"}
 If a field can't be determined, use null for that field.`,
             },
             { type: 'image_url', image_url: { url: image } },
