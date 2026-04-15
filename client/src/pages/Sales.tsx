@@ -261,15 +261,49 @@ export default function Sales() {
     r.readAsDataURL(file)
   })
 
+  // Levenshtein distance — number of single-char edits between two strings
+  const levenshtein = (a: string, b: string): number => {
+    if (a === b) return 0
+    if (!a.length) return b.length
+    if (!b.length) return a.length
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
+    for (let i = 1; i <= a.length; i++) {
+      const curr = [i]
+      for (let j = 1; j <= b.length; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1
+        curr.push(Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost))
+      }
+      prev = curr
+    }
+    return prev[b.length]
+  }
+
   const fuzzyMatch = (name: string): MenuItem | undefined => {
     const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
     const target = norm(name)
-    // Exact normalized match
+    if (!target) return undefined
+
+    // 1. Exact normalized match
     let m = menuItems.find((mi: MenuItem) => norm(mi.name) === target)
     if (m) return m
-    // Contains match either direction
+
+    // 2. Contains match either direction
     m = menuItems.find((mi: MenuItem) => norm(mi.name).includes(target) || target.includes(norm(mi.name)))
-    return m
+    if (m) return m
+
+    // 3. Levenshtein — tolerate up to 30% character edits (handles typos like
+    //    CAPPUCINNO → Cappuccino, COFE → Coffee)
+    let best: { item: MenuItem; dist: number } | null = null
+    for (const mi of menuItems) {
+      const n = norm(mi.name)
+      const dist = levenshtein(target, n)
+      const maxLen = Math.max(target.length, n.length)
+      if (maxLen < 4) continue // too short to reliably fuzzy match
+      if (dist / maxLen <= 0.3 && (!best || dist < best.dist)) {
+        best = { item: mi, dist }
+      }
+    }
+    return best?.item
   }
 
   const runScan = async () => {
@@ -1078,29 +1112,52 @@ export default function Sales() {
                   {/* Preview of scanned results */}
                   <div className="space-y-2">
                     <p className="font-body text-sm font-semibold text-sheen-black">Extracted Items</p>
-                    <p className="font-body text-xs text-sheen-muted">Unmatched items are skipped. Adjust the qty if wrong.</p>
-                    <div className="space-y-1 max-h-56 overflow-y-auto">
-                      {scanResult.items.map((it, idx) => (
-                        <div key={idx} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${it.matchedId ? 'bg-sheen-cream/50' : 'bg-red-50'}`}>
-                          <span className="flex-1 font-body text-xs">
-                            <span className={it.matchedId ? 'text-sheen-black' : 'text-red-600'}>{it.name}</span>
-                            {it.matchedId && <span className="text-sheen-muted"> → {menuItems.find((m: MenuItem) => m.id === it.matchedId)?.name}</span>}
-                            {!it.matchedId && <span className="text-red-600"> (no match in menu)</span>}
-                          </span>
-                          {it.matchedId && <span className="font-body text-[10px] text-sheen-muted">{it.price} × </span>}
-                          <input
-                            type="number"
-                            min={0}
-                            value={it.qty}
-                            onChange={(e) => {
-                              const next = [...scanResult.items]
-                              next[idx] = { ...next[idx], qty: Math.max(0, Number(e.target.value) || 0) }
-                              setScanResult({ ...scanResult, items: next })
-                            }}
-                            className="w-14 px-2 py-1 text-right rounded border border-sheen-muted/30 text-xs font-semibold"
-                          />
+                    <p className="font-body text-xs text-sheen-muted">AI only reads name + qty. Prices and totals come from your menu automatically.</p>
+                    <div className="rounded-lg border border-sheen-muted/20 overflow-hidden">
+                      <div className="grid grid-cols-12 px-3 py-2 bg-sheen-cream/70 font-body text-[10px] font-semibold text-sheen-muted uppercase tracking-wider">
+                        <div className="col-span-5">Item</div>
+                        <div className="col-span-2 text-right">Qty</div>
+                        <div className="col-span-2 text-right">Price</div>
+                        <div className="col-span-3 text-right">Total</div>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto divide-y divide-sheen-muted/10">
+                        {scanResult.items.map((it, idx) => {
+                          const matched = menuItems.find((m: MenuItem) => m.id === it.matchedId)
+                          const price = it.price ?? 0
+                          const lineTotal = price * it.qty
+                          return (
+                            <div key={idx} className={`grid grid-cols-12 items-center px-3 py-2 text-xs ${it.matchedId ? '' : 'bg-red-50'}`}>
+                              <div className="col-span-5 font-body text-sheen-black truncate">
+                                {matched?.name ?? <span className="text-red-600">{it.name} (no match)</span>}
+                              </div>
+                              <div className="col-span-2 text-right">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={it.qty}
+                                  onChange={(e) => {
+                                    const next = [...scanResult.items]
+                                    next[idx] = { ...next[idx], qty: Math.max(0, Number(e.target.value) || 0) }
+                                    setScanResult({ ...scanResult, items: next })
+                                  }}
+                                  className="w-14 px-1.5 py-0.5 text-right rounded border border-sheen-muted/30 text-xs font-semibold"
+                                />
+                              </div>
+                              <div className="col-span-2 text-right font-body text-sheen-muted">{it.matchedId ? price.toFixed(2) : '—'}</div>
+                              <div className="col-span-3 text-right font-body font-semibold text-sheen-brown">
+                                {it.matchedId ? lineTotal.toFixed(2) : '—'}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {/* Calculated subtotal */}
+                      <div className="grid grid-cols-12 px-3 py-2 bg-sheen-gold/10 border-t border-sheen-muted/20 font-body text-xs">
+                        <div className="col-span-7 font-semibold text-sheen-black">Calculated total (from menu)</div>
+                        <div className="col-span-5 text-right font-display font-bold text-sheen-brown">
+                          {scanResult.items.reduce((s, it) => s + (it.matchedId ? (it.price ?? 0) * it.qty : 0), 0).toFixed(2)} د.إ
                         </div>
-                      ))}
+                      </div>
                     </div>
                   </div>
 

@@ -389,10 +389,14 @@ router.post('/scan-z-report', async (req: Request, res: Response) => {
       {
         type: 'text',
         text: `You are reading images from a coffee shop end-of-day (Z Report) sales printout.
+
+CRITICAL: Read EVERY single line of the PRODUCTS section top to bottom. DO NOT SKIP any row. The last product is usually followed by "Items count" or a total. Include every product between the header and that total.
+
 Extract these fields:
-- items: array of products with name and qty. Read from the PRODUCTS section.
-  * name: the product name as printed (e.g. "AMERICANO", "V60", "SPANISH LATTE")
-  * qty: the number next to each product (integer)
+- items: array of EVERY product with name and qty. Read from the PRODUCTS section line by line.
+  * name: the product name exactly as printed (e.g. "AMERICANO", "V60", "SPANISH LATTE", "CAPPUCINNO")
+  * qty: the INTEGER number at the END of that line (the column on the right side)
+  * IMPORTANT: each product is ONE row. Each row has exactly ONE qty. Match them carefully row-by-row. If you see 10 products, the output array MUST have 10 objects.
 - payments: array of payment breakdowns from the "Tender types" or payment section.
   * method: "Card" or "Cash" or "Talabat" or "Beanz" or whatever the label is
   * amount: the total for that method (number in AED)
