@@ -22,7 +22,7 @@ router.get('/', async (_req: Request, res: Response) => {
 // POST /api/petty-cash
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { type, amount, description, category, date, notes, added_by } = req.body
+    const { type, amount, description, category, date, notes, added_by, receipt_url } = req.body
 
     if (!type || !['deposit', 'withdrawal'].includes(type)) {
       res.status(400).json({ message: 'type must be deposit or withdrawal' })
@@ -47,6 +47,7 @@ router.post('/', async (req: Request, res: Response) => {
         date: date || new Date().toISOString().slice(0, 10),
         notes: notes ? String(notes).trim() : null,
         added_by: added_by ? String(added_by).trim() : null,
+        receipt_url: receipt_url ? String(receipt_url).trim().slice(0, 500) : null,
       })
       .select()
       .single()

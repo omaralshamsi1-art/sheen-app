@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
+import { supabase } from '../lib/supabase'
 import TopBar from '../components/layout/TopBar'
 import { useAuth } from '../hooks/useAuth'
 import { useRole } from '../hooks/useRole'
@@ -14,6 +15,7 @@ interface PettyCashTx {
   type: 'deposit' | 'withdrawal'
   amount: number
   description: string
+  receipt_url?: string | null
   category: string | null
   date: string
   notes: string | null
@@ -33,6 +35,10 @@ export default function PettyCash() {
   const [category, setCategory] = useState('Supplies')
   const [date, setDate] = useState(today)
   const [notes, setNotes] = useState('')
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
+  const [uploadingReceipt, setUploadingReceipt] = useState(false)
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null)
 
   const { data: transactions = [], isLoading } = useQuery<PettyCashTx[]>({
     queryKey: ['petty-cash'],
@@ -44,6 +50,25 @@ export default function PettyCash() {
 
   const addMut = useMutation({
     mutationFn: async (type: 'deposit' | 'withdrawal') => {
+      let receipt_url: string | undefined
+
+      // Upload receipt if one was selected (only meaningful for withdrawals)
+      if (receiptFile && type === 'withdrawal') {
+        setUploadingReceipt(true)
+        try {
+          const ext = receiptFile.name.split('.').pop()?.toLowerCase() || 'jpg'
+          const filePath = `petty-${Date.now()}.${ext}`
+          const { error: uploadErr } = await supabase.storage
+            .from('menu-images')
+            .upload(filePath, receiptFile, { upsert: true, cacheControl: '3600' })
+          if (uploadErr) throw uploadErr
+          const { data: urlData } = supabase.storage.from('menu-images').getPublicUrl(filePath)
+          receipt_url = urlData.publicUrl
+        } finally {
+          setUploadingReceipt(false)
+        }
+      }
+
       await api.post('/api/petty-cash', {
         type,
         amount: Number(amount),
@@ -52,6 +77,7 @@ export default function PettyCash() {
         date,
         notes: notes.trim() || undefined,
         added_by: user?.email || 'staff',
+        receipt_url,
       })
     },
     onSuccess: () => {
@@ -63,6 +89,8 @@ export default function PettyCash() {
       setNotes('')
       setCategory('Supplies')
       setDate(today)
+      setReceiptFile(null)
+      setReceiptPreview(null)
     },
     onError: () => toast.error('Failed'),
   })
@@ -87,6 +115,8 @@ export default function PettyCash() {
     setNotes('')
     setCategory('Supplies')
     setDate(today)
+    setReceiptFile(null)
+    setReceiptPreview(null)
     setModal(type)
   }
 
@@ -167,6 +197,14 @@ export default function PettyCash() {
                       {tx.added_by && <span className="font-body text-[10px] text-sheen-muted">{tx.added_by.split('@')[0]}</span>}
                     </div>
                     {tx.notes && <p className="font-body text-[10px] text-sheen-muted mt-0.5">{tx.notes}</p>}
+                    {tx.receipt_url && (
+                      <button
+                        onClick={() => setLightboxImg(tx.receipt_url!)}
+                        className="mt-1 inline-flex items-center gap-1 text-[10px] font-body text-sheen-gold hover:text-sheen-brown transition-colors"
+                      >
+                        📎 View receipt
+                      </button>
+                    )}
                   </div>
 
                   {/* Amount + delete */}
@@ -238,6 +276,67 @@ export default function PettyCash() {
                 </div>
               )}
 
+              {/* Receipt attachment — withdrawals only */}
+              {modal === 'withdrawal' && (
+                <div>
+                  <label className="block font-body text-xs text-sheen-muted mb-1">Receipt (optional)</label>
+                  {receiptPreview ? (
+                    <div className="relative">
+                      <img
+                        src={receiptPreview}
+                        alt="Receipt preview"
+                        className="w-full max-h-48 object-contain rounded-lg border border-sheen-muted/20 bg-sheen-cream"
+                      />
+                      <button
+                        onClick={() => { setReceiptFile(null); setReceiptPreview(null) }}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white text-xs font-bold hover:bg-red-600"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg border border-dashed border-sheen-muted/40 cursor-pointer hover:border-sheen-gold hover:bg-sheen-gold/5 transition-colors">
+                        <svg className="w-5 h-5 text-sheen-muted" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                          <path d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span className="font-body text-xs text-sheen-muted">Take photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (!f) return
+                            setReceiptFile(f)
+                            setReceiptPreview(URL.createObjectURL(f))
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                      <label className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg border border-dashed border-sheen-muted/40 cursor-pointer hover:border-sheen-gold hover:bg-sheen-gold/5 transition-colors">
+                        <svg className="w-5 h-5 text-sheen-muted" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                          <path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span className="font-body text-xs text-sheen-muted">Upload file</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (!f) return
+                            setReceiptFile(f)
+                            setReceiptPreview(f.type.startsWith('image/') ? URL.createObjectURL(f) : '/images/logo.png')
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-body text-xs text-sheen-muted mb-1">Date</label>
@@ -268,16 +367,23 @@ export default function PettyCash() {
                 </button>
                 <button
                   onClick={() => addMut.mutate(modal)}
-                  disabled={!description.trim() || !amount || addMut.isPending}
+                  disabled={!description.trim() || !amount || addMut.isPending || uploadingReceipt}
                   className={`flex-1 py-2.5 rounded-xl font-body text-sm font-semibold text-white transition-colors disabled:opacity-50 ${
                     modal === 'deposit' ? 'bg-green-500 hover:bg-green-600' : 'bg-sheen-brown hover:bg-sheen-brown/90'
                   }`}
                 >
-                  {addMut.isPending ? 'Saving...' : modal === 'deposit' ? 'Add Deposit' : 'Add Withdrawal'}
+                  {uploadingReceipt ? 'Uploading receipt…' : addMut.isPending ? 'Saving...' : modal === 'deposit' ? 'Add Deposit' : 'Add Withdrawal'}
                 </button>
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Receipt lightbox */}
+      {lightboxImg && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
+          <img src={lightboxImg} alt="Receipt" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
         </div>
       )}
     </div>
