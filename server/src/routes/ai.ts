@@ -155,6 +155,66 @@ async function fetchBusinessContext() {
     })
     .join('; ')
 
+  // Daily ingredient consumption analysis (today + last 7 days)
+  // Cross-reference sale_items × recipes to calculate how much of each ingredient was used
+  const todayStr = to
+  const weekAgo = new Date(new Date(todayStr).getTime() - 7 * 86400000).toISOString().slice(0, 10)
+
+  const { data: recentSaleItems } = await supabase
+    .from('sale_items')
+    .select('menu_item_id, name, qty, sale_id')
+
+  const { data: recentSales } = await supabase
+    .from('sales')
+    .select('id, sale_date')
+    .gte('sale_date', weekAgo)
+    .lte('sale_date', todayStr)
+
+  const recentSaleIds = new Set((recentSales ?? []).map((s: any) => s.id))
+  const todaySaleIds = new Set((recentSales ?? []).filter((s: any) => s.sale_date === todayStr).map((s: any) => s.id))
+
+  // Build recipe lookup: menu_item_id → [{ingredient_name, qty, unit}]
+  const recipeLookup: Record<string, Array<{ name: string; qty: number; unit: string }>> = {}
+  for (const r of recipes) {
+    const ing = ingredientMap.get(r.ingredient_id)
+    if (!ing) continue
+    if (!recipeLookup[r.menu_item_id]) recipeLookup[r.menu_item_id] = []
+    recipeLookup[r.menu_item_id].push({ name: (ing as any).name, qty: Number(r.qty), unit: r.unit as string })
+  }
+
+  // Calculate consumption
+  const calcConsumption = (saleIds: Set<string>) => {
+    const usage: Record<string, { total: number; unit: string }> = {}
+    for (const si of recentSaleItems ?? []) {
+      if (!saleIds.has(si.sale_id)) continue
+      const recipe = recipeLookup[si.menu_item_id]
+      if (!recipe) continue
+      for (const line of recipe) {
+        const key = line.name
+        if (!usage[key]) usage[key] = { total: 0, unit: line.unit }
+        usage[key].total += line.qty * si.qty
+      }
+    }
+    return Object.entries(usage)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([name, { total, unit }]) => `${name}: ${total.toFixed(1)}${unit}`)
+      .join(', ')
+  }
+
+  const todayConsumption = calcConsumption(todaySaleIds)
+  const weekConsumption = calcConsumption(recentSaleIds)
+
+  // Items sold today with qty
+  const todaySoldItems: Record<string, number> = {}
+  for (const si of recentSaleItems ?? []) {
+    if (!todaySaleIds.has(si.sale_id)) continue
+    todaySoldItems[si.name] = (todaySoldItems[si.name] || 0) + si.qty
+  }
+  const todayItemsList = Object.entries(todaySoldItems)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, qty]) => `${name} ×${qty}`)
+    .join(', ')
+
   // Orders summary
   const ordersByStatus: Record<string, number> = {}
   for (const o of orders) {
@@ -177,7 +237,7 @@ async function fetchBusinessContext() {
   const beansContext = Array.isArray(beanOptions) ? beanOptions.map((b: any) => `${b.name}${b.premium > 0 ? ` +${b.premium} AED` : ''}`).join(', ') : 'None configured'
   const milksContext = Array.isArray(milkOptions) ? milkOptions.map((m: any) => `${m.name}${m.premium > 0 ? ` +${m.premium} AED` : ''}`).join(', ') : 'None configured'
 
-  return { salesContext, expensesContext, fixedCostsContext, menuContext, netProfit, pettyCashContext, ingredientsContext, recipesContext, ordersContext, topOrderedItems, beansContext, milksContext }
+  return { salesContext, expensesContext, fixedCostsContext, menuContext, netProfit, pettyCashContext, ingredientsContext, recipesContext, ordersContext, topOrderedItems, beansContext, milksContext, todayConsumption, weekConsumption, todayItemsList }
 }
 
 // Build the data block that goes into prompts
@@ -195,6 +255,9 @@ function buildDataBlock(context: Record<string, any>) {
     `MILK OPTIONS: ${context.milksContext ?? 'N/A'}`,
     `ORDERS (last 30 days): ${context.ordersContext ?? 'N/A'}`,
     `TOP ORDERED ITEMS: ${context.topOrderedItems ?? 'N/A'}`,
+    `TODAY'S ITEMS SOLD: ${context.todayItemsList ?? 'No sales today'}`,
+    `TODAY'S INGREDIENT CONSUMPTION (from sales × recipes): ${context.todayConsumption ?? 'No data'}`,
+    `LAST 7 DAYS INGREDIENT CONSUMPTION: ${context.weekConsumption ?? 'No data'}`,
   ]
   return lines.join('\n')
 }
