@@ -70,7 +70,7 @@ export default function SaleNotifier() {
             const bodyParts = [
               itemsStr || `${sale.total_cups} cup${sale.total_cups !== 1 ? 's' : ''}`,
               `${Number(sale.total_revenue).toFixed(2)} AED`,
-              `⏰ ${timeStr}${sale.recorded_by ? ` · ${sale.recorded_by}` : ''}`,
+              `${timeStr}${sale.recorded_by ? ` · ${sale.recorded_by}` : ''}`,
             ]
 
             new Notification('New Sale Recorded', {
