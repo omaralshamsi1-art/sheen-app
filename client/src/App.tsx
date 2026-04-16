@@ -30,6 +30,7 @@ import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 import LoyaltyScan from './pages/LoyaltyScan'
 import OrderNotifier from './components/OrderNotifier'
+import SaleNotifier from './components/SaleNotifier'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +49,7 @@ function AppLayout() {
       </div>
       <HamburgerMenu />
       <OrderNotifier />
+      <SaleNotifier />
     </ProtectedRoute>
   )
 }

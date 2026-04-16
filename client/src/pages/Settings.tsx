@@ -188,6 +188,36 @@ export default function Settings() {
     paymentMut.mutate(updated)
   }
 
+  // Admin sale notifications toggle
+  const { data: saleNotifsData } = useQuery({
+    queryKey: ['settings', 'admin_sale_notifications'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/admin_sale_notifications')
+      return data === true
+    },
+  })
+  const [saleNotifs, setSaleNotifs] = useState(false)
+  useEffect(() => { if (saleNotifsData !== undefined) setSaleNotifs(saleNotifsData) }, [saleNotifsData])
+
+  const toggleSaleNotifsMut = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (enabled && 'Notification' in window && Notification.permission !== 'granted') {
+        const perm = await Notification.requestPermission()
+        if (perm !== 'granted') {
+          toast.error('Notification permission denied by browser')
+          return
+        }
+      }
+      await api.put('/api/settings/admin_sale_notifications', { value: enabled })
+    },
+    onSuccess: (_, enabled) => {
+      setSaleNotifs(enabled)
+      qc.invalidateQueries({ queryKey: ['settings', 'admin_sale_notifications'] })
+      toast.success(enabled ? 'Sale notifications enabled' : 'Sale notifications disabled')
+    },
+    onError: () => toast.error('Failed to update'),
+  })
+
   // Default order source
   const { data: defaultSourceData } = useQuery({
     queryKey: ['settings', 'default_order_source'],
@@ -562,6 +592,36 @@ export default function Settings() {
             }} disabled={!newMilkName.trim()}>
               {t('add')}
             </Button>
+          </div>
+        </div>
+
+        {/* Sale Notifications */}
+        <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-lg text-sheen-black">Sale Notifications</h2>
+              <p className="font-body text-xs text-sheen-muted mt-0.5">
+                Get a phone/browser notification when staff records a new sale.
+              </p>
+            </div>
+            <button
+              onClick={() => toggleSaleNotifsMut.mutate(!saleNotifs)}
+              disabled={toggleSaleNotifsMut.isPending}
+              className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                saleNotifs ? 'bg-sheen-brown' : 'bg-sheen-muted/30'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200 ${
+                  saleNotifs ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-body ${saleNotifs ? 'bg-green-50 text-green-700' : 'bg-sheen-cream text-sheen-muted'}`}>
+            {saleNotifs
+              ? 'Notifications ON — you\'ll get a notification for each new sale recorded by staff.'
+              : 'Notifications OFF — no alerts for new sales.'}
           </div>
         </div>
 
