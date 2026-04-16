@@ -135,20 +135,27 @@ export function playNotificationSound() {
 // NOTE: No global auto-unlock — it must only happen for staff/admin
 // via the banner tap or the test sound button on the Orders page.
 
+const SOUND_PREF_KEY = 'sheen-sound-enabled'
+
 /**
  * Global order notifier — mount once in AppLayout.
  * Polls pending orders every 10s and plays sound when new ones arrive.
- * Shows an "Enable Sound" banner on iPad/mobile until tapped.
+ *
+ * Sound auto-unlock strategy:
+ * - First visit: shows a banner; user taps it once → saved to localStorage.
+ * - Every subsequent reload: a one-time document click/tap listener silently
+ *   unlocks audio using that first interaction. The banner never shows again.
+ *   (Browsers require at least one user gesture before allowing audio.)
  */
 export default function OrderNotifier() {
   const { role } = useRole()
   const { t } = useLanguage()
   const [soundReady, setSoundReady] = useState(audioUnlocked)
-  const [dismissed, setDismissed] = useState(false)
   const prevIdsRef = useRef<Set<string>>(new Set())
   const initialRef = useRef(true)
 
   const isStaffOrAdmin = role === 'admin' || role === 'staff'
+  const previouslyEnabled = typeof localStorage !== 'undefined' && localStorage.getItem(SOUND_PREF_KEY) === 'true'
 
   const { data: pending = [] } = useQuery({
     queryKey: ['orders', 'pending-global'],
@@ -157,7 +164,30 @@ export default function OrderNotifier() {
     enabled: isStaffOrAdmin,
   })
 
-  // Check if audio got unlocked by the global listeners
+  // Auto-unlock: if user previously enabled sound, silently unlock on first tap/click anywhere
+  useEffect(() => {
+    if (!isStaffOrAdmin || audioUnlocked || !previouslyEnabled) return
+
+    const autoUnlock = async () => {
+      const ok = await unlockAndTestAudio()
+      if (ok) {
+        setSoundReady(true)
+        // Play silently (volume was already set) — just to confirm unlock
+      }
+      document.removeEventListener('click', autoUnlock, true)
+      document.removeEventListener('touchstart', autoUnlock, true)
+    }
+
+    document.addEventListener('click', autoUnlock, { capture: true, once: true })
+    document.addEventListener('touchstart', autoUnlock, { capture: true, once: true })
+
+    return () => {
+      document.removeEventListener('click', autoUnlock, true)
+      document.removeEventListener('touchstart', autoUnlock, true)
+    }
+  }, [isStaffOrAdmin, previouslyEnabled])
+
+  // Check if audio got unlocked
   useEffect(() => {
     if (audioUnlocked) setSoundReady(true)
     const interval = setInterval(() => {
@@ -194,8 +224,8 @@ export default function OrderNotifier() {
     prevIdsRef.current = currentIds
   }, [pending, isStaffOrAdmin, t])
 
-  // Show "Enable Sound" banner for staff/admin if audio isn't unlocked
-  if (!isStaffOrAdmin || soundReady || dismissed) return null
+  // Banner only shows if user has NEVER enabled sound before
+  if (!isStaffOrAdmin || soundReady || previouslyEnabled) return null
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-bounce">
@@ -204,10 +234,9 @@ export default function OrderNotifier() {
           const ok = await unlockAndTestAudio()
           if (ok) {
             setSoundReady(true)
+            localStorage.setItem(SOUND_PREF_KEY, 'true')
             playNotificationSound()
             toast.success(t('soundEnabled'))
-          } else {
-            setDismissed(true)
           }
         }}
         className="flex items-center gap-2 bg-sheen-brown text-white px-5 py-3 rounded-full shadow-lg font-body text-sm font-medium"
