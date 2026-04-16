@@ -124,6 +124,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
       updates.addons = req.body.addons
     }
 
+    if (req.body.show_extra_shot !== undefined) {
+      updates.show_extra_shot = req.body.show_extra_shot
+    }
+
     if (req.body.estimated_cogs !== undefined) {
       updates.estimated_cogs = Number(req.body.estimated_cogs)
     }

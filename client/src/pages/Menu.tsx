@@ -55,6 +55,7 @@ export default function Menu() {
   const [editBeans, setEditBeans] = useState<string[]>([])
   const [editMilks, setEditMilks] = useState<string[]>([])
   const [editAddons, setEditAddons] = useState<{ name: string; price: number }[]>([])
+  const [editExtraShot, setEditExtraShot] = useState(true)
   const [newAddonName, setNewAddonName] = useState('')
   const [newAddonPrice, setNewAddonPrice] = useState('')
   const [addingRecipeTo, setAddingRecipeTo] = useState<string | null>(null)
@@ -121,6 +122,7 @@ export default function Menu() {
     setEditBeans(item.available_beans ?? [])
     setEditMilks(item.available_milks ?? [])
     setEditAddons(item.addons ?? [])
+    setEditExtraShot(item.show_extra_shot !== false)
   }
 
   function handleEditImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -164,6 +166,7 @@ export default function Menu() {
         available_beans: editItem.category === 'Coffee' && editBeans.length > 0 ? editBeans : null,
         available_milks: editMilks.length > 0 ? editMilks : null,
         addons: editAddons.length > 0 ? editAddons : null,
+        show_extra_shot: editItem.category === 'Coffee' ? editExtraShot : undefined,
         ...(image_url ? { image_url } : {}),
       })
       toast.success(t('menuItemUpdated'))
@@ -742,6 +745,22 @@ export default function Menu() {
                     )
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Extra Shot toggle (Coffee only) */}
+            {editItem.category === 'Coffee' && (
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="edit-extra-shot"
+                  checked={editExtraShot}
+                  onChange={(e) => setEditExtraShot(e.target.checked)}
+                  className="h-5 w-5 accent-sheen-gold cursor-pointer"
+                />
+                <label htmlFor="edit-extra-shot" className="text-sm font-body text-sheen-black">
+                  Show Extra Shot option
+                </label>
               </div>
             )}
 

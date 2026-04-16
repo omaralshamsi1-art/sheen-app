@@ -498,8 +498,8 @@ export default function CustomerOrder() {
                       </div>
                     )}
 
-                    {/* Extra Shot dropdown (Coffee only) */}
-                    {item.category === 'Coffee' && (
+                    {/* Extra Shot dropdown (Coffee only, if enabled for this item) */}
+                    {item.category === 'Coffee' && item.show_extra_shot !== false && (
                       <div className="mt-1.5">
                         <p className="font-body text-[9px] text-sheen-muted uppercase tracking-wider mb-1">
                           Extra Shot: <span className="text-sheen-brown font-semibold normal-case tracking-normal">
