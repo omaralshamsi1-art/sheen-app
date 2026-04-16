@@ -68,7 +68,14 @@ export default function Sales() {
     },
   })
   const getBeanPremium = (beanName: string) => beanOptions.find(b => b.name === beanName)?.premium ?? 0
-  const [orderSource, setOrderSource] = useState('Card')
+  const { data: defaultOrderSource = 'Cash' } = useQuery({
+    queryKey: ['settings', 'default_order_source'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/default_order_source')
+      return (data as string) ?? 'Cash'
+    },
+  })
+  const [orderSource, setOrderSource] = useState<string | null>(null)
   const [orderNote, setOrderNote] = useState('')
   const [reportDate, setReportDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [reportLoading, setReportLoading] = useState(false)
@@ -80,7 +87,7 @@ export default function Sales() {
 
   // Fetch commission rates from database
   const DEFAULT_SOURCES = [
-    { id: 'Card', commission: 0, vat: false },
+    { id: 'Cash', commission: 0, vat: false },
     { id: 'Talabat', commission: 15, vat: false },
     { id: 'Beanz', commission: 2.5, vat: true },
     { id: 'App', commission: 0, vat: false },
@@ -97,7 +104,8 @@ export default function Sales() {
   })
 
   const ORDER_SOURCES = orderSources ?? DEFAULT_SOURCES
-  const currentSource = ORDER_SOURCES.find((s: { id: string }) => s.id === orderSource) ?? ORDER_SOURCES[0]
+  const effectiveSource = orderSource ?? defaultOrderSource
+  const currentSource = ORDER_SOURCES.find((s: { id: string }) => s.id === effectiveSource) ?? ORDER_SOURCES[0]
 
   // Realtime subscription for live updates
   useEffect(() => {
@@ -293,7 +301,7 @@ export default function Sales() {
     const payload: SalePayload = {
       sale_date: today,
       items,
-      recorded_by: orderSource,
+      recorded_by: effectiveSource,
       notes: orderNote.trim() || undefined,
     }
 
@@ -301,7 +309,7 @@ export default function Sales() {
       onSuccess: () => {
         setQuantities({})
         setBeanChoices({})
-        setOrderSource('Card')
+        setOrderSource(null)
         setOrderNote('')
       },
     })
@@ -602,7 +610,7 @@ export default function Sales() {
                     key={src.id}
                     onClick={() => setOrderSource(src.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-body font-medium transition-colors ${
-                      orderSource === src.id
+                      effectiveSource === src.id
                         ? 'bg-sheen-brown text-white'
                         : 'bg-sheen-cream text-sheen-muted border border-sheen-muted/20'
                     }`}
@@ -779,7 +787,7 @@ export default function Sales() {
                         printReceipt({
                           orderNumber: sale.id.slice(0, 8).toUpperCase(),
                           date: new Date(sale.recorded_at),
-                          source: sale.recorded_by || 'Card',
+                          source: sale.recorded_by || defaultOrderSource,
                           items,
                           subtotal: sale.total_revenue,
                           total: sale.total_revenue,

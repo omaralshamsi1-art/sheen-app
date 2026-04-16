@@ -188,6 +188,29 @@ export default function Settings() {
     paymentMut.mutate(updated)
   }
 
+  // Default order source
+  const { data: defaultSourceData } = useQuery({
+    queryKey: ['settings', 'default_order_source'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/default_order_source')
+      return (data as string) ?? 'Cash'
+    },
+  })
+  const [defaultSource, setDefaultSource] = useState('Cash')
+  useEffect(() => { if (defaultSourceData) setDefaultSource(defaultSourceData) }, [defaultSourceData])
+
+  const saveDefaultSourceMut = useMutation({
+    mutationFn: async (source: string) => {
+      await api.put('/api/settings/default_order_source', { value: source })
+    },
+    onSuccess: (_, source) => {
+      setDefaultSource(source)
+      qc.invalidateQueries({ queryKey: ['settings', 'default_order_source'] })
+      toast.success(`Default source set to ${source}`)
+    },
+    onError: () => toast.error('Failed to save'),
+  })
+
   const { data, isLoading } = useQuery({
     queryKey: ['settings', 'order_sources'],
     queryFn: async () => {
@@ -611,6 +634,27 @@ export default function Settings() {
             <Button onClick={addSource} disabled={!newName.trim()}>
               {t('add')}
             </Button>
+          </div>
+
+          {/* Default source selector */}
+          <div className="mt-4 pt-4 border-t border-sheen-muted/20">
+            <label className="block font-body text-xs text-sheen-muted mb-2">Default Source (pre-selected on Record Sales)</label>
+            <div className="flex flex-wrap gap-2">
+              {sources.map(src => (
+                <button
+                  key={src.id}
+                  onClick={() => saveDefaultSourceMut.mutate(src.id)}
+                  disabled={saveDefaultSourceMut.isPending}
+                  className={`px-4 py-2 rounded-lg font-body text-xs font-medium transition-colors ${
+                    defaultSource === src.id
+                      ? 'bg-sheen-brown text-white shadow-sm'
+                      : 'bg-sheen-cream text-sheen-muted hover:bg-sheen-gold/10'
+                  }`}
+                >
+                  {src.id}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         {/* Expense Categories */}
