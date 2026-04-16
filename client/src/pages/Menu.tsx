@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useRole } from '../hooks/useRole'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useIngredients } from '../hooks/useExpenses'
@@ -37,6 +38,7 @@ function MarginBadge({ pct }: { pct: number }) {
 
 export default function Menu() {
   const { t } = useLanguage()
+  const { isAdmin } = useRole()
   const queryClient = useQueryClient()
   const { data: menuItems = [], isLoading } = useMenuItems()
 
@@ -520,27 +522,31 @@ export default function Menu() {
                       >
                         {isExpanded ? t('collapse') : t('recipe')}
                       </button>
-                      <button
-                        onClick={() => openEditModal(item)}
-                        className="rounded-lg px-3 py-1.5 text-xs font-body text-sheen-gold hover:bg-sheen-gold/10 transition-colors"
-                      >
-                        {t('edit')}
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return
-                          try {
-                            await api.delete(`/api/menu/${item.id}`)
-                            toast.success(`${item.name} deleted`)
-                            queryClient.invalidateQueries({ queryKey: ['menu-items'] })
-                          } catch {
-                            toast.error('Failed to delete')
-                          }
-                        }}
-                        className="rounded-lg px-3 py-1.5 text-xs font-body text-red-500 hover:bg-red-50 transition-colors"
-                      >
-                        {t('delete')}
-                      </button>
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => openEditModal(item)}
+                            className="rounded-lg px-3 py-1.5 text-xs font-body text-sheen-gold hover:bg-sheen-gold/10 transition-colors"
+                          >
+                            {t('edit')}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return
+                              try {
+                                await api.delete(`/api/menu/${item.id}`)
+                                toast.success(`${item.name} deleted`)
+                                queryClient.invalidateQueries({ queryKey: ['menu-items'] })
+                              } catch {
+                                toast.error('Failed to delete')
+                              }
+                            }}
+                            className="rounded-lg px-3 py-1.5 text-xs font-body text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            {t('delete')}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -551,12 +557,14 @@ export default function Menu() {
                         <h4 className="font-display text-sm text-sheen-black">
                           {t('recipeLines')}
                         </h4>
-                        <button
-                          onClick={() => setAddingRecipeTo(addingRecipeTo === item.id ? null : item.id)}
-                          className="text-xs font-body text-sheen-gold hover:text-sheen-brown transition-colors font-medium"
-                        >
-                          {addingRecipeTo === item.id ? t('cancel') : `+ ${t('addIngredient')}`}
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setAddingRecipeTo(addingRecipeTo === item.id ? null : item.id)}
+                            className="text-xs font-body text-sheen-gold hover:text-sheen-brown transition-colors font-medium"
+                          >
+                            {addingRecipeTo === item.id ? t('cancel') : `+ ${t('addIngredient')}`}
+                          </button>
+                        )}
                       </div>
 
                       {/* Add ingredient form */}
@@ -625,15 +633,17 @@ export default function Menu() {
                                 <td className="py-1.5 text-right text-sheen-brown">
                                   د.إ {(line.line_cost ?? 0).toFixed(2)}
                                 </td>
-                                <td className="py-1.5 text-right">
-                                  <button
-                                    onClick={() => removeRecipeLine.mutate({ menuItemId: item.id, lineId: line.id })}
-                                    disabled={removeRecipeLine.isPending}
-                                    className="text-red-400 hover:text-red-600 text-xs disabled:opacity-50"
-                                  >
-                                    ✕
-                                  </button>
-                                </td>
+                                {isAdmin && (
+                                  <td className="py-1.5 text-right">
+                                    <button
+                                      onClick={() => removeRecipeLine.mutate({ menuItemId: item.id, lineId: line.id })}
+                                      disabled={removeRecipeLine.isPending}
+                                      className="text-red-400 hover:text-red-600 text-xs disabled:opacity-50"
+                                    >
+                                      ✕
+                                    </button>
+                                  </td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
