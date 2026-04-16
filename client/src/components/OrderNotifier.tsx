@@ -169,10 +169,17 @@ export default function OrderNotifier() {
     if (!isStaffOrAdmin || audioUnlocked || !previouslyEnabled) return
 
     const autoUnlock = async () => {
-      const ok = await unlockAndTestAudio()
-      if (ok) {
-        setSoundReady(true)
-        // Play silently (volume was already set) — just to confirm unlock
+      // Silently unlock — mute, play, restore volume. No audible chime on reload.
+      if (notificationAudio) {
+        const origVol = notificationAudio.volume
+        notificationAudio.volume = 0
+        try {
+          notificationAudio.currentTime = 0
+          await notificationAudio.play()
+          audioUnlocked = true
+          setSoundReady(true)
+        } catch { /* ok */ }
+        notificationAudio.volume = origVol
       }
       document.removeEventListener('click', autoUnlock, true)
       document.removeEventListener('touchstart', autoUnlock, true)
