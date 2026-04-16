@@ -25,7 +25,14 @@ export default function SaleNotifier() {
     queryFn: async () => {
       const today = new Date().toISOString().slice(0, 10)
       const { data } = await api.get(`/api/sales?from=${today}&to=${today}`)
-      return data as Array<{ id: string; total_revenue: number; total_cups: number; recorded_by?: string; recorded_at: string }>
+      return data as Array<{
+        id: string
+        total_revenue: number
+        total_cups: number
+        recorded_by?: string
+        recorded_at: string
+        sale_items?: Array<{ name: string; qty: number }>
+      }>
     },
     refetchInterval: isAdmin && enabled ? 15000 : false,
     enabled: isAdmin && enabled,
@@ -50,8 +57,24 @@ export default function SaleNotifier() {
         // New sale detected — send browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
           try {
+            // Format time in UAE (UTC+4)
+            const d = new Date(sale.recorded_at)
+            const uaeHours = (d.getUTCHours() + 4) % 24
+            const timeStr = `${String(uaeHours).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+
+            // Items list: "Americano ×2, Latte ×1"
+            const itemsStr = (sale.sale_items ?? [])
+              .map(it => `${it.name} ×${it.qty}`)
+              .join(', ')
+
+            const bodyParts = [
+              itemsStr || `${sale.total_cups} cup${sale.total_cups !== 1 ? 's' : ''}`,
+              `${Number(sale.total_revenue).toFixed(2)} AED`,
+              `⏰ ${timeStr}${sale.recorded_by ? ` · ${sale.recorded_by}` : ''}`,
+            ]
+
             new Notification('New Sale Recorded', {
-              body: `${sale.total_cups} cup${sale.total_cups !== 1 ? 's' : ''} — ${Number(sale.total_revenue).toFixed(2)} AED${sale.recorded_by ? ` (${sale.recorded_by})` : ''}`,
+              body: bodyParts.join('\n'),
               icon: '/images/logo.png',
               tag: `sale-${sale.id}`,
             })
