@@ -80,14 +80,15 @@ router.get('/hourly', async (req: Request, res: Response) => {
 
     if (error) throw error
 
-    // Aggregate by hour (6am to 10pm)
+    // Aggregate by hour (6am to 11pm) — UAE is UTC+4
     const hourMap: Record<number, number> = {}
-    for (let h = 6; h <= 22; h++) hourMap[h] = 0
+    for (let h = 6; h <= 23; h++) hourMap[h] = 0
 
     for (const sale of sales ?? []) {
-      const hour = new Date(sale.recorded_at).getHours()
-      if (hour >= 6 && hour <= 22) {
-        hourMap[hour] += sale.total_cups
+      const utcHour = new Date(sale.recorded_at).getUTCHours()
+      const uaeHour = (utcHour + 4) % 24
+      if (uaeHour >= 6 && uaeHour <= 23) {
+        hourMap[uaeHour] += Number(sale.total_cups) || 0
       }
     }
 
