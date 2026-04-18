@@ -44,7 +44,7 @@ export function useRecordSale() {
 export function useDeleteSale() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => salesService.deleteSale(id),
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => salesService.deleteSale(id, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sales'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })

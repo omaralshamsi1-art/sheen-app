@@ -23,8 +23,8 @@ export const salesService = {
     return data
   },
 
-  async deleteSale(id: string): Promise<void> {
-    await api.delete(`/api/sales/${id}`)
+  async deleteSale(id: string, reason: string): Promise<void> {
+    await api.delete(`/api/sales/${id}`, { data: { reason } })
   },
 
   async getDashboardKPIs(dateOrRange?: string | { from: string; to: string }): Promise<DashboardKPIs & { petty_cash_spent?: number }> {

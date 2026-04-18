@@ -333,13 +333,41 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
-// DELETE /api/sales/:id
+// DELETE /api/sales/:id — requires a reason in the body
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const { data: existing } = await supabase.from('sales').select('sale_date, total_revenue, total_cups').eq('id', req.params.id).single()
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) : ''
+    if (!reason) {
+      res.status(400).json({ message: 'Reason is required to delete a sale' })
+      return
+    }
+
+    const { data: existing } = await supabase
+      .from('sales')
+      .select('sale_date, total_revenue, total_cups, recorded_by, sale_items(name, qty)')
+      .eq('id', req.params.id)
+      .single()
+
     const { error } = await supabase.from('sales').delete().eq('id', req.params.id)
     if (error) throw error
-    await logAudit(req, { action: 'delete', entity: 'sale', entity_id: req.params.id, details: { page: 'Sales', sale_date: existing?.sale_date, total_revenue: existing?.total_revenue, cups: existing?.total_cups } })
+
+    const itemsSummary = (existing?.sale_items as any[] | undefined)?.map((si: any) => `${si.name} ×${si.qty}`).join(', ') ?? ''
+
+    await logAudit(req, {
+      action: 'delete',
+      entity: 'sale',
+      entity_id: req.params.id,
+      details: {
+        page: 'Sales',
+        sale_date: existing?.sale_date,
+        total_revenue: existing?.total_revenue,
+        cups: existing?.total_cups,
+        source: existing?.recorded_by,
+        items: itemsSummary,
+        reason,
+      },
+    })
+
     res.json({ message: 'Sale deleted' })
   } catch (err: any) {
     res.status(500).json({ message: err.message })

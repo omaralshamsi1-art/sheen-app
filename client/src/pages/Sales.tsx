@@ -33,6 +33,8 @@ export default function Sales() {
   const { data: todaySales = [], isLoading: salesLoading } = useTodaySales()
   const recordSale = useRecordSale()
   const deleteSale = useDeleteSale()
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; summary: string } | null>(null)
+  const [deleteReason, setDeleteReason] = useState('')
 
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [stickerForSale, setStickerForSale] = useState<{ customerName?: string } | null>(null)
@@ -805,7 +807,14 @@ export default function Sales() {
                       {t('printSticker')}
                     </button>
                     <button
-                      onClick={() => deleteSale.mutate(sale.id)}
+                      onClick={() => {
+                        const items = saleItems.map((si: SaleItem) => `${si.name} ×${si.qty}`).join(', ')
+                        setDeleteTarget({
+                          id: sale.id,
+                          summary: `${items || sale.total_cups + ' cups'} — ${Number(sale.total_revenue).toFixed(2)} AED`,
+                        })
+                        setDeleteReason('')
+                      }}
                       disabled={deleteSale.isPending}
                       className="text-red-500 hover:text-red-700 text-xs font-body transition-colors disabled:opacity-50"
                     >
@@ -899,6 +908,54 @@ export default function Sales() {
           customerName={stickerForSale.customerName}
           onClose={() => setStickerForSale(null)}
         />
+      )}
+
+      {/* Delete Sale — Reason Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => !deleteSale.isPending && setDeleteTarget(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-lg font-bold text-red-600 mb-2">Delete Sale</h3>
+            <p className="font-body text-xs text-sheen-muted mb-3">You're about to delete:</p>
+            <div className="px-3 py-2 rounded-lg bg-sheen-cream mb-4">
+              <p className="font-body text-sm text-sheen-black">{deleteTarget.summary}</p>
+            </div>
+            <label className="block font-body text-xs text-sheen-muted mb-1">Reason for deletion <span className="text-red-500">*</span></label>
+            <textarea
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="e.g. Wrong item, Customer cancelled, Duplicate entry..."
+              rows={3}
+              autoFocus
+              className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold resize-none"
+            />
+            <p className="font-body text-[10px] text-sheen-muted mt-1">This reason will be saved in the audit log with your name and the timestamp.</p>
+
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteSale.isPending}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-cream text-sheen-muted font-body text-sm font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!deleteReason.trim()) {
+                    toast.error('Reason is required')
+                    return
+                  }
+                  deleteSale.mutate({ id: deleteTarget.id, reason: deleteReason.trim() }, {
+                    onSuccess: () => setDeleteTarget(null),
+                  })
+                }}
+                disabled={!deleteReason.trim() || deleteSale.isPending}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 text-white font-body text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {deleteSale.isPending ? 'Deleting...' : 'Confirm Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
