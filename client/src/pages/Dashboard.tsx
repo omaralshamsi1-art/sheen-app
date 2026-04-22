@@ -13,6 +13,7 @@ import HourlyChart from '../components/charts/HourlyChart'
 import type { FixedCost, TopSeller, Sale, SaleItem } from '../types'
 import { format, addDays, isBefore, parseISO } from 'date-fns'
 import api from '../lib/api'
+import { printSourceReport } from '../utils/printSourceReport'
 
 /* ------------------------------------------------------------------ */
 /*  Skeleton placeholder                                               */
@@ -504,21 +505,35 @@ function SourceSalesModal({
         className="bg-sheen-white w-full sm:max-w-2xl max-h-[calc(100dvh-5rem)] sm:max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-sheen-cream">
-          <div>
-            <h3 className="font-display text-lg text-sheen-black">{source} Orders</h3>
-            <p className="font-body text-xs text-sheen-muted">{rangeLabel}</p>
+        <div className="flex items-center justify-between p-4 border-b border-sheen-cream gap-2">
+          <div className="min-w-0">
+            <h3 className="font-display text-lg text-sheen-black truncate">{source} Orders</h3>
+            <p className="font-body text-xs text-sheen-muted truncate">{rangeLabel}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-sheen-cream transition-colors"
-            aria-label="Close"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6L6 18" />
-              <path d="M6 6L18 18" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => printSourceReport(source, sales, from, to)}
+              disabled={sales.length === 0 || isLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sheen-brown text-white font-body text-xs font-semibold hover:bg-sheen-brown/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9V2h12v7" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect x="6" y="14" width="12" height="8" />
+              </svg>
+              Print
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full hover:bg-sheen-cream transition-colors"
+              aria-label="Close"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6L6 18" />
+                <path d="M6 6L18 18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 p-4 border-b border-sheen-cream bg-sheen-cream/30">
