@@ -68,15 +68,18 @@ router.get('/kpis/today', async (req: Request, res: Response) => {
   }
 })
 
-// GET /api/sales/hourly?date=YYYY-MM-DD — cups by hour
+// GET /api/sales/hourly?date=YYYY-MM-DD or ?from=...&to=... — cups by hour
 router.get('/hourly', async (req: Request, res: Response) => {
   try {
-    const date = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+    const fromParam = req.query.from as string | undefined
+    const toParam = req.query.to as string | undefined
+    const isRange = !!(fromParam && toParam)
+    const single = (req.query.date as string) || new Date().toISOString().slice(0, 10)
 
-    const { data: sales, error } = await supabase
-      .from('sales')
-      .select('recorded_at, total_cups')
-      .eq('sale_date', date)
+    const q = supabase.from('sales').select('recorded_at, total_cups')
+    const { data: sales, error } = await (
+      isRange ? q.gte('sale_date', fromParam!).lte('sale_date', toParam!) : q.eq('sale_date', single)
+    )
 
     if (error) throw error
 
@@ -106,14 +109,16 @@ router.get('/hourly', async (req: Request, res: Response) => {
 // GET /api/sales/top-sellers?date=YYYY-MM-DD&limit=5
 router.get('/top-sellers', async (req: Request, res: Response) => {
   try {
-    const date = (req.query.date as string) || new Date().toISOString().slice(0, 10)
+    const fromParam = req.query.from as string | undefined
+    const toParam = req.query.to as string | undefined
+    const isRange = !!(fromParam && toParam)
+    const single = (req.query.date as string) || new Date().toISOString().slice(0, 10)
     const limit = Number(req.query.limit) || 5
 
-    // Get sale IDs for the date
-    const { data: sales, error: salesErr } = await supabase
-      .from('sales')
-      .select('id')
-      .eq('sale_date', date)
+    const q = supabase.from('sales').select('id')
+    const { data: sales, error: salesErr } = await (
+      isRange ? q.gte('sale_date', fromParam!).lte('sale_date', toParam!) : q.eq('sale_date', single)
+    )
 
     if (salesErr) throw salesErr
 
@@ -187,18 +192,34 @@ router.get('/by-source', async (req: Request, res: Response) => {
 })
 
 // GET /api/sales/last-7-days — revenue + expenses per day
-// Optional query param: ?days=30 (default 7)
+// Optional query params: ?days=30 (default 7) OR ?from=YYYY-MM-DD&to=YYYY-MM-DD
 router.get('/last-7-days', async (req: Request, res: Response) => {
   try {
-    const numDays = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 90)
-    const today = new Date()
+    const fromParam = req.query.from as string | undefined
+    const toParam = req.query.to as string | undefined
     const days: { date: string; revenue: number; expenses: number; petty_cash: number }[] = []
 
-    for (let i = numDays - 1; i >= 0; i--) {
-      const d = new Date(today)
-      d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().slice(0, 10)
-      days.push({ date: dateStr, revenue: 0, expenses: 0, petty_cash: 0 })
+    if (fromParam && toParam) {
+      const start = new Date(fromParam + 'T00:00:00Z')
+      const end = new Date(toParam + 'T00:00:00Z')
+      const maxDays = 400
+      let count = 0
+      for (let d = new Date(start); d <= end && count < maxDays; d.setUTCDate(d.getUTCDate() + 1), count++) {
+        days.push({ date: d.toISOString().slice(0, 10), revenue: 0, expenses: 0, petty_cash: 0 })
+      }
+    } else {
+      const numDays = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 400)
+      const today = new Date()
+      for (let i = numDays - 1; i >= 0; i--) {
+        const d = new Date(today)
+        d.setDate(d.getDate() - i)
+        days.push({ date: d.toISOString().slice(0, 10), revenue: 0, expenses: 0, petty_cash: 0 })
+      }
+    }
+
+    if (days.length === 0) {
+      res.json([])
+      return
     }
 
     const from = days[0].date

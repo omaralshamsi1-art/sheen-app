@@ -35,13 +35,19 @@ export const salesService = {
     return data
   },
 
-  async getHourlySales(date: string): Promise<HourlySales[]> {
-    const { data } = await api.get(`/api/sales/hourly?date=${date}`)
+  async getHourlySales(dateOrRange: string | { from: string; to: string }): Promise<HourlySales[]> {
+    let params: Record<string, string> = {}
+    if (typeof dateOrRange === 'string') params.date = dateOrRange
+    else { params.from = dateOrRange.from; params.to = dateOrRange.to }
+    const { data } = await api.get('/api/sales/hourly', { params })
     return data
   },
 
-  async getTopSellers(date: string, limit = 5): Promise<TopSeller[]> {
-    const { data } = await api.get(`/api/sales/top-sellers?date=${date}&limit=${limit}`)
+  async getTopSellers(dateOrRange: string | { from: string; to: string }, limit = 5): Promise<TopSeller[]> {
+    let params: Record<string, string> = { limit: String(limit) }
+    if (typeof dateOrRange === 'string') params.date = dateOrRange
+    else { params.from = dateOrRange.from; params.to = dateOrRange.to }
+    const { data } = await api.get('/api/sales/top-sellers', { params })
     return data
   },
 
@@ -52,6 +58,11 @@ export const salesService = {
 
   async getRevenueByDays(days: number): Promise<{ date: string; revenue: number; expenses: number }[]> {
     const { data } = await api.get(`/api/sales/last-7-days?days=${days}`)
+    return data
+  },
+
+  async getRevenueByRange(from: string, to: string): Promise<{ date: string; revenue: number; expenses: number }[]> {
+    const { data } = await api.get('/api/sales/last-7-days', { params: { from, to } })
     return data
   },
 

@@ -62,18 +62,20 @@ export function useDashboardKPIs() {
   })
 }
 
-export function useHourlySales(date: string) {
+export function useHourlySales(dateOrRange: string | { from: string; to: string }) {
+  const key = typeof dateOrRange === 'string' ? dateOrRange : `${dateOrRange.from}_${dateOrRange.to}`
   return useQuery({
-    queryKey: ['dashboard', 'hourly', date],
-    queryFn: () => salesService.getHourlySales(date),
+    queryKey: ['dashboard', 'hourly', key],
+    queryFn: () => salesService.getHourlySales(dateOrRange),
     staleTime: 30_000,
   })
 }
 
-export function useTopSellers(date: string, limit = 5) {
+export function useTopSellers(dateOrRange: string | { from: string; to: string }, limit = 5) {
+  const key = typeof dateOrRange === 'string' ? dateOrRange : `${dateOrRange.from}_${dateOrRange.to}`
   return useQuery({
-    queryKey: ['dashboard', 'top-sellers', date, limit],
-    queryFn: () => salesService.getTopSellers(date, limit),
+    queryKey: ['dashboard', 'top-sellers', key, limit],
+    queryFn: () => salesService.getTopSellers(dateOrRange, limit),
     staleTime: 30_000,
   })
 }

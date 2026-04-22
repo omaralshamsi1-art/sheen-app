@@ -10,8 +10,9 @@ import StatCard from '../components/cards/StatCard'
 import InsightCard from '../components/cards/InsightCard'
 import RevenueChart from '../components/charts/RevenueChart'
 import HourlyChart from '../components/charts/HourlyChart'
-import type { FixedCost, TopSeller } from '../types'
+import type { FixedCost, TopSeller, Sale, SaleItem } from '../types'
 import { format, addDays, isBefore, parseISO } from 'date-fns'
+import api from '../lib/api'
 
 /* ------------------------------------------------------------------ */
 /*  Skeleton placeholder                                               */
@@ -46,23 +47,28 @@ export default function Dashboard() {
 
   const kpiKey = range ? `${range.from}_${range.to}` : selectedDate
   const dateArg = range ?? selectedDate
+  const [sourceDetail, setSourceDetail] = useState<string | null>(null)
 
   const { data: kpis, isLoading: kpisLoading } = useQuery({
     queryKey: ['dashboard', 'kpis', kpiKey],
     queryFn: () => salesService.getDashboardKPIs(dateArg),
     staleTime: 30_000,
   })
-  const { data: hourlySales, isLoading: hourlyLoading } = useHourlySales(range ? range.to : selectedDate)
-  const { data: topSellers, isLoading: sellersLoading } = useTopSellers(range ? range.to : selectedDate, 5)
+  const { data: hourlySales, isLoading: hourlyLoading } = useHourlySales(dateArg)
+  const { data: topSellers, isLoading: sellersLoading } = useTopSellers(dateArg, 5)
   const { data: salesBySource = [] } = useQuery({
     queryKey: ['dashboard', 'by-source', kpiKey],
     queryFn: () => salesService.getSalesBySource(dateArg),
     staleTime: 30_000,
   })
   const [chartPeriod, setChartPeriod] = useState<7 | 14 | 30>(7)
+  const chartKey = range ? `range_${range.from}_${range.to}` : `days_${chartPeriod}`
   const { data: chartData, isLoading: revenueLoading } = useQuery({
-    queryKey: ['dashboard', 'revenue-chart', chartPeriod],
-    queryFn: () => salesService.getRevenueByDays(chartPeriod),
+    queryKey: ['dashboard', 'revenue-chart', chartKey],
+    queryFn: () =>
+      range
+        ? salesService.getRevenueByRange(range.from, range.to)
+        : salesService.getRevenueByDays(chartPeriod),
     staleTime: 30_000,
   })
   const { data: fixedCosts, isLoading: costsLoading } = useFixedCosts()
@@ -244,21 +250,23 @@ export default function Dashboard() {
                 <h2 className="font-display text-lg text-sheen-black">
                   {t('revenueVsExpenses')}
                 </h2>
-                <div className="flex gap-1.5">
-                  {([7, 14, 30] as const).map(d => (
-                    <button
-                      key={d}
-                      onClick={() => setChartPeriod(d)}
-                      className={`px-4 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
-                        chartPeriod === d
-                          ? 'bg-sheen-brown text-white shadow-sm'
-                          : 'bg-sheen-cream text-sheen-muted hover:bg-sheen-gold/10'
-                      }`}
-                    >
-                      {d === 7 ? '7 Days' : d === 14 ? '14 Days' : '30 Days'}
-                    </button>
-                  ))}
-                </div>
+                {!range && (
+                  <div className="flex gap-1.5">
+                    {([7, 14, 30] as const).map(d => (
+                      <button
+                        key={d}
+                        onClick={() => setChartPeriod(d)}
+                        className={`px-4 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+                          chartPeriod === d
+                            ? 'bg-sheen-brown text-white shadow-sm'
+                            : 'bg-sheen-cream text-sheen-muted hover:bg-sheen-gold/10'
+                        }`}
+                      >
+                        {d === 7 ? '7 Days' : d === 14 ? '14 Days' : '30 Days'}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               {revenueLoading ? (
                 <Skeleton className="h-56 w-full" />
@@ -293,13 +301,17 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-2">
                   {salesBySource.map((s) => (
-                    <div key={s.source} className="flex items-center justify-between px-3 py-2 rounded-lg bg-sheen-cream/50">
+                    <button
+                      key={s.source}
+                      onClick={() => setSourceDetail(s.source)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-sheen-cream/50 hover:bg-sheen-gold/10 transition-colors text-left"
+                    >
                       <div className="flex flex-col">
                         <span className="font-body text-sm font-medium text-sheen-black">{s.source}</span>
                         <span className="font-body text-[10px] text-sheen-muted">{s.count} {s.count === 1 ? 'sale' : 'sales'} · {s.cups} cups</span>
                       </div>
                       <span className="font-display text-sm font-bold text-sheen-brown">{s.total.toFixed(2)} د.إ</span>
-                    </div>
+                    </button>
                   ))}
                   <div className="flex items-center justify-between px-3 py-2 mt-2 border-t border-sheen-cream">
                     <span className="font-body text-xs font-semibold text-sheen-muted uppercase tracking-wider">Total</span>
@@ -434,6 +446,150 @@ export default function Dashboard() {
           </div>
         </section>
       </main>
+
+      {sourceDetail && (
+        <SourceSalesModal
+          source={sourceDetail}
+          from={range ? range.from : selectedDate}
+          to={range ? range.to : selectedDate}
+          onClose={() => setSourceDetail(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Source Sales Modal                                                 */
+/* ------------------------------------------------------------------ */
+
+function SourceSalesModal({
+  source,
+  from,
+  to,
+  onClose,
+}: {
+  source: string
+  from: string
+  to: string
+  onClose: () => void
+}) {
+  const { data: sales = [], isLoading } = useQuery({
+    queryKey: ['sales-by-source-detail', source, from, to],
+    queryFn: async () => {
+      const { data } = await api.get<(Sale & { sale_items: SaleItem[] })[]>(
+        `/api/sales?from=${from}&to=${to}`,
+      )
+      const target = source.toLowerCase()
+      return (data ?? []).filter(
+        (s) => (s.recorded_by ?? 'POS').toLowerCase() === target,
+      )
+    },
+    staleTime: 30_000,
+  })
+
+  const totalRevenue = sales.reduce((sum, s) => sum + Number(s.total_revenue), 0)
+  const totalCups = sales.reduce((sum, s) => sum + Number(s.total_cups), 0)
+  const rangeLabel =
+    from === to
+      ? format(parseISO(from), 'EEEE, MMMM d, yyyy')
+      : `${format(parseISO(from), 'MMM d, yyyy')} → ${format(parseISO(to), 'MMM d, yyyy')}`
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-sheen-white w-full sm:max-w-2xl max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-sheen-cream">
+          <div>
+            <h3 className="font-display text-lg text-sheen-black">{source} Orders</h3>
+            <p className="font-body text-xs text-sheen-muted">{rangeLabel}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-sheen-cream transition-colors"
+            aria-label="Close"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18" />
+              <path d="M6 6L18 18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 p-4 border-b border-sheen-cream bg-sheen-cream/30">
+          <div>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Orders</p>
+            <p className="font-display text-lg font-bold text-sheen-black">{sales.length}</p>
+          </div>
+          <div>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Cups</p>
+            <p className="font-display text-lg font-bold text-sheen-black">{totalCups}</p>
+          </div>
+          <div>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Revenue</p>
+            <p className="font-display text-lg font-bold text-sheen-brown">
+              {totalRevenue.toFixed(2)} د.إ
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {isLoading ? (
+            <p className="font-body text-sm text-sheen-muted text-center py-6">Loading…</p>
+          ) : sales.length === 0 ? (
+            <p className="font-body text-sm text-sheen-muted text-center py-6">
+              No orders for {source} in this range.
+            </p>
+          ) : (
+            sales.map((sale) => {
+              const uaeTime = new Date(sale.recorded_at)
+              uaeTime.setHours(uaeTime.getHours() + 4)
+              return (
+                <div
+                  key={sale.id}
+                  className="rounded-lg border border-sheen-cream p-3 bg-sheen-cream/20"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-body text-xs text-sheen-muted">
+                      {format(parseISO(sale.sale_date), 'MMM d')} ·{' '}
+                      {uaeTime.toISOString().slice(11, 16)}
+                    </span>
+                    <span className="font-display text-sm font-bold text-sheen-brown">
+                      {Number(sale.total_revenue).toFixed(2)} د.إ
+                    </span>
+                  </div>
+                  <ul className="space-y-1">
+                    {(sale.sale_items ?? []).map((item) => (
+                      <li
+                        key={item.id}
+                        className="flex items-center justify-between font-body text-sm"
+                      >
+                        <span className="text-sheen-black truncate pr-2">
+                          {item.name}
+                          <span className="text-sheen-muted"> × {item.qty}</span>
+                        </span>
+                        <span className="text-sheen-muted whitespace-nowrap">
+                          {Number(item.total).toFixed(2)} د.إ
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {sale.notes && (
+                    <p className="font-body text-xs text-sheen-muted mt-2 italic">
+                      {sale.notes}
+                    </p>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
     </div>
   )
 }
