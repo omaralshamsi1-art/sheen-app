@@ -8,6 +8,7 @@ export function printSourceReport(
   sales: SaleWithItems[],
   from: string,
   to: string,
+  fee: { pct: number; vat: boolean } = { pct: 0, vat: false },
 ) {
   const win = window.open('', '_blank', 'width=560,height=900')
   if (!win) return
@@ -20,6 +21,10 @@ export function printSourceReport(
 
   const totalRevenue = sales.reduce((s, x) => s + Number(x.total_revenue), 0)
   const totalCups = sales.reduce((s, x) => s + Number(x.total_cups), 0)
+  const commission = totalRevenue * (fee.pct / 100)
+  const vatOnCommission = fee.vat ? commission * 0.05 : 0
+  const netPayout = totalRevenue - commission - vatOnCommission
+  const hasFee = fee.pct > 0
 
   const byProduct: Record<string, { qty: number; total: number }> = {}
   for (const sale of sales) {
@@ -151,9 +156,14 @@ export function printSourceReport(
       <table>
         ${orderRows || '<tr><td colspan="2" class="center">No orders</td></tr>'}
         <tr class="total-row">
-          <td>Total</td>
+          <td>Gross Total</td>
           <td class="right">AED ${totalRevenue.toFixed(2)}</td>
         </tr>
+        ${hasFee ? `
+        <tr><td>Commission (${fee.pct}%)</td><td class="right">-AED ${commission.toFixed(2)}</td></tr>
+        ${fee.vat ? `<tr><td>VAT 5% on commission</td><td class="right">-AED ${vatOnCommission.toFixed(2)}</td></tr>` : ''}
+        <tr class="total-row"><td>Net Payout</td><td class="right">AED ${netPayout.toFixed(2)}</td></tr>
+        ` : ''}
       </table>
 
       <div class="double-line"></div>

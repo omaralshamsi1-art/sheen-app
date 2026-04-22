@@ -15,6 +15,28 @@ import { format, addDays, isBefore, parseISO } from 'date-fns'
 import api from '../lib/api'
 import { printSourceReport } from '../utils/printSourceReport'
 
+type OrderSource = { id: string; commission: number; vat?: boolean }
+
+const DEFAULT_SOURCES: OrderSource[] = [
+  { id: 'Cash', commission: 0, vat: false },
+  { id: 'Talabat', commission: 15, vat: false },
+  { id: 'Beanz', commission: 2.5, vat: true },
+  { id: 'App', commission: 0, vat: false },
+  { id: 'Other', commission: 0, vat: false },
+]
+
+function commissionFor(source: string, sources: OrderSource[]) {
+  const match = sources.find((s) => s.id.toLowerCase() === source.toLowerCase())
+  return { pct: match?.commission ?? 0, vat: !!match?.vat }
+}
+
+function calcNet(gross: number, source: string, sources: OrderSource[]) {
+  const { pct, vat } = commissionFor(source, sources)
+  const commission = gross * (pct / 100)
+  const vatAmt = vat ? commission * 0.05 : 0
+  return { commission, vatAmt, net: gross - commission - vatAmt, pct, vat }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Skeleton placeholder                                               */
 /* ------------------------------------------------------------------ */
@@ -61,6 +83,14 @@ export default function Dashboard() {
     queryKey: ['dashboard', 'by-source', kpiKey],
     queryFn: () => salesService.getSalesBySource(dateArg),
     staleTime: 30_000,
+  })
+  const { data: orderSources = DEFAULT_SOURCES } = useQuery({
+    queryKey: ['settings', 'order_sources'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/order_sources')
+      return (data as OrderSource[] | null) ?? DEFAULT_SOURCES
+    },
+    staleTime: 5 * 60_000,
   })
   const [chartPeriod, setChartPeriod] = useState<7 | 14 | 30>(7)
   const chartKey = range ? `range_${range.from}_${range.to}` : `days_${chartPeriod}`
@@ -301,24 +331,45 @@ export default function Dashboard() {
                 <p className="font-body text-sm text-sheen-muted">No sales recorded.</p>
               ) : (
                 <div className="space-y-2">
-                  {salesBySource.map((s) => (
-                    <button
-                      key={s.source}
-                      onClick={() => setSourceDetail(s.source)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-sheen-cream/50 hover:bg-sheen-gold/10 transition-colors text-left"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-body text-sm font-medium text-sheen-black">{s.source}</span>
-                        <span className="font-body text-[10px] text-sheen-muted">{s.count} {s.count === 1 ? 'sale' : 'sales'} · {s.cups} cups</span>
-                      </div>
-                      <span className="font-display text-sm font-bold text-sheen-brown">{s.total.toFixed(2)} د.إ</span>
-                    </button>
-                  ))}
+                  {salesBySource.map((s) => {
+                    const { net, pct, vat } = calcNet(s.total, s.source, orderSources)
+                    const hasFee = pct > 0
+                    return (
+                      <button
+                        key={s.source}
+                        onClick={() => setSourceDetail(s.source)}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-sheen-cream/50 hover:bg-sheen-gold/10 transition-colors text-left"
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-body text-sm font-medium text-sheen-black">{s.source}</span>
+                          <span className="font-body text-[10px] text-sheen-muted">
+                            {s.count} {s.count === 1 ? 'sale' : 'sales'} · {s.cups} cups
+                            {hasFee && ` · -${pct}%${vat ? '+VAT' : ''}`}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="font-display text-sm font-bold text-sheen-brown">{s.total.toFixed(2)} د.إ</span>
+                          {hasFee && (
+                            <span className="font-body text-[10px] text-green-700">
+                              net {net.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
                   <div className="flex items-center justify-between px-3 py-2 mt-2 border-t border-sheen-cream">
                     <span className="font-body text-xs font-semibold text-sheen-muted uppercase tracking-wider">Total</span>
-                    <span className="font-display text-base font-bold text-sheen-brown">
-                      {salesBySource.reduce((s, x) => s + x.total, 0).toFixed(2)} د.إ
-                    </span>
+                    <div className="flex flex-col items-end">
+                      <span className="font-display text-base font-bold text-sheen-brown">
+                        {salesBySource.reduce((s, x) => s + x.total, 0).toFixed(2)} د.إ
+                      </span>
+                      {salesBySource.some((s) => calcNet(s.total, s.source, orderSources).pct > 0) && (
+                        <span className="font-body text-[10px] text-green-700">
+                          net {salesBySource.reduce((sum, x) => sum + calcNet(x.total, x.source, orderSources).net, 0).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -453,6 +504,7 @@ export default function Dashboard() {
           source={sourceDetail}
           from={range ? range.from : selectedDate}
           to={range ? range.to : selectedDate}
+          orderSources={orderSources}
           onClose={() => setSourceDetail(null)}
         />
       )}
@@ -468,11 +520,13 @@ function SourceSalesModal({
   source,
   from,
   to,
+  orderSources,
   onClose,
 }: {
   source: string
   from: string
   to: string
+  orderSources: OrderSource[]
   onClose: () => void
 }) {
   const { data: sales = [], isLoading } = useQuery({
@@ -491,6 +545,8 @@ function SourceSalesModal({
 
   const totalRevenue = sales.reduce((sum, s) => sum + Number(s.total_revenue), 0)
   const totalCups = sales.reduce((sum, s) => sum + Number(s.total_cups), 0)
+  const { commission, vatAmt, net, pct, vat } = calcNet(totalRevenue, source, orderSources)
+  const hasFee = pct > 0
   const rangeLabel =
     from === to
       ? format(parseISO(from), 'EEEE, MMMM d, yyyy')
@@ -512,7 +568,7 @@ function SourceSalesModal({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => printSourceReport(source, sales, from, to)}
+              onClick={() => printSourceReport(source, sales, from, to, { pct, vat })}
               disabled={sales.length === 0 || isLoading}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sheen-brown text-white font-body text-xs font-semibold hover:bg-sheen-brown/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -536,7 +592,7 @@ function SourceSalesModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 p-4 border-b border-sheen-cream bg-sheen-cream/30">
+        <div className={`grid ${hasFee ? 'grid-cols-4' : 'grid-cols-3'} gap-2 p-4 border-b border-sheen-cream bg-sheen-cream/30`}>
           <div>
             <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Orders</p>
             <p className="font-display text-lg font-bold text-sheen-black">{sales.length}</p>
@@ -546,12 +602,30 @@ function SourceSalesModal({
             <p className="font-display text-lg font-bold text-sheen-black">{totalCups}</p>
           </div>
           <div>
-            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Revenue</p>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Gross</p>
             <p className="font-display text-lg font-bold text-sheen-brown">
-              {totalRevenue.toFixed(2)} د.إ
+              {totalRevenue.toFixed(2)}
             </p>
           </div>
+          {hasFee && (
+            <div>
+              <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">
+                Net <span className="normal-case">(-{pct}%{vat ? '+VAT' : ''})</span>
+              </p>
+              <p className="font-display text-lg font-bold text-green-700">
+                {net.toFixed(2)}
+              </p>
+            </div>
+          )}
         </div>
+        {hasFee && (
+          <div className="px-4 py-2 border-b border-sheen-cream bg-red-50/40 flex items-center justify-between font-body text-xs">
+            <span className="text-red-600">
+              Commission {pct}%: -{commission.toFixed(2)} د.إ
+              {vat && ` · VAT 5%: -${vatAmt.toFixed(2)} د.إ`}
+            </span>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {isLoading ? (
