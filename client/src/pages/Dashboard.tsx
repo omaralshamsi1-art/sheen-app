@@ -71,6 +71,7 @@ export default function Dashboard() {
   const kpiKey = range ? `${range.from}_${range.to}` : selectedDate
   const dateArg = range ?? selectedDate
   const [sourceDetail, setSourceDetail] = useState<string | null>(null)
+  const [productDetail, setProductDetail] = useState<string | null>(null)
 
   const { data: kpis, isLoading: kpisLoading } = useQuery({
     queryKey: ['dashboard', 'kpis', kpiKey],
@@ -399,34 +400,36 @@ export default function Dashboard() {
                         item: TopSeller,
                         idx: number,
                       ) => (
-                        <li
-                          key={item.name}
-                          className="flex items-center gap-3 font-body text-sm"
-                        >
-                          <span
-                            className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
-                              idx === 0
-                                ? 'bg-sheen-gold text-sheen-black'
-                                : idx === 1
-                                  ? 'bg-sheen-muted/30 text-sheen-black'
-                                  : idx === 2
-                                    ? 'bg-amber-700/20 text-amber-800'
-                                    : 'bg-sheen-cream text-sheen-muted'
-                            }`}
+                        <li key={item.name}>
+                          <button
+                            onClick={() => setProductDetail(item.name)}
+                            className="w-full flex items-center gap-3 font-body text-sm p-1 -m-1 rounded-lg hover:bg-sheen-gold/10 transition-colors text-left"
                           >
-                            {idx + 1}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="truncate font-medium text-sheen-black">
-                              {item.name}
-                            </p>
-                            <p className="text-xs text-sheen-muted">
-                              {item.qty} {t('cups')}
-                            </p>
-                          </div>
-                          <span className="text-sheen-brown font-semibold whitespace-nowrap">
-                            {item.revenue.toFixed(2)} د.إ
-                          </span>
+                            <span
+                              className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+                                idx === 0
+                                  ? 'bg-sheen-gold text-sheen-black'
+                                  : idx === 1
+                                    ? 'bg-sheen-muted/30 text-sheen-black'
+                                    : idx === 2
+                                      ? 'bg-amber-700/20 text-amber-800'
+                                      : 'bg-sheen-cream text-sheen-muted'
+                              }`}
+                            >
+                              {idx + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate font-medium text-sheen-black">
+                                {item.name}
+                              </p>
+                              <p className="text-xs text-sheen-muted">
+                                {item.qty} {t('cups')}
+                              </p>
+                            </div>
+                            <span className="text-sheen-brown font-semibold whitespace-nowrap">
+                              {item.revenue.toFixed(2)} د.إ
+                            </span>
+                          </button>
                         </li>
                       ),
                     )}
@@ -506,6 +509,15 @@ export default function Dashboard() {
           to={range ? range.to : selectedDate}
           orderSources={orderSources}
           onClose={() => setSourceDetail(null)}
+        />
+      )}
+
+      {productDetail && (
+        <ProductSalesModal
+          product={productDetail}
+          from={range ? range.from : selectedDate}
+          to={range ? range.to : selectedDate}
+          onClose={() => setProductDetail(null)}
         />
       )}
     </div>
@@ -673,6 +685,165 @@ function SourceSalesModal({
                       {sale.notes}
                     </p>
                   )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Product Sales Modal — all sales containing a specific item         */
+/* ------------------------------------------------------------------ */
+
+function ProductSalesModal({
+  product,
+  from,
+  to,
+  onClose,
+}: {
+  product: string
+  from: string
+  to: string
+  onClose: () => void
+}) {
+  const { data: matches = [], isLoading } = useQuery({
+    queryKey: ['sales-by-product-detail', product, from, to],
+    queryFn: async () => {
+      const { data } = await api.get<(Sale & { sale_items: SaleItem[] })[]>(
+        `/api/sales?from=${from}&to=${to}`,
+      )
+      const target = product.toLowerCase()
+      return (data ?? [])
+        .map((sale) => {
+          const hit = (sale.sale_items ?? []).filter(
+            (it) => it.name.toLowerCase() === target,
+          )
+          if (hit.length === 0) return null
+          const qty = hit.reduce((s, i) => s + i.qty, 0)
+          const revenue = hit.reduce((s, i) => s + Number(i.total), 0)
+          return { sale, qty, revenue }
+        })
+        .filter((x): x is { sale: Sale & { sale_items: SaleItem[] }; qty: number; revenue: number } => x !== null)
+    },
+    staleTime: 30_000,
+  })
+
+  const totalQty = matches.reduce((s, m) => s + m.qty, 0)
+  const totalRevenue = matches.reduce((s, m) => s + m.revenue, 0)
+
+  const bySource: Record<string, { qty: number; revenue: number }> = {}
+  for (const m of matches) {
+    const src = m.sale.recorded_by || 'POS'
+    if (!bySource[src]) bySource[src] = { qty: 0, revenue: 0 }
+    bySource[src].qty += m.qty
+    bySource[src].revenue += m.revenue
+  }
+
+  const rangeLabel =
+    from === to
+      ? format(parseISO(from), 'EEEE, MMMM d, yyyy')
+      : `${format(parseISO(from), 'MMM d, yyyy')} → ${format(parseISO(to), 'MMM d, yyyy')}`
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4 pt-20 sm:pt-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-sheen-white w-full sm:max-w-2xl max-h-[calc(100dvh-5rem)] sm:max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-sheen-cream gap-2">
+          <div className="min-w-0">
+            <h3 className="font-display text-lg text-sheen-black truncate">{product}</h3>
+            <p className="font-body text-xs text-sheen-muted truncate">{rangeLabel}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-sheen-cream transition-colors shrink-0"
+            aria-label="Close"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18" />
+              <path d="M6 6L18 18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 p-4 border-b border-sheen-cream bg-sheen-cream/30">
+          <div>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Orders</p>
+            <p className="font-display text-lg font-bold text-sheen-black">{matches.length}</p>
+          </div>
+          <div>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Qty Sold</p>
+            <p className="font-display text-lg font-bold text-sheen-black">{totalQty}</p>
+          </div>
+          <div>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Revenue</p>
+            <p className="font-display text-lg font-bold text-sheen-brown">
+              {totalRevenue.toFixed(2)} د.إ
+            </p>
+          </div>
+        </div>
+
+        {Object.keys(bySource).length > 0 && (
+          <div className="px-4 py-3 border-b border-sheen-cream bg-sheen-cream/20">
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted mb-2">By Source</p>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(bySource)
+                .sort((a, b) => b[1].revenue - a[1].revenue)
+                .map(([src, d]) => (
+                  <span
+                    key={src}
+                    className="px-2.5 py-1 rounded-full bg-sheen-white border border-sheen-cream font-body text-xs text-sheen-black"
+                  >
+                    {src}: <span className="font-semibold">{d.qty}</span>
+                    <span className="text-sheen-muted"> · {d.revenue.toFixed(2)} د.إ</span>
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {isLoading ? (
+            <p className="font-body text-sm text-sheen-muted text-center py-6">Loading…</p>
+          ) : matches.length === 0 ? (
+            <p className="font-body text-sm text-sheen-muted text-center py-6">
+              No sales for {product} in this range.
+            </p>
+          ) : (
+            matches.map(({ sale, qty, revenue }) => {
+              const uaeTime = new Date(sale.recorded_at)
+              uaeTime.setHours(uaeTime.getHours() + 4)
+              return (
+                <div
+                  key={sale.id}
+                  className="rounded-lg border border-sheen-cream p-3 bg-sheen-cream/20"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-body text-xs text-sheen-muted">
+                      {format(parseISO(sale.sale_date), 'MMM d')} ·{' '}
+                      {uaeTime.toISOString().slice(11, 16)} ·{' '}
+                      <span className="text-sheen-black font-medium">
+                        {sale.recorded_by || 'POS'}
+                      </span>
+                    </span>
+                    <span className="font-display text-sm font-bold text-sheen-brown">
+                      {revenue.toFixed(2)} د.إ
+                    </span>
+                  </div>
+                  <p className="font-body text-sm text-sheen-black">
+                    {product} <span className="text-sheen-muted">× {qty}</span>
+                  </p>
+                  <p className="font-body text-[11px] text-sheen-muted mt-1">
+                    Order total: {Number(sale.total_revenue).toFixed(2)} د.إ
+                  </p>
                 </div>
               )
             })
