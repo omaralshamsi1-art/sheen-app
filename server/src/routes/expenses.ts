@@ -80,6 +80,37 @@ router.post('/', async (req: Request, res: Response) => {
   }
 })
 
+// GET /api/expenses/summary?from=YYYY-MM-DD&to=YYYY-MM-DD — totals grouped by category
+router.get('/summary', async (req: Request, res: Response) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    const from = (req.query.from as string) || today
+    const to = (req.query.to as string) || today
+
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('category, total_cost')
+      .gte('expense_date', from)
+      .lte('expense_date', to)
+
+    if (error) throw error
+
+    const totals: Record<string, number> = {}
+    for (const row of data ?? []) {
+      const cat = (row.category as string) || 'Other'
+      totals[cat] = (totals[cat] ?? 0) + Number(row.total_cost)
+    }
+
+    const result = Object.entries(totals)
+      .map(([category, total]) => ({ category, total }))
+      .sort((a, b) => b.total - a.total)
+
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // PATCH /api/expenses/:id — update an expense
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
