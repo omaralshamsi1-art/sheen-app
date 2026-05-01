@@ -333,6 +333,8 @@ export const translations = {
   beanDetails: { en: 'Bean Details', ar: 'تفاصيل البُن' },
   willBeCreated: { en: 'will be added as new ingredient', ar: 'سيتم إضافته كمكوّن جديد' },
   pettyCash: { en: 'Petty Cash', ar: 'المصروفات النثرية' },
+  attendance: { en: 'Attendance', ar: 'الحضور' },
+  attendanceAdmin: { en: 'Attendance (Admin)', ar: 'الحضور (المدير)' },
   addPettyCash: { en: 'Add Petty Cash', ar: 'إضافة مصروف نثري' },
   pettyCashPlaceholder: { en: 'e.g. Taxi, cleaning supplies, paper towels...', ar: 'مثال: تاكسي، مواد تنظيف، مناديل...' },
   packs: { en: 'Packs', ar: 'عبوات' },

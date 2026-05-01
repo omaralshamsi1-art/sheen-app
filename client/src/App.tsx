@@ -23,6 +23,8 @@ import Ingredients from './pages/Ingredients'
 import Stickers from './pages/Stickers'
 import Settings from './pages/Settings'
 import PettyCash from './pages/PettyCash'
+import Attendance from './pages/Attendance'
+import AttendanceAdmin from './pages/AttendanceAdmin'
 import MyCard from './pages/MyCard'
 import MyOrders from './pages/MyOrders'
 import MyProfile from './pages/MyProfile'
@@ -80,6 +82,8 @@ export default function App() {
             <Route path="/ingredients" element={<Ingredients />} />
             <Route path="/stickers" element={<Stickers />} />
             <Route path="/petty-cash" element={<PettyCash />} />
+            <Route path="/attendance" element={<Attendance />} />
+            <Route path="/attendance/admin" element={<AttendanceAdmin />} />
             <Route path="/my-card" element={<MyCard />} />
             <Route path="/my-orders" element={<MyOrders />} />
             <Route path="/my-profile" element={<MyProfile />} />
