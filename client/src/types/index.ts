@@ -284,6 +284,8 @@ export interface UserRoleRecord {
   home_address: string | null;
   is_banned?: boolean;
   last_sign_in?: string | null;
+  attendance_pin?: string | null;
+  photo_url?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,41 +1,10 @@
 import { Router, Request, Response } from 'express'
+import crypto from 'crypto'
 import { supabase } from '../lib/supabase'
-import {
-  generateRegistrationOptions,
-  verifyRegistrationResponse,
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse,
-} from '@simplewebauthn/server'
+import Groq from 'groq-sdk'
 
 const router = Router()
-
-const RP_NAME = 'SHEEN CAFE'
-
-function getRpInfo(req: Request) {
-  const origin =
-    (req.headers.origin as string | undefined) ??
-    (req.headers.referer as string | undefined) ??
-    ''
-  let rpID = process.env.WEBAUTHN_RP_ID
-  if (!rpID && origin) {
-    try {
-      rpID = new URL(origin).hostname
-    } catch {
-      rpID = 'localhost'
-    }
-  }
-  return { rpID: rpID || 'localhost', origin }
-}
-
-function getUser(req: Request) {
-  const userId = req.headers['x-user-id'] as string | undefined
-  const userEmail = req.headers['x-user-email'] as string | undefined
-  return { userId, userEmail }
-}
-
-function nowIso() {
-  return new Date().toISOString()
-}
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 // UAE local date (UTC+4)
 function uaeToday(): string {
@@ -43,243 +12,226 @@ function uaeToday(): string {
   now.setHours(now.getHours() + 4)
   return now.toISOString().slice(0, 10)
 }
-
-function bufToB64Url(buf: Uint8Array | ArrayBuffer): string {
-  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf)
-  return Buffer.from(u8).toString('base64url')
+function nowIso() {
+  return new Date().toISOString()
 }
 
-function b64UrlToU8(s: string): Uint8Array {
-  return new Uint8Array(Buffer.from(s, 'base64url'))
+function getKioskToken(req: Request): string | undefined {
+  const h = req.headers['x-kiosk-token']
+  return Array.isArray(h) ? h[0] : (h as string | undefined)
 }
 
-// ─── Registration: GET /api/attendance/enroll/options ───────────────
-router.post('/enroll/options', async (req: Request, res: Response) => {
+async function verifyKiosk(req: Request): Promise<boolean> {
+  const token = getKioskToken(req)
+  if (!token) return false
+  const { data } = await supabase
+    .from('kiosk_tokens')
+    .select('token, is_active')
+    .eq('token', token)
+    .maybeSingle()
+  if (!data || !data.is_active) return false
+  await supabase.from('kiosk_tokens').update({ last_used_at: nowIso() }).eq('token', token)
+  return true
+}
+
+// ─── POST /api/attendance/kiosk/register ─────────────────────────────
+// Admin (or anyone signed-in admin) registers the current device as a kiosk.
+// Returns a token to save in localStorage.
+router.post('/kiosk/register', async (req: Request, res: Response) => {
   try {
-    const { userId, userEmail } = getUser(req)
+    const userEmail = req.headers['x-user-email'] as string | undefined
+    const userId = req.headers['x-user-id'] as string | undefined
     if (!userId || !userEmail) {
       res.status(401).json({ message: 'Not signed in' })
       return
     }
-    const { rpID } = getRpInfo(req)
 
-    const { data: existing } = await supabase
-      .from('webauthn_credentials')
-      .select('id, transports')
+    const { data: roleRow } = await supabase
+      .from('user_roles')
+      .select('role')
       .eq('user_id', userId)
-
-    const options = await generateRegistrationOptions({
-      rpName: RP_NAME,
-      rpID,
-      userID: new TextEncoder().encode(userId),
-      userName: userEmail,
-      userDisplayName: userEmail,
-      attestationType: 'none',
-      authenticatorSelection: {
-        residentKey: 'preferred',
-        userVerification: 'preferred',
-        authenticatorAttachment: 'platform',
-      },
-      excludeCredentials: (existing ?? []).map((c) => ({
-        id: c.id,
-        transports: (c.transports ?? undefined) as any,
-      })),
-    })
-
-    await supabase.from('webauthn_challenges').insert({
-      user_id: userId,
-      challenge: options.challenge,
-      purpose: 'enroll',
-    })
-
-    res.json(options)
-  } catch (err: any) {
-    res.status(500).json({ message: err.message })
-  }
-})
-
-// ─── Registration: POST /api/attendance/enroll/verify ────────────────
-router.post('/enroll/verify', async (req: Request, res: Response) => {
-  try {
-    const { userId, userEmail } = getUser(req)
-    if (!userId || !userEmail) {
-      res.status(401).json({ message: 'Not signed in' })
-      return
-    }
-    const { rpID, origin } = getRpInfo(req)
-    const { response, deviceLabel } = req.body
-
-    const { data: chRows } = await supabase
-      .from('webauthn_challenges')
-      .select('id, challenge, created_at')
-      .eq('user_id', userId)
-      .eq('purpose', 'enroll')
-      .order('created_at', { ascending: false })
-      .limit(1)
-    const expectedChallenge = chRows?.[0]?.challenge
-    if (!expectedChallenge) {
-      res.status(400).json({ message: 'Challenge not found — start enrollment again' })
+      .maybeSingle()
+    if (roleRow?.role !== 'admin') {
+      res.status(403).json({ message: 'Only admin can register a kiosk device' })
       return
     }
 
-    const verification = await verifyRegistrationResponse({
-      response,
-      expectedChallenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
-      requireUserVerification: false,
-    })
+    const token = crypto.randomBytes(24).toString('base64url')
+    const label =
+      typeof req.body?.label === 'string' && req.body.label.trim()
+        ? String(req.body.label).trim().slice(0, 100)
+        : 'Shop Kiosk'
 
-    if (!verification.verified || !verification.registrationInfo) {
-      res.status(400).json({ message: 'Verification failed' })
-      return
-    }
-
-    const { credential } = verification.registrationInfo
-    const credentialID = credential.id // already base64url string in v11
-    const publicKey = bufToB64Url(credential.publicKey)
-    const counter = credential.counter
-
-    await supabase.from('webauthn_credentials').upsert({
-      id: credentialID,
-      user_id: userId,
-      user_email: userEmail,
-      public_key: publicKey,
-      counter,
-      transports: response.response?.transports ?? null,
-      device_label: deviceLabel ?? req.headers['user-agent'] ?? null,
-      created_at: nowIso(),
-    })
-
-    await supabase.from('webauthn_challenges').delete().eq('id', chRows[0].id)
-
-    res.json({ verified: true })
-  } catch (err: any) {
-    res.status(500).json({ message: err.message })
-  }
-})
-
-// ─── Authentication: POST /api/attendance/clock/options ──────────────
-router.post('/clock/options', async (req: Request, res: Response) => {
-  try {
-    const { userId } = getUser(req)
-    if (!userId) {
-      res.status(401).json({ message: 'Not signed in' })
-      return
-    }
-    const { rpID } = getRpInfo(req)
-
-    const { data: creds } = await supabase
-      .from('webauthn_credentials')
-      .select('id, transports')
-      .eq('user_id', userId)
-
-    if (!creds || creds.length === 0) {
-      res.status(400).json({ message: 'No biometric enrolled. Please enroll first.', code: 'NOT_ENROLLED' })
-      return
-    }
-
-    const options = await generateAuthenticationOptions({
-      rpID,
-      userVerification: 'preferred',
-      allowCredentials: creds.map((c) => ({
-        id: c.id,
-        transports: (c.transports ?? undefined) as any,
-      })),
-    })
-
-    await supabase.from('webauthn_challenges').insert({
-      user_id: userId,
-      challenge: options.challenge,
-      purpose: 'clock',
-    })
-
-    res.json(options)
-  } catch (err: any) {
-    res.status(500).json({ message: err.message })
-  }
-})
-
-// ─── Authentication: POST /api/attendance/clock/verify ───────────────
-// Body: { response, action: 'in' | 'out', userName?: string, notes?: string }
-router.post('/clock/verify', async (req: Request, res: Response) => {
-  try {
-    const { userId, userEmail } = getUser(req)
-    if (!userId || !userEmail) {
-      res.status(401).json({ message: 'Not signed in' })
-      return
-    }
-    const { rpID, origin } = getRpInfo(req)
-    const { response, action, userName, notes } = req.body
-    if (action !== 'in' && action !== 'out') {
-      res.status(400).json({ message: 'action must be "in" or "out"' })
-      return
-    }
-
-    const { data: chRows } = await supabase
-      .from('webauthn_challenges')
-      .select('id, challenge')
-      .eq('user_id', userId)
-      .eq('purpose', 'clock')
-      .order('created_at', { ascending: false })
-      .limit(1)
-    const expectedChallenge = chRows?.[0]?.challenge
-    if (!expectedChallenge) {
-      res.status(400).json({ message: 'Challenge not found' })
-      return
-    }
-
-    const credentialID = response.id
-    const { data: credRow } = await supabase
-      .from('webauthn_credentials')
-      .select('*')
-      .eq('id', credentialID)
-      .eq('user_id', userId)
-      .single()
-
-    if (!credRow) {
-      res.status(400).json({ message: 'Unknown credential' })
-      return
-    }
-
-    const verification = await verifyAuthenticationResponse({
-      response,
-      expectedChallenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
-      requireUserVerification: false,
-      credential: {
-        id: credRow.id,
-        publicKey: b64UrlToU8(credRow.public_key),
-        counter: Number(credRow.counter),
-        transports: credRow.transports ?? undefined,
-      },
-    })
-
-    if (!verification.verified) {
-      res.status(400).json({ message: 'Biometric verification failed' })
-      return
-    }
-
-    await supabase
-      .from('webauthn_credentials')
-      .update({
-        counter: verification.authenticationInfo.newCounter,
-        last_used_at: nowIso(),
+    const { data, error } = await supabase
+      .from('kiosk_tokens')
+      .insert({
+        token,
+        label,
+        user_agent: (req.headers['user-agent'] as string | undefined) ?? null,
+        registered_by_email: userEmail,
+        is_active: true,
       })
-      .eq('id', credentialID)
+      .select()
+      .single()
+    if (error) throw error
 
-    await supabase.from('webauthn_challenges').delete().eq('id', chRows[0].id)
+    res.json({ token: data.token, label: data.label })
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
 
-    // Insert / update today's attendance row
+// ─── GET /api/attendance/kiosk/check ─────────────────────────────────
+router.get('/kiosk/check', async (req: Request, res: Response) => {
+  const ok = await verifyKiosk(req)
+  res.json({ ok })
+})
+
+// ─── GET /api/attendance/kiosk/staff ─────────────────────────────────
+// Returns staff (admin + staff roles) with id, name, email, photo_url.
+// PIN value is NOT returned. Requires kiosk token.
+router.get('/kiosk/staff', async (req: Request, res: Response) => {
+  try {
+    if (!(await verifyKiosk(req))) {
+      res.status(401).json({ message: 'Kiosk token invalid' })
+      return
+    }
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('user_id, email, full_name, role, photo_url, attendance_pin')
+      .in('role', ['admin', 'staff'])
+      .order('full_name', { ascending: true })
+    if (error) throw error
+    const list = (data ?? []).map((u: any) => ({
+      user_id: u.user_id,
+      email: u.email,
+      full_name: u.full_name,
+      role: u.role,
+      photo_url: u.photo_url,
+      has_pin: !!u.attendance_pin,
+    }))
+    res.json(list)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// ─── POST /api/attendance/kiosk/clock ────────────────────────────────
+// Body: { user_id, pin, action: 'in'|'out', selfie?: <base64 data URL>, skip_face?: boolean }
+router.post('/kiosk/clock', async (req: Request, res: Response) => {
+  try {
+    if (!(await verifyKiosk(req))) {
+      res.status(401).json({ message: 'Kiosk token invalid' })
+      return
+    }
+    const { user_id, pin, action, selfie, skip_face } = req.body
+    if (!user_id || !pin || !action) {
+      res.status(400).json({ message: 'user_id, pin, action are required' })
+      return
+    }
+    if (action !== 'in' && action !== 'out') {
+      res.status(400).json({ message: 'action must be in or out' })
+      return
+    }
+
+    const { data: user } = await supabase
+      .from('user_roles')
+      .select('user_id, email, full_name, photo_url, attendance_pin')
+      .eq('user_id', user_id)
+      .maybeSingle()
+
+    if (!user) {
+      res.status(404).json({ message: 'Staff not found' })
+      return
+    }
+    if (!user.attendance_pin) {
+      res.status(400).json({ message: 'No PIN set for this staff. Ask admin to set it first.', code: 'NO_PIN' })
+      return
+    }
+    const pinMatch = String(pin).trim() === String(user.attendance_pin).trim()
+
+    let faceMatch = true
+    let faceConfidence = 0
+    let faceReason: string | null = null
+
+    if (pinMatch && !skip_face && user.photo_url && selfie) {
+      try {
+        const aiRes = await groq.chat.completions.create({
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          max_tokens: 200,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `Two photos. Photo A is a saved reference of an employee. Photo B is a live selfie from a check-in kiosk. Decide if the SAME PERSON appears in both.
+
+Respond ONLY with valid JSON:
+{"match": true|false, "confidence": 0-100, "reason": "short reason"}
+
+Be tolerant of lighting, angle, age, glasses, beard, mask. Only respond match=false if you are clearly confident they are different people.`,
+                },
+                { type: 'image_url', image_url: { url: user.photo_url } },
+                { type: 'image_url', image_url: { url: selfie } },
+              ],
+            },
+          ],
+        })
+        const content = aiRes.choices[0]?.message?.content ?? ''
+        const m = content.match(/\{[\s\S]*\}/)
+        if (m) {
+          const parsed = JSON.parse(m[0])
+          faceMatch = !!parsed.match
+          faceConfidence = Number(parsed.confidence ?? 0)
+          faceReason = parsed.reason ?? null
+        }
+      } catch (e: any) {
+        faceMatch = true // do not block on AI failure
+        faceReason = `AI error: ${e?.message ?? 'unknown'}`
+      }
+    } else if (!user.photo_url) {
+      faceMatch = true
+      faceReason = 'No reference photo on file — face check skipped'
+    } else if (!selfie) {
+      faceMatch = true
+      faceReason = 'No selfie provided — face check skipped'
+    }
+
+    // Audit every attempt (pass or fail)
+    await supabase.from('attendance_verify_log').insert({
+      user_id: user.user_id,
+      user_email: user.email,
+      action,
+      pin_match: pinMatch,
+      face_match: faceMatch,
+      face_confidence: faceConfidence,
+      face_reason: faceReason,
+      kiosk_token: getKioskToken(req),
+      ip: (req.headers['x-forwarded-for'] as string | undefined) ?? req.ip ?? null,
+    })
+
+    if (!pinMatch) {
+      res.status(401).json({ message: 'Wrong PIN', code: 'BAD_PIN' })
+      return
+    }
+    if (!faceMatch) {
+      res.status(403).json({
+        message: `Face does not match the reference photo (${faceReason ?? 'no reason'})`,
+        code: 'FACE_MISMATCH',
+        confidence: faceConfidence,
+      })
+      return
+    }
+
+    // Write attendance row
     const today = uaeToday()
     const ts = nowIso()
     const device = (req.headers['user-agent'] as string | undefined) ?? null
-
     const { data: existing } = await supabase
       .from('attendance')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', user.user_id)
       .eq('date', today)
       .maybeSingle()
 
@@ -291,18 +243,17 @@ router.post('/clock/verify', async (req: Request, res: Response) => {
       if (existing) {
         await supabase
           .from('attendance')
-          .update({ clock_in: ts, in_method: 'webauthn', in_device: device, updated_at: ts })
+          .update({ clock_in: ts, in_method: 'kiosk', in_device: device, updated_at: ts })
           .eq('id', existing.id)
       } else {
         await supabase.from('attendance').insert({
-          user_id: userId,
-          user_email: userEmail,
-          user_name: userName ?? null,
+          user_id: user.user_id,
+          user_email: user.email,
+          user_name: user.full_name,
           date: today,
           clock_in: ts,
-          in_method: 'webauthn',
+          in_method: 'kiosk',
           in_device: device,
-          notes: notes ?? null,
         })
       }
     } else {
@@ -316,20 +267,20 @@ router.post('/clock/verify', async (req: Request, res: Response) => {
       }
       await supabase
         .from('attendance')
-        .update({ clock_out: ts, out_method: 'webauthn', out_device: device, updated_at: ts })
+        .update({ clock_out: ts, out_method: 'kiosk', out_device: device, updated_at: ts })
         .eq('id', existing.id)
     }
 
-    res.json({ verified: true, action, date: today, time: ts })
+    res.json({ ok: true, action, time: ts, name: user.full_name ?? user.email, faceConfidence })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
 })
 
-// ─── GET /api/attendance/me?month=YYYY-MM (or ?from=&to=) ────────────
+// ─── GET /api/attendance/me?month=YYYY-MM ────────────────────────────
 router.get('/me', async (req: Request, res: Response) => {
   try {
-    const { userId } = getUser(req)
+    const userId = req.headers['x-user-id'] as string | undefined
     if (!userId) {
       res.status(401).json({ message: 'Not signed in' })
       return
@@ -340,7 +291,6 @@ router.get('/me', async (req: Request, res: Response) => {
     last.setUTCMonth(last.getUTCMonth() + 1)
     last.setUTCDate(0)
     const to = last.toISOString().slice(0, 10)
-
     const { data, error } = await supabase
       .from('attendance')
       .select('*')
@@ -364,7 +314,6 @@ router.get('/admin', async (req: Request, res: Response) => {
     last.setUTCMonth(last.getUTCMonth() + 1)
     last.setUTCDate(0)
     const to = last.toISOString().slice(0, 10)
-
     const { data, error } = await supabase
       .from('attendance')
       .select('*')
@@ -379,19 +328,23 @@ router.get('/admin', async (req: Request, res: Response) => {
   }
 })
 
-// ─── GET /api/attendance/credentials/me ──────────────────────────────
-router.get('/credentials/me', async (req: Request, res: Response) => {
+// ─── GET /api/attendance/kiosks (admin) ──────────────────────────────
+router.get('/kiosks', async (req: Request, res: Response) => {
   try {
-    const { userId } = getUser(req)
-    if (!userId) {
-      res.status(401).json({ message: 'Not signed in' })
+    const userId = req.headers['x-user-id'] as string | undefined
+    const { data: roleRow } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (roleRow?.role !== 'admin') {
+      res.status(403).json({ message: 'Admin only' })
       return
     }
     const { data, error } = await supabase
-      .from('webauthn_credentials')
-      .select('id, device_label, created_at, last_used_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+      .from('kiosk_tokens')
+      .select('token, label, registered_by_email, registered_at, last_used_at, is_active')
+      .order('registered_at', { ascending: false })
     if (error) throw error
     res.json(data ?? [])
   } catch (err: any) {
@@ -399,19 +352,20 @@ router.get('/credentials/me', async (req: Request, res: Response) => {
   }
 })
 
-// ─── DELETE /api/attendance/credentials/:id ──────────────────────────
-router.delete('/credentials/:id', async (req: Request, res: Response) => {
+// ─── DELETE /api/attendance/kiosks/:token (admin) ────────────────────
+router.delete('/kiosks/:token', async (req: Request, res: Response) => {
   try {
-    const { userId } = getUser(req)
-    if (!userId) {
-      res.status(401).json({ message: 'Not signed in' })
+    const userId = req.headers['x-user-id'] as string | undefined
+    const { data: roleRow } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (roleRow?.role !== 'admin') {
+      res.status(403).json({ message: 'Admin only' })
       return
     }
-    const { error } = await supabase
-      .from('webauthn_credentials')
-      .delete()
-      .eq('id', req.params.id)
-      .eq('user_id', userId)
+    const { error } = await supabase.from('kiosk_tokens').delete().eq('token', req.params.token)
     if (error) throw error
     res.json({ ok: true })
   } catch (err: any) {

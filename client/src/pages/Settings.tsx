@@ -6,6 +6,7 @@ import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getDefaultPaymentMethods, updateDefaultPaymentMethods } from '../services/userService'
 import toast from 'react-hot-toast'
+import { format } from 'date-fns'
 
 const ALL_PAYMENT_METHODS = [
   { id: 'cash', label: 'Cash' },
@@ -767,7 +768,129 @@ export default function Settings() {
             </Button>
           </div>
         </div>
+
+        {/* Attendance Kiosk */}
+        <KioskSection />
       </main>
+    </div>
+  )
+}
+
+/* ─── Kiosk Mode admin section ─────────────────────────────────────── */
+function KioskSection() {
+  const qc = useQueryClient()
+  const [label, setLabel] = useState('')
+  const localToken = typeof window !== 'undefined' ? localStorage.getItem('sheen_kiosk_token') : null
+
+  const { data: kiosks = [] } = useQuery({
+    queryKey: ['kiosks'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/attendance/kiosks')
+      return data as Array<{ token: string; label: string; registered_by_email: string; registered_at: string; last_used_at: string | null; is_active: boolean }>
+    },
+  })
+
+  const registerMut = useMutation({
+    mutationFn: async (lbl: string) => {
+      const { data } = await api.post('/api/attendance/kiosk/register', { label: lbl || 'Shop Kiosk' })
+      return data as { token: string; label: string }
+    },
+    onSuccess: (d) => {
+      localStorage.setItem('sheen_kiosk_token', d.token)
+      localStorage.setItem('sheen_kiosk_label', d.label)
+      toast.success(`This device registered as: ${d.label}`)
+      qc.invalidateQueries({ queryKey: ['kiosks'] })
+      setLabel('')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: async (token: string) => {
+      await api.delete(`/api/attendance/kiosks/${encodeURIComponent(token)}`)
+    },
+    onSuccess: (_, token) => {
+      if (localStorage.getItem('sheen_kiosk_token') === token) {
+        localStorage.removeItem('sheen_kiosk_token')
+        localStorage.removeItem('sheen_kiosk_label')
+      }
+      toast.success('Kiosk removed')
+      qc.invalidateQueries({ queryKey: ['kiosks'] })
+    },
+    onError: () => toast.error('Failed to remove'),
+  })
+
+  const isThisDeviceRegistered = !!localToken && kiosks.some((k) => k.token === localToken)
+
+  return (
+    <div className="bg-sheen-white rounded-xl shadow-sm p-6 mb-6">
+      <h2 className="font-display text-lg text-sheen-black mb-1">Attendance Kiosk</h2>
+      <p className="font-body text-xs text-sheen-muted mb-4">
+        Register the shop iPad as a kiosk so staff can clock in/out from it. Personal phones cannot clock in.
+      </p>
+
+      {isThisDeviceRegistered ? (
+        <div className="p-3 rounded-lg bg-green-50 border border-green-300 mb-4 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <p className="font-body text-sm font-semibold text-green-800">
+              ✅ This device is registered: {localStorage.getItem('sheen_kiosk_label') ?? 'Shop Kiosk'}
+            </p>
+            <p className="font-body text-xs text-green-700">/attendance now opens the staff clock-in grid.</p>
+          </div>
+          <button
+            onClick={() => {
+              localStorage.removeItem('sheen_kiosk_token')
+              localStorage.removeItem('sheen_kiosk_label')
+              toast.success('Cleared from this device')
+              qc.invalidateQueries({ queryKey: ['kiosks'] })
+            }}
+            className="text-xs font-body font-medium text-red-600 hover:text-red-700"
+          >
+            Unlink this device
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-end gap-2 mb-4">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block font-body text-xs text-sheen-muted mb-1">Device label</label>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g. Shop Counter iPad"
+              className="w-full px-3 py-2 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+            />
+          </div>
+          <Button onClick={() => registerMut.mutate(label)} disabled={registerMut.isPending}>
+            {registerMut.isPending ? 'Registering…' : 'Register This Device'}
+          </Button>
+        </div>
+      )}
+
+      <p className="font-body text-xs uppercase tracking-wider text-sheen-muted mb-2">All registered kiosks</p>
+      {kiosks.length === 0 ? (
+        <p className="font-body text-sm text-sheen-muted">None yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {kiosks.map((k) => (
+            <li key={k.token} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-sheen-cream/40 font-body text-sm">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sheen-black truncate">{k.label}</p>
+                <p className="text-[11px] text-sheen-muted truncate">
+                  Registered by {k.registered_by_email} · {format(new Date(k.registered_at), 'MMM d, yyyy')}
+                  {k.last_used_at && ` · Last used ${format(new Date(k.last_used_at), 'MMM d HH:mm')}`}
+                </p>
+              </div>
+              <button
+                onClick={() => deleteMut.mutate(k.token)}
+                className="text-xs font-medium text-red-600 hover:text-red-700 shrink-0"
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

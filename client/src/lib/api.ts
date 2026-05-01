@@ -10,6 +10,11 @@ api.interceptors.request.use(async (config) => {
     config.headers['x-user-id'] = session.user.id
     config.headers['x-user-email'] = session.user.email ?? ''
   }
+  // Attach kiosk token if this device is registered as a kiosk
+  const kioskToken = typeof window !== 'undefined' ? localStorage.getItem('sheen_kiosk_token') : null
+  if (kioskToken) {
+    config.headers['x-kiosk-token'] = kioskToken
+  }
   return config
 })
 

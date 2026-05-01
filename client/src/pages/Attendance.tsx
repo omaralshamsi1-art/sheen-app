@@ -1,32 +1,27 @@
-import { useState, useMemo } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, parseISO, startOfMonth } from 'date-fns'
-import {
-  startRegistration,
-  startAuthentication,
-  browserSupportsWebAuthn,
-} from '@simplewebauthn/browser'
+import { format } from 'date-fns'
+import { Link } from 'react-router-dom'
 import api from '../lib/api'
 import TopBar from '../components/layout/TopBar'
-import { useAuth } from '../hooks/useAuth'
-import { useRole } from '../hooks/useRole'
 import toast from 'react-hot-toast'
 
-interface AttendanceRow {
-  id: string
+interface Staff {
+  user_id: string
+  email: string
+  full_name: string | null
+  role: 'admin' | 'staff'
+  photo_url: string | null
+  has_pin: boolean
+}
+
+interface TodayRow {
+  user_id: string
+  user_name: string | null
+  user_email: string
   date: string
   clock_in: string | null
   clock_out: string | null
-  in_method: string | null
-  out_method: string | null
-  notes: string | null
-}
-
-interface Credential {
-  id: string
-  device_label: string | null
-  created_at: string
-  last_used_at: string | null
 }
 
 function uaeNow() {
@@ -35,269 +30,371 @@ function uaeNow() {
   return d
 }
 
-function uaeDateLabel(iso: string) {
+function uaeTime(iso: string) {
   const d = new Date(iso)
   d.setHours(d.getHours() + 4)
   return d.toISOString().slice(11, 16)
 }
 
-function calcHours(inIso: string | null, outIso: string | null): string {
-  if (!inIso || !outIso) return '—'
-  const ms = new Date(outIso).getTime() - new Date(inIso).getTime()
-  if (ms <= 0) return '—'
-  const hours = Math.floor(ms / 3_600_000)
-  const minutes = Math.floor((ms % 3_600_000) / 60_000)
-  return `${hours}h ${minutes}m`
-}
-
 export default function Attendance() {
   const qc = useQueryClient()
-  const { user } = useAuth()
-  const { fullName } = useRole()
-  const [month, setMonth] = useState(format(startOfMonth(uaeNow()), 'yyyy-MM'))
-  const [busy, setBusy] = useState(false)
-  const supported = browserSupportsWebAuthn()
+  const localToken = typeof window !== 'undefined' ? localStorage.getItem('sheen_kiosk_token') : null
 
-  const { data: rows = [], isLoading } = useQuery<AttendanceRow[]>({
-    queryKey: ['attendance', 'me', month],
+  // Verify kiosk token validity with server
+  const { data: kioskCheck, isLoading: checking } = useQuery({
+    queryKey: ['kiosk-check'],
     queryFn: async () => {
-      const { data } = await api.get('/api/attendance/me', { params: { month } })
-      return data
+      if (!localToken) return { ok: false }
+      const { data } = await api.get('/api/attendance/kiosk/check')
+      return data as { ok: boolean }
     },
-    staleTime: 10_000,
+    retry: false,
+    staleTime: 5 * 60_000,
   })
 
-  const { data: creds = [] } = useQuery<Credential[]>({
-    queryKey: ['attendance', 'credentials'],
+  const isKiosk = !!localToken && kioskCheck?.ok === true
+
+  const { data: staff = [] } = useQuery<Staff[]>({
+    queryKey: ['kiosk-staff'],
     queryFn: async () => {
-      const { data } = await api.get('/api/attendance/credentials/me')
+      const { data } = await api.get('/api/attendance/kiosk/staff')
       return data
     },
+    enabled: isKiosk,
+    refetchInterval: 30_000,
   })
 
-  const today = uaeNow().toISOString().slice(0, 10)
-  const todayRow = useMemo(
-    () => rows.find((r) => r.date === today),
-    [rows, today],
-  )
+  const { data: todayRows = [] } = useQuery<TodayRow[]>({
+    queryKey: ['kiosk-today', uaeNow().toISOString().slice(0, 7)],
+    queryFn: async () => {
+      const month = uaeNow().toISOString().slice(0, 7)
+      const { data } = await api.get('/api/attendance/admin', { params: { month } })
+      const today = uaeNow().toISOString().slice(0, 10)
+      return (data as TodayRow[]).filter((r) => r.date === today)
+    },
+    enabled: isKiosk,
+    refetchInterval: 30_000,
+  })
 
-  const enrollMut = useMutation({
-    mutationFn: async () => {
-      setBusy(true)
-      const { data: options } = await api.post('/api/attendance/enroll/options', {})
-      const att = await startRegistration({ optionsJSON: options })
-      const deviceLabel = `${navigator.platform} — ${navigator.userAgent.split(') ')[0].split(' (').pop() ?? 'browser'}`
-      const { data } = await api.post('/api/attendance/enroll/verify', {
-        response: att,
-        deviceLabel,
+  const todayMap: Record<string, TodayRow> = {}
+  for (const r of todayRows) todayMap[r.user_id] = r
+
+  const [selected, setSelected] = useState<Staff | null>(null)
+  const [pinInput, setPinInput] = useState('')
+  const [step, setStep] = useState<'pin' | 'selfie' | 'submitting'>('pin')
+  const [selfie, setSelfie] = useState<string | null>(null)
+  const [action, setAction] = useState<'in' | 'out'>('in')
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+
+  // ─── Camera ────────────────────────────────────────────────────────
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: 640, height: 480 },
       })
-      return data
-    },
-    onSuccess: () => {
-      toast.success('Biometric enrolled on this device')
-      qc.invalidateQueries({ queryKey: ['attendance', 'credentials'] })
-    },
-    onError: (e: any) => {
-      toast.error(e?.response?.data?.message ?? e?.message ?? 'Enrollment failed')
-    },
-    onSettled: () => setBusy(false),
-  })
+      streamRef.current = stream
+      if (videoRef.current) videoRef.current.srcObject = stream
+    } catch (e: any) {
+      toast.error('Cannot access camera: ' + e.message)
+    }
+  }
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+  }
+  useEffect(() => () => stopCamera(), [])
+
+  const captureSelfie = (): string | null => {
+    const video = videoRef.current
+    if (!video) return null
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    ctx.drawImage(video, 0, 0)
+    return canvas.toDataURL('image/jpeg', 0.7)
+  }
+
+  const close = () => {
+    setSelected(null)
+    setPinInput('')
+    setSelfie(null)
+    setStep('pin')
+    stopCamera()
+  }
 
   const clockMut = useMutation({
-    mutationFn: async (action: 'in' | 'out') => {
-      setBusy(true)
-      const { data: options } = await api.post('/api/attendance/clock/options', {})
-      const auth = await startAuthentication({ optionsJSON: options })
-      const { data } = await api.post('/api/attendance/clock/verify', {
-        response: auth,
+    mutationFn: async () => {
+      if (!selected) return
+      setStep('submitting')
+      const { data } = await api.post('/api/attendance/kiosk/clock', {
+        user_id: selected.user_id,
+        pin: pinInput,
         action,
-        userName: fullName ?? user?.email,
+        selfie,
       })
       return data
     },
-    onSuccess: (_, action) => {
-      toast.success(action === 'in' ? 'Clocked in' : 'Clocked out')
-      qc.invalidateQueries({ queryKey: ['attendance', 'me'] })
+    onSuccess: (d: any) => {
+      const t = uaeTime(d.time)
+      toast.success(
+        `${d.name}: ${action === 'in' ? 'Clocked in' : 'Clocked out'} at ${t}`,
+        { duration: 4000 },
+      )
+      qc.invalidateQueries({ queryKey: ['kiosk-today'] })
+      close()
     },
-    onError: async (e: any) => {
-      const msg = e?.response?.data?.message ?? e?.message ?? 'Failed'
-      const code = e?.response?.data?.code
-      if (code === 'NOT_ENROLLED') {
-        toast.error('Enroll your biometric first')
-      } else {
-        toast.error(msg)
-      }
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message ?? 'Failed'
+      toast.error(msg, { duration: 4500 })
+      setStep('pin')
     },
-    onSettled: () => setBusy(false),
   })
 
-  const removeCredMut = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/api/attendance/credentials/${encodeURIComponent(id)}`)
-    },
-    onSuccess: () => {
-      toast.success('Device removed')
-      qc.invalidateQueries({ queryKey: ['attendance', 'credentials'] })
-    },
-    onError: () => toast.error('Failed to remove'),
-  })
-
-  const totalHoursThisMonth = useMemo(() => {
-    let ms = 0
-    for (const r of rows) {
-      if (r.clock_in && r.clock_out) {
-        ms += new Date(r.clock_out).getTime() - new Date(r.clock_in).getTime()
-      }
+  const openStaff = (s: Staff, act: 'in' | 'out') => {
+    if (!s.has_pin) {
+      toast.error(`${s.full_name ?? s.email} has no PIN. Ask admin to set one.`)
+      return
     }
-    const h = Math.floor(ms / 3_600_000)
-    const m = Math.floor((ms % 3_600_000) / 60_000)
-    return `${h}h ${m}m`
-  }, [rows])
+    setSelected(s)
+    setAction(act)
+    setPinInput('')
+    setSelfie(null)
+    setStep('pin')
+  }
 
+  const submitPin = () => {
+    if (!/^\d{4,8}$/.test(pinInput)) {
+      toast.error('Enter your 4–8 digit PIN')
+      return
+    }
+    if (selected?.photo_url) {
+      setStep('selfie')
+      void startCamera()
+    } else {
+      // No reference photo on file — skip face check
+      clockMut.mutate()
+    }
+  }
+
+  const submitSelfie = () => {
+    const img = captureSelfie()
+    if (!img) {
+      toast.error('Could not capture selfie')
+      return
+    }
+    setSelfie(img)
+    stopCamera()
+    setTimeout(() => clockMut.mutate(), 50)
+  }
+
+  // ─── Not a kiosk: block ─────────────────────────────────────────────
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-sheen-cream">
+        <TopBar title="Attendance" />
+        <main className="p-6 text-center font-body text-sm text-sheen-muted">Checking device…</main>
+      </div>
+    )
+  }
+  if (!isKiosk) {
+    return (
+      <div className="min-h-screen bg-sheen-cream">
+        <TopBar title="Attendance" />
+        <main className="max-w-md mx-auto p-6 space-y-4">
+          <div className="bg-amber-50 border border-amber-300 rounded-xl p-5">
+            <p className="font-display text-lg font-semibold text-amber-900 mb-2">
+              This device is not a registered kiosk
+            </p>
+            <p className="font-body text-sm text-amber-800 mb-3">
+              Attendance can only be recorded on the shop kiosk. Personal phones cannot clock in.
+            </p>
+            <p className="font-body text-xs text-amber-700">
+              Admin: register the shop iPad in <Link to="/settings" className="underline font-semibold">Settings → Attendance Kiosk</Link>.
+            </p>
+          </div>
+          <div className="text-center">
+            <Link to="/attendance/admin" className="font-body text-sm text-sheen-gold hover:text-sheen-brown underline">
+              View attendance reports →
+            </Link>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // ─── Kiosk grid ────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-sheen-cream">
-      <TopBar title="Attendance" />
+      <TopBar title="Time Attendance" />
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {!supported && (
-          <div className="bg-amber-50 border border-amber-300 text-amber-900 rounded-xl p-4 font-body text-sm">
-            This browser doesn't support fingerprint / Face ID. Use Safari or Chrome on a phone with biometrics enabled.
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <div className="bg-sheen-white rounded-xl shadow-sm p-4 text-center">
+          <p className="font-display text-2xl font-bold text-sheen-black">
+            {format(uaeNow(), 'EEEE, MMMM d, yyyy')} · {format(uaeNow(), 'HH:mm')}
+          </p>
+          <p className="font-body text-xs text-sheen-muted mt-1">
+            Tap your name to clock in or out
+          </p>
+        </div>
+
+        {staff.length === 0 ? (
+          <p className="text-center font-body text-sm text-sheen-muted">No staff with PINs configured yet.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {staff.map((s) => {
+              const today = todayMap[s.user_id]
+              const inTime = today?.clock_in ? uaeTime(today.clock_in) : null
+              const outTime = today?.clock_out ? uaeTime(today.clock_out) : null
+              const status = !inTime ? 'pending' : !outTime ? 'in' : 'done'
+              return (
+                <div
+                  key={s.user_id}
+                  className="bg-sheen-white rounded-2xl shadow-sm p-4 flex flex-col items-center text-center"
+                >
+                  <div className="w-24 h-24 rounded-full overflow-hidden bg-sheen-cream border-4 border-sheen-cream/60 mb-3 flex items-center justify-center">
+                    {s.photo_url ? (
+                      <img src={s.photo_url} alt={s.email} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="font-display text-3xl text-sheen-muted">
+                        {(s.full_name ?? s.email).slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-body font-semibold text-sheen-black truncate w-full">
+                    {s.full_name ?? s.email.split('@')[0]}
+                  </p>
+                  <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted mb-2">
+                    {s.role}
+                  </p>
+
+                  {status === 'done' ? (
+                    <div className="w-full text-center">
+                      <p className="font-body text-xs text-sheen-muted">In {inTime} · Out {outTime}</p>
+                      <p className="font-body text-xs text-green-700 font-semibold mt-1">Done for today</p>
+                    </div>
+                  ) : status === 'in' ? (
+                    <div className="w-full">
+                      <p className="font-body text-xs text-sheen-muted">In: {inTime}</p>
+                      <button
+                        disabled={!s.has_pin}
+                        onClick={() => openStaff(s, 'out')}
+                        className="mt-2 w-full py-2 rounded-lg bg-red-600 text-white font-body font-semibold text-sm hover:bg-red-700 disabled:opacity-40"
+                      >
+                        Clock Out
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      disabled={!s.has_pin}
+                      onClick={() => openStaff(s, 'in')}
+                      className="w-full py-2 rounded-lg bg-green-600 text-white font-body font-semibold text-sm hover:bg-green-700 disabled:opacity-40"
+                    >
+                      Clock In
+                    </button>
+                  )}
+                  {!s.has_pin && (
+                    <p className="font-body text-[10px] text-amber-600 mt-1">No PIN set</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
-
-        {/* Today status */}
-        <div className="bg-sheen-white rounded-xl shadow-sm p-5">
-          <h2 className="font-display text-lg text-sheen-black mb-3">Today</h2>
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="rounded-lg bg-sheen-cream/40 p-3 text-center">
-              <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Clock In</p>
-              <p className="font-display text-lg font-bold text-sheen-black">
-                {todayRow?.clock_in ? uaeDateLabel(todayRow.clock_in) : '—'}
-              </p>
-            </div>
-            <div className="rounded-lg bg-sheen-cream/40 p-3 text-center">
-              <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Clock Out</p>
-              <p className="font-display text-lg font-bold text-sheen-black">
-                {todayRow?.clock_out ? uaeDateLabel(todayRow.clock_out) : '—'}
-              </p>
-            </div>
-            <div className="rounded-lg bg-sheen-cream/40 p-3 text-center">
-              <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Hours</p>
-              <p className="font-display text-lg font-bold text-sheen-brown">
-                {calcHours(todayRow?.clock_in ?? null, todayRow?.clock_out ?? null)}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              disabled={busy || !!todayRow?.clock_in || !supported}
-              onClick={() => clockMut.mutate('in')}
-              className="py-4 rounded-xl bg-green-600 text-white font-body font-semibold text-base hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              Clock In
-            </button>
-            <button
-              disabled={busy || !todayRow?.clock_in || !!todayRow?.clock_out || !supported}
-              onClick={() => clockMut.mutate('out')}
-              className="py-4 rounded-xl bg-red-600 text-white font-body font-semibold text-base hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              Clock Out
-            </button>
-          </div>
-        </div>
-
-        {/* Enrolled devices */}
-        <div className="bg-sheen-white rounded-xl shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-display text-lg text-sheen-black">Biometric Devices</h2>
-            <button
-              disabled={busy || !supported}
-              onClick={() => enrollMut.mutate()}
-              className="px-4 py-2 rounded-lg bg-sheen-brown text-white font-body text-xs font-semibold hover:bg-sheen-brown/90 disabled:opacity-40"
-            >
-              Enroll This Device
-            </button>
-          </div>
-          {creds.length === 0 ? (
-            <p className="font-body text-sm text-sheen-muted">
-              No device enrolled yet. Tap <strong>Enroll This Device</strong> and confirm with Face ID / fingerprint.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {creds.map((c) => (
-                <li key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-sheen-cream/30 font-body text-sm">
-                  <div className="min-w-0 flex-1 pr-3">
-                    <p className="font-medium text-sheen-black truncate">
-                      {c.device_label ?? 'Unknown device'}
-                    </p>
-                    <p className="text-xs text-sheen-muted">
-                      Enrolled {format(parseISO(c.created_at), 'MMM d, yyyy')}
-                      {c.last_used_at && ` · Last used ${format(parseISO(c.last_used_at), 'MMM d, HH:mm')}`}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => removeCredMut.mutate(c.id)}
-                    className="text-xs font-semibold text-red-600 hover:text-red-700 px-2 py-1 rounded shrink-0"
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Monthly history */}
-        <div className="bg-sheen-white rounded-xl shadow-sm p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h2 className="font-display text-lg text-sheen-black">Month History</h2>
-            <div className="flex items-center gap-2">
-              <input
-                type="month"
-                value={month}
-                max={format(uaeNow(), 'yyyy-MM')}
-                onChange={(e) => setMonth(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-sheen-muted/30 font-body text-xs bg-sheen-cream"
-              />
-              <span className="font-body text-xs text-sheen-muted">Total: <strong>{totalHoursThisMonth}</strong></span>
-            </div>
-          </div>
-
-          {isLoading ? (
-            <p className="font-body text-sm text-sheen-muted">Loading…</p>
-          ) : rows.length === 0 ? (
-            <p className="font-body text-sm text-sheen-muted">No attendance records this month.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full font-body text-sm">
-                <thead>
-                  <tr className="border-b border-sheen-cream text-xs text-sheen-muted uppercase tracking-wide">
-                    <th className="text-left py-2">Date</th>
-                    <th className="text-left py-2">In</th>
-                    <th className="text-left py-2">Out</th>
-                    <th className="text-right py-2">Hours</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id} className="border-b border-sheen-cream/50">
-                      <td className="py-2 text-sheen-black">
-                        {format(parseISO(r.date), 'EEE, MMM d')}
-                      </td>
-                      <td className="py-2 text-sheen-black">{r.clock_in ? uaeDateLabel(r.clock_in) : '—'}</td>
-                      <td className="py-2 text-sheen-black">{r.clock_out ? uaeDateLabel(r.clock_out) : '—'}</td>
-                      <td className="py-2 text-right text-sheen-brown font-semibold">
-                        {calcHours(r.clock_in, r.clock_out)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
       </main>
+
+      {/* PIN + Selfie modal */}
+      {selected && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={close}>
+          <div
+            className="bg-sheen-white w-full max-w-md rounded-2xl shadow-xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-sheen-cream flex items-center justify-center shrink-0">
+                {selected.photo_url ? (
+                  <img src={selected.photo_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-display text-xl text-sheen-muted">
+                    {(selected.full_name ?? selected.email).slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-display text-lg text-sheen-black truncate">
+                  {selected.full_name ?? selected.email}
+                </p>
+                <p className="font-body text-xs text-sheen-muted">
+                  {action === 'in' ? 'Clock In' : 'Clock Out'}
+                </p>
+              </div>
+              <button onClick={close} className="p-1.5 rounded-full hover:bg-sheen-cream" aria-label="Close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M18 6L6 18" /><path d="M6 6L18 18" />
+                </svg>
+              </button>
+            </div>
+
+            {step === 'pin' && (
+              <div>
+                <label className="block font-body text-xs uppercase tracking-wide text-sheen-muted mb-2">
+                  Enter your PIN
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoFocus
+                  maxLength={8}
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && submitPin()}
+                  className="w-full text-center font-display text-3xl tracking-[0.5em] py-4 rounded-xl border-2 border-sheen-muted/30 focus:outline-none focus:border-sheen-gold"
+                  placeholder="• • • •"
+                />
+                <button
+                  onClick={submitPin}
+                  className="mt-4 w-full py-3 rounded-xl bg-sheen-brown text-white font-body font-semibold hover:bg-sheen-brown/90"
+                >
+                  Continue →
+                </button>
+              </div>
+            )}
+
+            {step === 'selfie' && (
+              <div>
+                <p className="font-body text-sm text-sheen-muted text-center mb-3">
+                  Look at the camera and tap Capture
+                </p>
+                <div className="aspect-[4/3] bg-sheen-black rounded-xl overflow-hidden mb-3">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                    style={{ transform: 'scaleX(-1)' }}
+                  />
+                </div>
+                <button
+                  onClick={submitSelfie}
+                  className="w-full py-3 rounded-xl bg-green-600 text-white font-body font-semibold hover:bg-green-700"
+                >
+                  📸 Capture & {action === 'in' ? 'Clock In' : 'Clock Out'}
+                </button>
+              </div>
+            )}
+
+            {step === 'submitting' && (
+              <div className="py-8 text-center">
+                <div className="inline-block animate-spin w-10 h-10 border-4 border-sheen-gold border-t-transparent rounded-full mb-3" />
+                <p className="font-body text-sm text-sheen-muted">Verifying…</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

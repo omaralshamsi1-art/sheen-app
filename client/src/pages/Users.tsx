@@ -8,6 +8,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
 import type { UserRole, UserRoleRecord } from '../types'
 import api from '../lib/api'
+import { supabase } from '../lib/supabase'
 
 const ROLES: UserRole[] = ['admin', 'staff', 'customer']
 
@@ -140,6 +141,42 @@ export default function Users() {
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Error updating account'),
   })
+
+  // Attendance: set PIN + photo_url for staff/admin
+  const attendanceMutation = useMutation({
+    mutationFn: async ({ id, attendance_pin, photo_url }: { id: string; attendance_pin?: string | null; photo_url?: string | null }) => {
+      const body: Record<string, any> = {}
+      if (attendance_pin !== undefined) body.attendance_pin = attendance_pin
+      if (photo_url !== undefined) body.photo_url = photo_url
+      await api.patch(`/api/users/${id}`, body)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success('Attendance settings updated')
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Failed'),
+  })
+
+  const [pinInputs, setPinInputs] = useState<Record<string, string>>({})
+  const [uploadingPhotoFor, setUploadingPhotoFor] = useState<string | null>(null)
+
+  const uploadPhoto = async (user: UserRoleRecord, file: File) => {
+    setUploadingPhotoFor(user.id)
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `staff-photos/${user.user_id}-${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage
+        .from('menu-images')
+        .upload(path, file, { upsert: true, cacheControl: '31536000' })
+      if (upErr) throw upErr
+      const { data: urlData } = supabase.storage.from('menu-images').getPublicUrl(path)
+      attendanceMutation.mutate({ id: user.id, photo_url: urlData.publicUrl })
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Upload failed')
+    } finally {
+      setUploadingPhotoFor(null)
+    }
+  }
 
   const handleDelete = (user: UserRoleRecord) => {
     if (window.confirm(`${t('confirmDelete')} ${user.email}`)) {
@@ -351,14 +388,14 @@ export default function Users() {
                               ))}
                             </select>
 
-                            {(user.role === 'staff' || user.role === 'customer') && (
+                            {user.role !== 'customer' || user.role === 'customer' ? (
                               <button
                                 onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
                                 className="text-sheen-gold hover:text-sheen-brown text-xs font-body font-medium transition-colors"
                               >
                                 {isExpanded ? t('collapse') : t('permissions')}
                               </button>
-                            )}
+                            ) : null}
 
                             <button
                               onClick={() => setPasswordUserId(passwordUserId === user.id ? null : user.id)}
@@ -415,8 +452,8 @@ export default function Users() {
                           </div>
                         )}
 
-                        {/* Page access + Payment method toggles */}
-                        {isExpanded && (user.role === 'staff' || user.role === 'customer') && (
+                        {/* Page access + Payment method toggles + Attendance */}
+                        {isExpanded && (
                           <div className="mt-4 space-y-4">
                             {/* Page access — staff only */}
                             {user.role === 'staff' && (
@@ -484,6 +521,96 @@ export default function Users() {
                                 })}
                               </div>
                             </div>
+
+                            {/* Attendance — staff and admin only */}
+                            {(user.role === 'staff' || user.role === 'admin') && (
+                              <div className="p-4 bg-sheen-cream/50 rounded-lg">
+                                <p className="font-body text-xs text-sheen-muted mb-3 uppercase tracking-wider">
+                                  Attendance Kiosk
+                                </p>
+                                <div className="flex flex-wrap items-start gap-4">
+                                  {/* Photo */}
+                                  <div className="flex flex-col items-center gap-2">
+                                    <div className="w-20 h-20 rounded-full overflow-hidden bg-sheen-cream border-2 border-sheen-muted/30 flex items-center justify-center">
+                                      {user.photo_url ? (
+                                        <img src={user.photo_url} alt={user.email} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <span className="font-display text-2xl text-sheen-muted">
+                                          {(user.full_name ?? user.email).slice(0, 1).toUpperCase()}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <label className="cursor-pointer text-[11px] font-body text-sheen-gold hover:text-sheen-brown">
+                                      {uploadingPhotoFor === user.id ? 'Uploading…' : user.photo_url ? 'Change' : 'Upload Photo'}
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const f = e.target.files?.[0]
+                                          if (f) uploadPhoto(user, f)
+                                          e.target.value = ''
+                                        }}
+                                      />
+                                    </label>
+                                    {user.photo_url && (
+                                      <button
+                                        onClick={() => attendanceMutation.mutate({ id: user.id, photo_url: null })}
+                                        className="text-[10px] font-body text-red-500 hover:text-red-700"
+                                      >
+                                        Remove photo
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* PIN */}
+                                  <div className="flex-1 min-w-[200px]">
+                                    <label className="block font-body text-xs text-sheen-muted mb-1">
+                                      Attendance PIN (4–8 digits)
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={8}
+                                        value={pinInputs[user.id] ?? ''}
+                                        onChange={(e) =>
+                                          setPinInputs((p) => ({ ...p, [user.id]: e.target.value.replace(/\D/g, '') }))
+                                        }
+                                        placeholder={user.attendance_pin ? '•••• (set)' : 'e.g. 1234'}
+                                        className="flex-1 px-3 py-1.5 rounded-lg border border-sheen-muted/40 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          const pin = pinInputs[user.id] ?? ''
+                                          if (!/^\d{4,8}$/.test(pin)) {
+                                            toast.error('PIN must be 4–8 digits')
+                                            return
+                                          }
+                                          attendanceMutation.mutate({ id: user.id, attendance_pin: pin })
+                                          setPinInputs((p) => ({ ...p, [user.id]: '' }))
+                                        }}
+                                      >
+                                        Save PIN
+                                      </Button>
+                                      {user.attendance_pin && (
+                                        <button
+                                          onClick={() => attendanceMutation.mutate({ id: user.id, attendance_pin: null })}
+                                          className="text-xs font-body text-red-500 hover:text-red-700"
+                                        >
+                                          Clear
+                                        </button>
+                                      )}
+                                    </div>
+                                    <p className="font-body text-[11px] text-sheen-muted mt-1">
+                                      Status: {user.attendance_pin ? '✅ PIN set' : '⚠ No PIN'}{' '}
+                                      · Photo: {user.photo_url ? '✅' : '⚠ missing'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>

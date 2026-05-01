@@ -216,9 +216,28 @@ router.patch('/profile/:userId', async (req: Request, res: Response) => {
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { role, allowed_pages, allowed_payment_methods } = req.body
+    const { role, allowed_pages, allowed_payment_methods, attendance_pin, photo_url, full_name } = req.body
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+
+    if (full_name !== undefined) {
+      updates.full_name = full_name === null ? null : String(full_name).trim().slice(0, 100) || null
+    }
+    if (attendance_pin !== undefined) {
+      if (attendance_pin === null || attendance_pin === '') {
+        updates.attendance_pin = null
+      } else {
+        const pin = String(attendance_pin).trim()
+        if (!/^\d{4,8}$/.test(pin)) {
+          res.status(400).json({ message: 'attendance_pin must be 4–8 digits' })
+          return
+        }
+        updates.attendance_pin = pin
+      }
+    }
+    if (photo_url !== undefined) {
+      updates.photo_url = photo_url === null ? null : String(photo_url).trim().slice(0, 1000) || null
+    }
 
     if (role !== undefined) {
       if (!VALID_ROLES.includes(role)) {
@@ -259,6 +278,8 @@ router.patch('/:id', async (req: Request, res: Response) => {
         if (k === 'role') return `Role → ${v}`
         if (k === 'allowed_pages') return `Page access → ${Array.isArray(v) ? v.join(', ') : v}`
         if (k === 'allowed_payment_methods') return `Payment methods → ${Array.isArray(v) ? v.join(', ') : v}`
+        if (k === 'attendance_pin') return `Attendance PIN → ${v ? '****' : 'cleared'}`
+        if (k === 'photo_url') return `Profile photo → ${v ? 'updated' : 'removed'}`
         return `${k} → ${v}`
       }).join('; '),
     } })
