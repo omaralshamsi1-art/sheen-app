@@ -94,7 +94,7 @@ export default function PettyCash() {
           const filePath = `petty-${Date.now()}.${ext}`
           const { error: uploadErr } = await supabase.storage
             .from('menu-images')
-            .upload(filePath, receiptFile, { upsert: true, cacheControl: '3600' })
+            .upload(filePath, receiptFile, { upsert: true, cacheControl: '31536000' })
           if (uploadErr) throw uploadErr
           const { data: urlData } = supabase.storage.from('menu-images').getPublicUrl(filePath)
           receipt_url = urlData.publicUrl
@@ -320,6 +320,8 @@ export default function PettyCash() {
                         <img
                           src={receiptPreview}
                           alt="Receipt preview"
+                          loading="lazy"
+                          decoding="async"
                           className="w-full max-h-48 object-contain rounded-lg border border-sheen-muted/20 bg-sheen-cream"
                         />
                         <button

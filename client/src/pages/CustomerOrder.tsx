@@ -444,7 +444,7 @@ export default function CustomerOrder() {
                       className={`overflow-hidden ${activeCategory === 'Beans' ? 'h-56 cursor-pointer' : 'h-32'}`}
                       onClick={() => activeCategory === 'Beans' && setLightboxImg(getItemImage(item.name, item.image_url) || null)}
                     >
-                      <img src={getItemImage(item.name, item.image_url)} alt={item.name} className={`w-full h-full object-cover transition-transform duration-300 ${activeCategory === 'Beans' ? 'group-hover:scale-110' : ''}`} />
+                      <img src={getItemImage(item.name, item.image_url)} alt={item.name} loading="lazy" decoding="async" className={`w-full h-full object-cover transition-transform duration-300 ${activeCategory === 'Beans' ? 'group-hover:scale-110' : ''}`} />
                     </div>
                   ) : (
                     <div className={`w-full ${activeCategory === 'Beans' ? 'h-56 bg-sheen-black' : 'h-32 bg-sheen-cream'} flex items-center justify-center text-3xl`}>☕</div>

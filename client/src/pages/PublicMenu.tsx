@@ -171,6 +171,8 @@ export default function PublicMenu() {
                     <img
                       src={getItemImage(item.name, (item as any).image_url)}
                       alt={item.name}
+                      loading="lazy"
+                      decoding="async"
                       className={`w-full h-full object-cover transition-transform duration-300 ${activeCategory === 'Beans' ? 'group-hover:scale-110' : ''}`}
                     />
                   </div>

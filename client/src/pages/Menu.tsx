@@ -148,7 +148,7 @@ export default function Menu() {
 
         const { error: uploadErr } = await supabase.storage
           .from('menu-images')
-          .upload(filePath, editImageFile, { upsert: true, cacheControl: '3600' })
+          .upload(filePath, editImageFile, { upsert: true, cacheControl: '31536000' })
 
         if (uploadErr) throw uploadErr
 
@@ -157,6 +157,15 @@ export default function Menu() {
           .getPublicUrl(filePath)
 
         image_url = urlData.publicUrl
+
+        // Delete the previous image to keep storage flat
+        const prevUrl = (editItem as any).image_url as string | undefined
+        if (prevUrl && prevUrl.includes('/menu-images/')) {
+          const prevPath = prevUrl.split('/menu-images/')[1]?.split('?')[0]
+          if (prevPath && prevPath !== filePath) {
+            await supabase.storage.from('menu-images').remove([prevPath]).catch(() => {})
+          }
+        }
       }
 
       await api.patch(`/api/menu/${editItem.id}`, {
@@ -241,11 +250,11 @@ export default function Menu() {
       if (newImageFile) {
         const itemId = newName.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
         const ext = newImageFile.name.split('.').pop() || 'jpg'
-        const filePath = `${itemId}.${ext}`
+        const filePath = `${itemId}-${Date.now()}.${ext}`
 
         const { error: uploadErr } = await supabase.storage
           .from('menu-images')
-          .upload(filePath, newImageFile, { upsert: true })
+          .upload(filePath, newImageFile, { upsert: true, cacheControl: '31536000' })
 
         if (uploadErr) throw uploadErr
 
@@ -463,6 +472,8 @@ export default function Menu() {
                       <img
                         src={getItemImage(item.name, item.image_url)}
                         alt={item.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-16 h-16 rounded-xl object-cover shrink-0"
                       />
                     ) : (

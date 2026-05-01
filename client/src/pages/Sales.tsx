@@ -127,6 +127,19 @@ export default function Sales() {
     }
   }, [queryClient])
 
+  // Talabat-specific price overrides (delivery platform markup)
+  const getBasePrice = useCallback(
+    (item: MenuItem) => {
+      if (effectiveSource === 'Talabat') {
+        const n = item.name.toLowerCase().trim()
+        if (n === 'acai bowl') return 27
+        if (n === 'acai smoothie') return 32
+      }
+      return item.selling_price
+    },
+    [effectiveSource],
+  )
+
   // Group menu items by category
   const itemsByCategory = useMemo(() => {
     const grouped: Record<string, MenuItem[]> = {}
@@ -189,11 +202,11 @@ export default function Sales() {
         const a = item.addons?.find(x => x.name === name)
         return s + (a?.price ?? 0)
       }, 0)
-      const unit = item.selling_price + beanPremium + milkPremium + shotPremium + addonPremium
+      const unit = getBasePrice(item) + beanPremium + milkPremium + shotPremium + addonPremium
       total += unit * qty
     }
     return total
-  }, [quantities, menuItems, beanChoices])
+  }, [quantities, menuItems, beanChoices, milkChoices, shotChoices, addonChoices, extraShotPrice, getBasePrice])
 
   const commissionBase = subtotal * (currentSource.commission / 100)
   const vatOnCommission = (currentSource as any).vat ? commissionBase * 0.05 : 0
@@ -281,7 +294,8 @@ export default function Sales() {
           const a = menuItem?.addons?.find(x => x.name === name)
           return s + (a?.price ?? 0)
         }, 0)
-        const unitPrice = (menuItem?.selling_price ?? 0) + saleBeanPremium + saleMilkPremium + saleShotPremium + saleAddonPremium
+        const baseSelling = menuItem ? getBasePrice(menuItem) : 0
+        const unitPrice = baseSelling + saleBeanPremium + saleMilkPremium + saleShotPremium + saleAddonPremium
         return {
           menu_item_id: id,
           name: (() => {
@@ -443,6 +457,8 @@ export default function Sales() {
                       <img
                         src={getItemImage(item.name, item.image_url)}
                         alt={item.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-20 h-20 rounded-xl object-cover shrink-0"
                       />
                     ) : (
@@ -455,7 +471,7 @@ export default function Sales() {
                         {item.name}
                       </p>
                       <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
-                        {item.selling_price
+                        {getBasePrice(item)
                           + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
                           + (milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0)
                           + ((shotChoices[item.id] ?? 0) * extraShotPrice)
