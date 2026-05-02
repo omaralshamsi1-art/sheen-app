@@ -175,6 +175,15 @@ export default function Dashboard() {
     {
       title: t('netProfitToday'),
       value: `${netProfit >= 0 ? '' : '-'}${Math.abs(netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} د.إ`,
+      subtitle: (() => {
+        if (dailyFixedCost <= 0) return undefined
+        // Use a reasonable avg cup price for break-even estimate.
+        // If we have today's data, prefer actual avg; else assume 18 AED.
+        const avgCup = cupsSold > 0 ? totalRevenue / cupsSold : 18
+        const breakEvenCups = Math.max(1, Math.ceil(dailyFixedCost / avgCup))
+        return `Daily overhead: ${dailyFixedCost.toFixed(0)} AED · Break-even ~${breakEvenCups} cup${breakEvenCups === 1 ? '' : 's'}`
+      })(),
+      trend: netProfit >= 0 ? ('up' as const) : ('neutral' as const),
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 21H4C3.45 21 3 20.55 3 20V3" />
@@ -183,7 +192,7 @@ export default function Dashboard() {
         </svg>
       ),
     },
-  ]
+  ] as Array<{ title: string; value: string; subtitle?: string; trend?: 'up' | 'down' | 'neutral'; icon: React.ReactNode }>
 
   /* ---- Render ---- */
 
@@ -267,6 +276,8 @@ export default function Dashboard() {
                   key={card.title}
                   title={card.title}
                   value={card.value}
+                  subtitle={card.subtitle}
+                  trend={card.trend}
                   icon={card.icon}
                 />
               ))}
