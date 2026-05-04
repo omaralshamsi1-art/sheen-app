@@ -72,6 +72,7 @@ export default function Dashboard() {
   const dateArg = range ?? selectedDate
   const [sourceDetail, setSourceDetail] = useState<string | null>(null)
   const [productDetail, setProductDetail] = useState<string | null>(null)
+  const [hourDetail, setHourDetail] = useState<number | null>(null)
 
   const { data: kpis, isLoading: kpisLoading } = useQuery({
     queryKey: ['dashboard', 'kpis', kpiKey],
@@ -287,6 +288,21 @@ export default function Dashboard() {
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Charts (2 cols) */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Hourly Sales */}
+            <div className="bg-sheen-white rounded-xl shadow-sm p-5">
+              <h2 className="font-display text-lg text-sheen-black mb-4">
+                {t('hourlySales')}
+              </h2>
+              <p className="font-body text-xs text-sheen-muted mb-3">
+                {t('cupsByHour')} · Tap a bar to see items sold in that hour
+              </p>
+              {hourlyLoading ? (
+                <Skeleton className="h-56 w-full" />
+              ) : (
+                <HourlyChart data={hourlySales ?? []} onBarClick={(h) => setHourDetail(h)} />
+              )}
+            </div>
+
             {/* Revenue vs Expenses */}
             <div className="bg-sheen-white rounded-xl shadow-sm p-5">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -315,21 +331,6 @@ export default function Dashboard() {
                 <Skeleton className="h-56 w-full" />
               ) : (
                 <RevenueChart data={chartData ?? []} />
-              )}
-            </div>
-
-            {/* Hourly Sales */}
-            <div className="bg-sheen-white rounded-xl shadow-sm p-5">
-              <h2 className="font-display text-lg text-sheen-black mb-4">
-                {t('hourlySales')}
-              </h2>
-              <p className="font-body text-xs text-sheen-muted mb-3">
-                {t('cupsByHour')}
-              </p>
-              {hourlyLoading ? (
-                <Skeleton className="h-56 w-full" />
-              ) : (
-                <HourlyChart data={hourlySales ?? []} />
               )}
             </div>
           </div>
@@ -529,6 +530,15 @@ export default function Dashboard() {
           from={range ? range.from : selectedDate}
           to={range ? range.to : selectedDate}
           onClose={() => setProductDetail(null)}
+        />
+      )}
+
+      {hourDetail !== null && (
+        <HourSalesModal
+          hour={hourDetail}
+          from={range ? range.from : selectedDate}
+          to={range ? range.to : selectedDate}
+          onClose={() => setHourDetail(null)}
         />
       )}
     </div>
@@ -858,6 +868,179 @@ function ProductSalesModal({
                 </div>
               )
             })
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hour Sales Modal — items sold during one hour                      */
+/* ------------------------------------------------------------------ */
+
+function HourSalesModal({
+  hour,
+  from,
+  to,
+  onClose,
+}: {
+  hour: number
+  from: string
+  to: string
+  onClose: () => void
+}) {
+  const { data: result, isLoading } = useQuery({
+    queryKey: ['hour-sales-detail', hour, from, to],
+    queryFn: async () => {
+      const { data } = await api.get<(Sale & { sale_items: SaleItem[] })[]>(
+        `/api/sales?from=${from}&to=${to}`,
+      )
+      const matched = (data ?? []).filter((s) => {
+        const utc = new Date(s.recorded_at)
+        const uaeHour = (utc.getUTCHours() + 4) % 24
+        return uaeHour === hour
+      })
+      const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}
+      let totalRevenue = 0
+      let totalQty = 0
+      for (const sale of matched) {
+        for (const item of sale.sale_items ?? []) {
+          if (!itemMap[item.name]) itemMap[item.name] = { name: item.name, qty: 0, revenue: 0 }
+          itemMap[item.name].qty += item.qty
+          itemMap[item.name].revenue += Number(item.total)
+          totalRevenue += Number(item.total)
+          totalQty += item.qty
+        }
+      }
+      const items = Object.values(itemMap).sort((a, b) => b.qty - a.qty)
+      return { sales: matched, items, totalRevenue, totalQty }
+    },
+    staleTime: 30_000,
+  })
+
+  const sales = result?.sales ?? []
+  const items = result?.items ?? []
+  const totalRevenue = result?.totalRevenue ?? 0
+  const totalQty = result?.totalQty ?? 0
+
+  const rangeLabel =
+    from === to
+      ? format(parseISO(from), 'EEEE, MMMM d, yyyy')
+      : `${format(parseISO(from), 'MMM d, yyyy')} → ${format(parseISO(to), 'MMM d, yyyy')}`
+
+  const hourLabel = `${String(hour).padStart(2, '0')}:00 – ${String((hour + 1) % 24).padStart(2, '0')}:00`
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4 pt-20 sm:pt-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-sheen-white w-full sm:max-w-2xl max-h-[calc(100dvh-5rem)] sm:max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-sheen-cream gap-2">
+          <div className="min-w-0">
+            <h3 className="font-display text-lg text-sheen-black truncate">{hourLabel}</h3>
+            <p className="font-body text-xs text-sheen-muted truncate">{rangeLabel}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-sheen-cream transition-colors shrink-0"
+            aria-label="Close"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18" />
+              <path d="M6 6L18 18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 p-4 border-b border-sheen-cream bg-sheen-cream/30">
+          <div>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Orders</p>
+            <p className="font-display text-lg font-bold text-sheen-black">{sales.length}</p>
+          </div>
+          <div>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Items</p>
+            <p className="font-display text-lg font-bold text-sheen-black">{totalQty}</p>
+          </div>
+          <div>
+            <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted">Revenue</p>
+            <p className="font-display text-lg font-bold text-sheen-brown">
+              {totalRevenue.toFixed(2)} د.إ
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {isLoading ? (
+            <p className="font-body text-sm text-sheen-muted text-center py-6">Loading…</p>
+          ) : items.length === 0 ? (
+            <p className="font-body text-sm text-sheen-muted text-center py-6">
+              No sales in this hour.
+            </p>
+          ) : (
+            <>
+              <div>
+                <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted mb-2">Items Sold</p>
+                <ul className="space-y-1">
+                  {items.map((it) => (
+                    <li
+                      key={it.name}
+                      className="flex items-center justify-between p-2 rounded-lg bg-sheen-cream/30 font-body text-sm"
+                    >
+                      <span className="text-sheen-black truncate pr-2">
+                        {it.name} <span className="text-sheen-muted">× {it.qty}</span>
+                      </span>
+                      <span className="text-sheen-brown font-semibold whitespace-nowrap">
+                        {it.revenue.toFixed(2)} د.إ
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <p className="font-body text-[10px] uppercase tracking-wide text-sheen-muted mb-2">Orders</p>
+                <div className="space-y-2">
+                  {sales.map((sale) => {
+                    const t = new Date(sale.recorded_at)
+                    t.setHours(t.getHours() + 4)
+                    return (
+                      <div
+                        key={sale.id}
+                        className="rounded-lg border border-sheen-cream p-3 bg-sheen-cream/10"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-body text-xs text-sheen-muted">
+                            {format(parseISO(sale.sale_date), 'MMM d')} ·{' '}
+                            {t.toISOString().slice(11, 16)} ·{' '}
+                            <span className="text-sheen-black font-medium">
+                              {sale.recorded_by || 'POS'}
+                            </span>
+                          </span>
+                          <span className="font-display text-sm font-bold text-sheen-brown">
+                            {Number(sale.total_revenue).toFixed(2)} د.إ
+                          </span>
+                        </div>
+                        <ul className="space-y-0.5">
+                          {(sale.sale_items ?? []).map((item) => (
+                            <li
+                              key={item.id}
+                              className="font-body text-xs text-sheen-black"
+                            >
+                              {item.name} <span className="text-sheen-muted">× {item.qty}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>

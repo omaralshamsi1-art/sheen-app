@@ -4,14 +4,16 @@ import type { HourlySales } from '../../types'
 
 interface HourlyChartProps {
   data: HourlySales[]
+  onBarClick?: (hour: number) => void
 }
 
-export default function HourlyChart({ data }: HourlyChartProps) {
+export default function HourlyChart({ data, onBarClick }: HourlyChartProps) {
   const { t } = useLanguage()
 
   const hours = Array.from({ length: 17 }, (_, i) => i + 6)
   const filled = hours.map(hour => ({
     hour: `${hour}:00`,
+    hourNum: hour,
     cups: data.find(d => d.hour === hour)?.cups ?? 0,
   }))
 
@@ -26,7 +28,18 @@ export default function HourlyChart({ data }: HourlyChartProps) {
           <Tooltip
             contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontFamily: '"DM Sans"' }}
           />
-          <Bar dataKey="cups" fill="#D4A843" radius={[4, 4, 0, 0]} name={t('cupsLabel')} />
+          <Bar
+            dataKey="cups"
+            fill="#D4A843"
+            radius={[4, 4, 0, 0]}
+            name={t('cupsLabel')}
+            cursor={onBarClick ? 'pointer' : 'default'}
+            onClick={(payload: any) => {
+              if (onBarClick && payload && typeof payload.hourNum === 'number' && payload.cups > 0) {
+                onBarClick(payload.hourNum)
+              }
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
