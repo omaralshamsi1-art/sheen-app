@@ -92,8 +92,11 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // Stock = total purchased (expenses) - total used (sales × recipe qty)
 // Bean substitution: if a sale item is "Americano (Brazil)", the Coffee
 // ingredient in the recipe is swapped to the ingredient matching "Brazil".
-router.get('/stock', async (_req: Request, res: Response) => {
+router.get('/stock', async (req: Request, res: Response) => {
   try {
+    const debug = req.query.debug === '1'
+    const debugLines: any[] = []
+
     const { data: ingredients, error: ingErr } = await supabase
       .from('ingredients').select('*').order('category').order('name')
     if (ingErr) throw ingErr
@@ -138,6 +141,7 @@ router.get('/stock', async (_req: Request, res: Response) => {
       for (const line of recipe) {
         let targetId = line.ingredient_id
         const recipeIng = ingredientMap.get(line.ingredient_id)
+        let chosenBeanDbg: any = null
 
         // Bean substitution: Coffee-category ingredient swapped to chosen bean
         if (beanChoice && recipeIng && recipeIng.category === 'Coffee') {
@@ -147,6 +151,7 @@ router.get('/stock', async (_req: Request, res: Response) => {
               i.name.toLowerCase().includes(beanChoice.toLowerCase())
           )
           if (chosenBean) targetId = chosenBean.id
+          chosenBeanDbg = chosenBean
         }
 
         // Milk substitution: Dairy-category ingredient swapped to chosen milk
@@ -160,6 +165,24 @@ router.get('/stock', async (_req: Request, res: Response) => {
         }
 
         usageById[targetId] = (usageById[targetId] || 0) + line.qty * si.qty
+
+        if (debug && beanChoice && ['Colombia Blueberry', 'Colombia Lavender', 'Geisha'].includes(beanChoice)) {
+          debugLines.push({
+            sale_name: si.name,
+            sale_qty: si.qty,
+            bean_choice: beanChoice,
+            bean_choice_len: beanChoice.length,
+            bean_choice_codes: Array.from(beanChoice).map((c: any) => c.charCodeAt(0)),
+            recipe_ing_id: line.ingredient_id,
+            recipe_ing_name: recipeIng?.name,
+            recipe_ing_category: recipeIng?.category,
+            chosen_bean_id: chosenBeanDbg?.id ?? null,
+            chosen_bean_name: chosenBeanDbg?.name ?? null,
+            target_id_final: targetId,
+            target_name_final: ingredientMap.get(targetId)?.name,
+            grams_added: line.qty * si.qty,
+          })
+        }
       }
     }
 
@@ -189,6 +212,18 @@ router.get('/stock', async (_req: Request, res: Response) => {
       }
     })
 
+    if (debug) {
+      res.json({
+        stock,
+        debug: {
+          coffee_ingredients: ingredientList
+            .filter((i: any) => i.category === 'Coffee')
+            .map((i: any) => ({ id: i.id, name: i.name, len: i.name.length })),
+          target_sales: debugLines,
+        },
+      })
+      return
+    }
     res.json(stock)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
