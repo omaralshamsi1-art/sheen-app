@@ -12,6 +12,7 @@ import api from '../lib/api'
 import toast from 'react-hot-toast'
 import { getItemImage } from '../data/itemImages'
 import { supabase } from '../lib/supabase'
+import { compressImage } from '../utils/compressImage'
 
 // Gross margin percentage for a menu item
 function grossMarginPct(item: MenuItem): number {
@@ -143,12 +144,13 @@ export default function Menu() {
       // upload gets a unique public URL and the browser can't serve a stale
       // cached copy of a previous image.
       if (editImageFile) {
-        const ext = editImageFile.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const compressed = await compressImage(editImageFile)
+        const ext = compressed.name.split('.').pop()?.toLowerCase() || 'jpg'
         const filePath = `${editItem.id}-${Date.now()}.${ext}`
 
         const { error: uploadErr } = await supabase.storage
           .from('menu-images')
-          .upload(filePath, editImageFile, { upsert: true, cacheControl: '31536000' })
+          .upload(filePath, compressed, { upsert: true, cacheControl: '31536000' })
 
         if (uploadErr) throw uploadErr
 
@@ -248,13 +250,14 @@ export default function Menu() {
 
       // Upload image to Supabase Storage if selected
       if (newImageFile) {
+        const compressed = await compressImage(newImageFile)
         const itemId = newName.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
-        const ext = newImageFile.name.split('.').pop() || 'jpg'
+        const ext = compressed.name.split('.').pop() || 'jpg'
         const filePath = `${itemId}-${Date.now()}.${ext}`
 
         const { error: uploadErr } = await supabase.storage
           .from('menu-images')
-          .upload(filePath, newImageFile, { upsert: true, cacheControl: '31536000' })
+          .upload(filePath, compressed, { upsert: true, cacheControl: '31536000' })
 
         if (uploadErr) throw uploadErr
 

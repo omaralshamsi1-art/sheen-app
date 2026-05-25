@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../lib/api'
 import { supabase } from '../lib/supabase'
+import { compressImage } from '../utils/compressImage'
 import TopBar from '../components/layout/TopBar'
 import { useAuth } from '../hooks/useAuth'
 import { useRole } from '../hooks/useRole'
@@ -90,11 +91,13 @@ export default function PettyCash() {
       if (receiptFile && type === 'withdrawal') {
         setUploadingReceipt(true)
         try {
-          const ext = receiptFile.name.split('.').pop()?.toLowerCase() || 'jpg'
+          // Bigger max-dim for receipts so fine print stays legible
+          const compressed = await compressImage(receiptFile, { maxDim: 1200, quality: 0.82 })
+          const ext = compressed.name.split('.').pop()?.toLowerCase() || 'jpg'
           const filePath = `petty-${Date.now()}.${ext}`
           const { error: uploadErr } = await supabase.storage
             .from('menu-images')
-            .upload(filePath, receiptFile, { upsert: true, cacheControl: '31536000' })
+            .upload(filePath, compressed, { upsert: true, cacheControl: '31536000' })
           if (uploadErr) throw uploadErr
           const { data: urlData } = supabase.storage.from('menu-images').getPublicUrl(filePath)
           receipt_url = urlData.publicUrl
