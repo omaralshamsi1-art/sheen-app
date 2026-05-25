@@ -50,6 +50,7 @@ export default function Menu() {
   const [editActive, setEditActive] = useState(true)
   const [saving, setSaving] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
+  const [compressingImages, setCompressingImages] = useState(false)
   const [editImageFile, setEditImageFile] = useState<File | null>(null)
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
   const [editDescription, setEditDescription] = useState('')
@@ -204,6 +205,22 @@ export default function Menu() {
     }
   }
 
+  // One-shot bulk compression of existing menu images in Supabase Storage
+  async function handleCompressImages() {
+    if (!confirm('Compress all menu images? This will rewrite each big image to a smaller version. No DB URLs change.')) return
+    setCompressingImages(true)
+    try {
+      const { data } = await api.post('/api/menu/compress-all-images')
+      const savedMB = (Number(data.saved_kb) / 1024).toFixed(1)
+      toast.success(`Compressed ${data.compressed} / ${data.processed} images — saved ${savedMB} MB`)
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] })
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Image compression failed')
+    } finally {
+      setCompressingImages(false)
+    }
+  }
+
   // Recipe mutations
   const addRecipeLine = useMutation({
     mutationFn: async ({ menuItemId, ingredient_id, qty }: { menuItemId: string; ingredient_id: string; qty: number }) => {
@@ -340,6 +357,9 @@ export default function Menu() {
             </Button>
             <Button onClick={handleRecalculate} disabled={recalculating}>
               {recalculating ? t('recalculating') : t('recalculateAllMargins')}
+            </Button>
+            <Button onClick={handleCompressImages} disabled={compressingImages}>
+              {compressingImages ? 'Compressing…' : 'Compress all images'}
             </Button>
           </div>
         </div>

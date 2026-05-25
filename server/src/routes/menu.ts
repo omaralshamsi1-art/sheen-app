@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import sharp from 'sharp'
 import { getMenuItems } from '../services/db'
 import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
@@ -332,5 +333,100 @@ async function recalculateCOGS(menuItemId: string) {
     })
     .eq('id', menuItemId)
 }
+
+// POST /api/menu/compress-all-images — one-button bulk compression of existing
+// menu images in Supabase Storage. Re-uploads to the same path so DB URLs stay
+// valid. Skips files already small, files where compression would not help,
+// and any non-menu-images URL. Returns a summary of what was done.
+router.post('/compress-all-images', async (req: Request, res: Response) => {
+  const MIN_SIZE_BYTES = 200_000   // skip files already <200 KB
+  const MAX_DIM = 800              // matches client-side compression for menu items
+  const JPEG_QUALITY = 82
+  const BUCKET = 'menu-images'
+
+  const log: Array<{ name: string; before_kb: number; after_kb: number; status: string }> = []
+  let totalBefore = 0
+  let totalAfter = 0
+
+  try {
+    // Pull every menu item that has an image_url pointing at our bucket
+    const { data: items, error } = await supabase
+      .from('menu_items')
+      .select('id, name, image_url')
+    if (error) throw error
+
+    for (const item of items ?? []) {
+      const url = (item as any).image_url as string | undefined
+      if (!url || !url.includes(`/${BUCKET}/`)) continue
+      const pathInBucket = url.split(`/${BUCKET}/`)[1]?.split('?')[0]
+      if (!pathInBucket) continue
+
+      try {
+        // Download — check size after we have the bytes
+        const { data: blob, error: dlErr } = await supabase.storage.from(BUCKET).download(pathInBucket)
+        if (dlErr || !blob) throw dlErr ?? new Error('download empty')
+        const buf = Buffer.from(await blob.arrayBuffer())
+
+        if (buf.length < MIN_SIZE_BYTES) {
+          totalBefore += buf.length
+          totalAfter += buf.length
+          log.push({ name: pathInBucket, before_kb: Math.round(buf.length / 1024), after_kb: Math.round(buf.length / 1024), status: 'skipped (already small)' })
+          continue
+        }
+
+        // Compress
+        const out = await sharp(buf)
+          .rotate()
+          .resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+          .toBuffer()
+
+        totalBefore += buf.length
+        if (out.length >= buf.length) {
+          totalAfter += buf.length
+          log.push({ name: pathInBucket, before_kb: Math.round(buf.length / 1024), after_kb: Math.round(out.length / 1024), status: 'skipped (no gain)' })
+          continue
+        }
+
+        // Re-upload to same path
+        const { error: upErr } = await supabase.storage
+          .from(BUCKET)
+          .upload(pathInBucket, out, { upsert: true, cacheControl: '31536000', contentType: 'image/jpeg' })
+        if (upErr) throw upErr
+
+        totalAfter += out.length
+        log.push({ name: pathInBucket, before_kb: Math.round(buf.length / 1024), after_kb: Math.round(out.length / 1024), status: 'compressed' })
+      } catch (e: any) {
+        log.push({ name: pathInBucket, before_kb: 0, after_kb: 0, status: `failed: ${e?.message ?? e}` })
+      }
+    }
+
+    const saved_kb = Math.round((totalBefore - totalAfter) / 1024)
+    await logAudit(req, {
+      action: 'update',
+      entity: 'menu_item',
+      details: {
+        page: 'Menu',
+        action: 'Bulk compress menu images',
+        processed: log.length,
+        compressed: log.filter(l => l.status === 'compressed').length,
+        saved_kb,
+      },
+    })
+
+    res.json({
+      processed: log.length,
+      compressed: log.filter(l => l.status === 'compressed').length,
+      skipped: log.filter(l => l.status.startsWith('skipped')).length,
+      failed: log.filter(l => l.status.startsWith('failed')).length,
+      total_before_kb: Math.round(totalBefore / 1024),
+      total_after_kb: Math.round(totalAfter / 1024),
+      saved_kb,
+      details: log,
+    })
+  } catch (err: any) {
+    res.status(500).json({ message: err?.message ?? 'unknown error' })
+  }
+})
 
 export default router
