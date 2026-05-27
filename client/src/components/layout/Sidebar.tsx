@@ -43,7 +43,7 @@ export default function Sidebar() {
   })
 
   return (
-    <aside className="hidden md:flex w-60 bg-sheen-black min-h-screen flex-col shrink-0">
+    <aside className="hidden md:flex w-60 bg-sheen-black h-[100dvh] flex-col shrink-0">
       <div className="p-6 border-b border-white/10">
         <div className="flex items-center gap-3">
           <img src="/images/logo.png" alt="SHEEN" className="w-10 h-10 rounded-full" />
@@ -66,7 +66,7 @@ export default function Sidebar() {
         )}
       </div>
 
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1">
         {visibleItems.map(item => {
           const IconComponent = navIconMap[item.to]
           return (
