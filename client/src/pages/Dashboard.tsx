@@ -65,7 +65,7 @@ function KPISkeleton() {
 
 export default function Dashboard() {
   const { t } = useLanguage()
-  const { role, allowedPages } = useRole()
+  const { role, allowedPages, roleLoading } = useRole()
   const todayStr = new Date().toISOString().split('T')[0]
   // Single-day mode when range is null; otherwise range.
   const [range, setRange] = useState<{ from: string; to: string } | null>(null)
@@ -73,11 +73,14 @@ export default function Dashboard() {
 
   // Date/range filter card is gated through Page Access. Admins always see it;
   // staff see it unless an admin has explicitly removed the toggle for them.
+  // Wait for the role/permissions to load first, otherwise the card briefly
+  // flashes on (defaults look "allowed" while null) before hiding.
   const canSeeDateFilter =
-    role === 'admin' ||
-    !allowedPages ||
-    allowedPages.length === 0 ||
-    allowedPages.includes(DASHBOARD_DATE_FILTER)
+    !roleLoading &&
+    (role === 'admin' ||
+      !allowedPages ||
+      allowedPages.length === 0 ||
+      allowedPages.includes(DASHBOARD_DATE_FILTER))
 
   // Step the viewed day by ±1 (single-day mode). Never goes past today.
   const stepDay = (delta: number) => {
