@@ -26,6 +26,15 @@ const CATEGORIES: MenuCategory[] = [
   'Beans',
 ]
 
+type Variant = {
+  vid: string
+  bean?: string
+  milk?: string
+  shots: number
+  addons: string[]
+  qty: number
+}
+
 export default function Sales() {
   const { t } = useLanguage()
   const queryClient = useQueryClient()
@@ -43,6 +52,7 @@ export default function Sales() {
   const [milkChoices, setMilkChoices] = useState<Record<string, string>>({})
   const [shotChoices, setShotChoices] = useState<Record<string, number>>({})
   const [addonChoices, setAddonChoices] = useState<Record<string, string[]>>({}) // itemId → array of selected add-on names
+  const [variants, setVariants] = useState<Record<string, Variant[]>>({}) // itemId → extra lines with different options
 
   const { data: extraShotPrice = 5 } = useQuery({
     queryKey: ['settings', 'extra_shot_price'],
@@ -189,31 +199,96 @@ export default function Sales() {
     [],
   )
 
-  // Live subtotal calculation (Colombia beans add +5 AED per coffee)
-  const subtotal = useMemo(() => {
-    let total = 0
+  // Variant helpers — extra lines for the same item with different bean/milk/shots/addons
+  const addVariant = useCallback((itemId: string) => {
+    setVariants((prev) => {
+      const list = prev[itemId] ?? []
+      // Seed the new variant from the item's current "main line" options, so
+      // "same as above, but tweak" is one tap away.
+      const seed: Variant = {
+        vid: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `v-${Date.now()}-${Math.random()}`,
+        bean: beanChoices[itemId],
+        milk: milkChoices[itemId],
+        shots: shotChoices[itemId] ?? 0,
+        addons: [...(addonChoices[itemId] ?? [])],
+        qty: 1,
+      }
+      return { ...prev, [itemId]: [...list, seed] }
+    })
+  }, [beanChoices, milkChoices, shotChoices, addonChoices])
+
+  const updateVariant = useCallback((itemId: string, vid: string, patch: Partial<Variant>) => {
+    setVariants((prev) => {
+      const list = prev[itemId] ?? []
+      const next = list.map(v => v.vid === vid ? { ...v, ...patch } : v)
+      return { ...prev, [itemId]: next }
+    })
+  }, [])
+
+  const removeVariant = useCallback((itemId: string, vid: string) => {
+    setVariants((prev) => {
+      const list = (prev[itemId] ?? []).filter(v => v.vid !== vid)
+      const next = { ...prev }
+      if (list.length === 0) delete next[itemId]
+      else next[itemId] = list
+      return next
+    })
+  }, [])
+
+  // Shared line builder — produces the display name + unit price for a given
+  // item + chosen options. Used by the order summary, subtotal and record-sale.
+  const describeLine = useCallback(
+    (item: MenuItem, opts: { bean?: string; milk?: string; shots: number; addons: string[] }) => {
+      const beanName = opts.bean || item.available_beans?.[0] || beanOptions[0]?.name || ''
+      const beanPremium = item.category === 'Coffee' ? (beanOptions.find(b => b.name === beanName)?.premium ?? 0) : 0
+      const milkPremium = opts.milk ? (milkOptions.find(m => m.name === opts.milk)?.premium ?? 0) : 0
+      const shotPremium = opts.shots * extraShotPrice
+      const addonPremium = opts.addons.reduce((s, name) => s + (item.addons?.find(a => a.name === name)?.price ?? 0), 0)
+      const unitPrice = getBasePrice(item) + beanPremium + milkPremium + shotPremium + addonPremium
+      let name = item.name
+      if (item.category === 'Coffee') name += ` (${beanName || 'Ethiopia'})`
+      if (opts.milk) name += ` [${opts.milk}]`
+      if (opts.shots > 0) name += ` +${opts.shots}shot`
+      if (opts.addons.length > 0) name += ` +${opts.addons.join(', ')}`
+      return { name, unitPrice }
+    },
+    [beanOptions, milkOptions, extraShotPrice, getBasePrice],
+  )
+
+  // Flattened order — every line (main + variants) across all categories, for the review summary
+  const orderLines = useMemo(() => {
+    const lines: Array<{ key: string; itemId: string; vid: string | null; name: string; category: string; qty: number; unitPrice: number; lineTotal: number }> = []
     for (const [id, qty] of Object.entries(quantities)) {
+      if (qty <= 0) continue
       const item = menuItems.find((m: MenuItem) => m.id === id)
       if (!item) continue
-      const beanPremium = item.category === 'Coffee' ? getBeanPremium(beanChoices[id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0
-      const milkPremium = milkChoices[id] ? getMilkPremium(milkChoices[id]) : 0
-      const shotPremium = (shotChoices[id] ?? 0) * extraShotPrice
-      const addonPremium = (addonChoices[id] ?? []).reduce((s, name) => {
-        const a = item.addons?.find(x => x.name === name)
-        return s + (a?.price ?? 0)
-      }, 0)
-      const unit = getBasePrice(item) + beanPremium + milkPremium + shotPremium + addonPremium
-      total += unit * qty
+      const { name, unitPrice } = describeLine(item, {
+        bean: beanChoices[id], milk: milkChoices[id], shots: shotChoices[id] ?? 0, addons: addonChoices[id] ?? [],
+      })
+      lines.push({ key: id, itemId: id, vid: null, name, category: item.category, qty, unitPrice, lineTotal: unitPrice * qty })
     }
-    return total
-  }, [quantities, menuItems, beanChoices, milkChoices, shotChoices, addonChoices, extraShotPrice, getBasePrice])
+    for (const [id, list] of Object.entries(variants)) {
+      const item = menuItems.find((m: MenuItem) => m.id === id)
+      if (!item) continue
+      for (const v of list) {
+        if (v.qty <= 0) continue
+        const { name, unitPrice } = describeLine(item, { bean: v.bean, milk: v.milk, shots: v.shots, addons: v.addons })
+        lines.push({ key: v.vid, itemId: id, vid: v.vid, name, category: item.category, qty: v.qty, unitPrice, lineTotal: unitPrice * v.qty })
+      }
+    }
+    return lines
+  }, [quantities, variants, menuItems, beanChoices, milkChoices, shotChoices, addonChoices, describeLine])
+
+  const subtotal = useMemo(() => orderLines.reduce((s, l) => s + l.lineTotal, 0), [orderLines])
 
   const commissionBase = subtotal * (currentSource.commission / 100)
   const vatOnCommission = (currentSource as any).vat ? commissionBase * 0.05 : 0
   const commissionAmount = commissionBase + vatOnCommission
   const netRevenue = subtotal - commissionAmount
 
-  const hasItems = Object.values(quantities).some((q) => q > 0)
+  const hasItems =
+    Object.values(quantities).some((q) => q > 0) ||
+    Object.values(variants).some((list) => list.some((v) => v.qty > 0))
 
   // Preview report for selected date
   const handlePreviewReport = async () => {
@@ -283,36 +358,16 @@ export default function Sales() {
     if (!hasItems) return
 
     const today = new Date().toISOString().split('T')[0]
-    const items = Object.entries(quantities)
-      .filter(([, qty]) => qty > 0)
-      .map(([id, qty]) => {
-        const menuItem = menuItems.find((m: MenuItem) => m.id === id)
-        const saleBeanPremium = menuItem?.category === 'Coffee' ? getBeanPremium(beanChoices[id] || menuItem?.available_beans?.[0] || beanOptions[0]?.name || '') : 0
-        const saleMilkPremium = milkChoices[id] ? getMilkPremium(milkChoices[id]) : 0
-        const saleShotPremium = (shotChoices[id] ?? 0) * extraShotPrice
-        const saleAddonPremium = (addonChoices[id] ?? []).reduce((s, name) => {
-          const a = menuItem?.addons?.find(x => x.name === name)
-          return s + (a?.price ?? 0)
-        }, 0)
-        const baseSelling = menuItem ? getBasePrice(menuItem) : 0
-        const unitPrice = baseSelling + saleBeanPremium + saleMilkPremium + saleShotPremium + saleAddonPremium
-        return {
-          menu_item_id: id,
-          name: (() => {
-            let n = menuItem?.name ?? ''
-            if (menuItem?.category === 'Coffee') n += ` (${beanChoices[id] || menuItem?.available_beans?.[0] || beanOptions[0]?.name || 'Ethiopia'})`
-            // Only include milk in name if an add-on was explicitly chosen
-            if (milkChoices[id]) n += ` [${milkChoices[id]}]`
-            if ((shotChoices[id] ?? 0) > 0) n += ` +${shotChoices[id]}shot`
-            if ((addonChoices[id]?.length ?? 0) > 0) n += ` +${addonChoices[id].join(', ')}`
-            return n
-          })(),
-          category: menuItem?.category ?? '',
-          price: unitPrice,
-          qty,
-          total: unitPrice * qty,
-        }
-      })
+
+    // The review summary (orderLines) is already the exact set of lines to record.
+    const items = orderLines.map((l) => ({
+      menu_item_id: l.itemId,
+      name: l.name,
+      category: l.category,
+      price: l.unitPrice,
+      qty: l.qty,
+      total: l.lineTotal,
+    }))
 
     const payload: SalePayload = {
       sale_date: today,
@@ -325,6 +380,10 @@ export default function Sales() {
       onSuccess: () => {
         setQuantities({})
         setBeanChoices({})
+        setMilkChoices({})
+        setShotChoices({})
+        setAddonChoices({})
+        setVariants({})
         setOrderSource(null)
         setOrderNote('')
       },
@@ -612,6 +671,132 @@ export default function Sales() {
                       +
                     </button>
                   </div>
+
+                  {/* Variant lines — same item with different bean/milk/shots/add-ons */}
+                  {(variants[item.id] ?? []).map((v, idx) => (
+                    <div
+                      key={v.vid}
+                      className="mt-3 ml-2 pl-3 border-l-2 border-sheen-gold/40 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider">
+                          Variation {idx + 2}
+                        </p>
+                        <button
+                          onClick={() => removeVariant(item.id, v.vid)}
+                          className="text-red-500 hover:text-red-700 text-xs font-body"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      {item.category === 'Coffee' && beanOptions.length > 0 && (
+                        <select
+                          value={v.bean || item.available_beans?.[0] || beanOptions[0]?.name || ''}
+                          onChange={(e) => updateVariant(item.id, v.vid, { bean: e.target.value })}
+                          className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-xs text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                        >
+                          {beanOptions.filter(b => !item.available_beans || item.available_beans.length === 0 || item.available_beans.includes(b.name)).map(bean => (
+                            <option key={bean.name} value={bean.name}>
+                              Bean: {bean.name}{bean.premium > 0 ? ` (+${bean.premium})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      {item.category === 'Coffee' && item.show_extra_shot !== false && (
+                        <select
+                          value={v.shots}
+                          onChange={(e) => updateVariant(item.id, v.vid, { shots: Number(e.target.value) })}
+                          className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-xs text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                        >
+                          <option value={0}>Shots: None</option>
+                          <option value={1}>Shots: 1 (+{extraShotPrice})</option>
+                          <option value={2}>Shots: 2 (+{extraShotPrice * 2})</option>
+                          <option value={3}>Shots: 3 (+{extraShotPrice * 3})</option>
+                        </select>
+                      )}
+
+                      {item.available_milks && item.available_milks.length > 0 && (
+                        <select
+                          value={v.milk || ''}
+                          onChange={(e) => updateVariant(item.id, v.vid, { milk: e.target.value || undefined })}
+                          className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-xs text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
+                        >
+                          <option value="">Milk: Fresh (default)</option>
+                          {milkOptions.filter(m => item.available_milks!.includes(m.name)).map(milk => (
+                            <option key={milk.name} value={milk.name}>
+                              Milk: {milk.name}{milk.premium > 0 ? ` (+${milk.premium})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      {item.addons && item.addons.length > 0 && (
+                        <div className="space-y-1">
+                          {item.addons.map((addon, i) => {
+                            const checked = v.addons.includes(addon.name)
+                            return (
+                              <label key={i} className={`flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer text-xs ${checked ? 'bg-sheen-gold/10' : 'bg-sheen-cream'}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => {
+                                    const next = checked
+                                      ? v.addons.filter(n => n !== addon.name)
+                                      : [...v.addons, addon.name]
+                                    updateVariant(item.id, v.vid, { addons: next })
+                                  }}
+                                  className="h-4 w-4 accent-sheen-gold cursor-pointer"
+                                />
+                                <span className="font-body flex-1 text-sheen-black">{addon.name}</span>
+                                <span className="font-body text-sheen-gold font-semibold">+{addon.price}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            if (v.qty <= 1) removeVariant(item.id, v.vid)
+                            else updateVariant(item.id, v.vid, { qty: v.qty - 1 })
+                          }}
+                          className="w-9 h-9 flex items-center justify-center rounded-lg bg-sheen-cream text-sheen-black font-bold text-base hover:bg-sheen-gold/20 active:bg-sheen-gold/30 transition-colors"
+                        >
+                          &minus;
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          value={v.qty}
+                          onChange={(e) => updateVariant(item.id, v.vid, { qty: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                          className="w-12 h-9 text-center font-body text-sm font-semibold border border-sheen-muted/40 rounded-lg bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                        <button
+                          onClick={() => updateVariant(item.id, v.vid, { qty: v.qty + 1 })}
+                          className="w-9 h-9 flex items-center justify-center rounded-lg bg-sheen-brown text-white font-bold text-base hover:bg-sheen-brown/90 active:bg-sheen-brown transition-colors"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add variation button — shown only for items with at least one customization axis */}
+                  {(
+                    (item.category === 'Coffee' && (beanOptions.length > 0 || item.show_extra_shot !== false)) ||
+                    (item.available_milks && item.available_milks.length > 0) ||
+                    (item.addons && item.addons.length > 0)
+                  ) && (
+                    <button
+                      onClick={() => addVariant(item.id)}
+                      className="mt-2 w-full px-3 py-1.5 rounded-lg border border-dashed border-sheen-brown/40 text-sheen-brown font-body text-xs font-medium hover:bg-sheen-brown/5 transition-colors"
+                    >
+                      + Add variation (different options)
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -649,6 +834,34 @@ export default function Sales() {
                 className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold bg-sheen-cream"
               />
             </div>
+
+            {/* Order summary — review every line before submitting */}
+            {orderLines.length > 0 && (
+              <div className="rounded-xl border border-sheen-muted/30 bg-sheen-cream/40 overflow-hidden">
+                <p className="font-body text-xs text-sheen-muted uppercase tracking-wider px-3 pt-3 pb-1">
+                  Order ({orderLines.reduce((s, l) => s + l.qty, 0)} {orderLines.reduce((s, l) => s + l.qty, 0) === 1 ? 'item' : 'items'})
+                </p>
+                <div className="divide-y divide-sheen-muted/20">
+                  {orderLines.map((l) => (
+                    <div key={l.key} className="flex items-center gap-2 px-3 py-2">
+                      <span className="shrink-0 w-7 h-6 flex items-center justify-center rounded bg-sheen-brown/10 text-sheen-brown font-body text-xs font-semibold">
+                        ×{l.qty}
+                      </span>
+                      <span className="flex-1 min-w-0 font-body text-sm text-sheen-black truncate">{l.name}</span>
+                      <span className="shrink-0 font-body text-sm text-sheen-brown font-semibold">{l.lineTotal.toFixed(2)}</span>
+                      <button
+                        onClick={() => (l.vid ? removeVariant(l.itemId, l.vid) : setQty(l.itemId, 0))}
+                        className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-red-500 hover:bg-red-100 transition-colors"
+                        aria-label="Remove line"
+                        title="Remove"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Subtotal + Commission + VAT + Record */}
             <div>
