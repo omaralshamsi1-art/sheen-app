@@ -46,6 +46,7 @@ export const translations = {
   userDeleted: { en: 'User deleted', ar: 'تم حذف المستخدم' },
   confirmDelete: { en: 'Are you sure?', ar: 'هل أنت متأكد؟' },
   pageAccess: { en: 'Page Access', ar: 'صلاحيات الصفحات' },
+  dashboardDateFilter: { en: 'Dashboard Date Filter', ar: 'فلتر تاريخ لوحة التحكم' },
   paymentMethods: { en: 'Payment Methods', ar: 'طرق الدفع' },
   permissions: { en: 'Permissions', ar: 'الصلاحيات' },
   auditLog: { en: 'Audit Log', ar: 'سجل المراجعة' },

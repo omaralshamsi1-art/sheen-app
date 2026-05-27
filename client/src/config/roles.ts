@@ -32,6 +32,15 @@ export const navItems: NavItem[] = [
   { to: '/audit-log',  labelKey: 'auditLog' as TranslationKey, icon: '', roles: ['admin'] },
 ]
 
+// Feature permissions — toggleable UI features (not routes) gated through Page Access.
+// They live in a user's allowed_pages alongside route paths, but are prefixed with
+// "feature:" so routing/redirect logic ignores them.
+export const DASHBOARD_DATE_FILTER = 'feature:dashboard-date-filter'
+
+export const FEATURE_PAGES: { path: string; labelKey: TranslationKey }[] = [
+  { path: DASHBOARD_DATE_FILTER, labelKey: 'dashboardDateFilter' },
+]
+
 // Which roles can access which routes
 export const routeRoles: Record<string, UserRole[]> = {
   '/dashboard':   ['admin', 'staff'],

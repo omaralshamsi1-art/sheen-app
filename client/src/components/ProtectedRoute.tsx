@@ -40,7 +40,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     // Staff: check per-user allowed_pages if set
     if (role === 'staff' && allowedPages && allowedPages.length > 0) {
       if (!allowedPages.includes(path)) {
-        return <Navigate to={allowedPages[0] || defaultRoute.staff} replace />
+        // Redirect to the first real route they can access (skip "feature:" permissions)
+        const firstRoute = allowedPages.find((p) => p.startsWith('/'))
+        return <Navigate to={firstRoute || defaultRoute.staff} replace />
       }
     }
   }

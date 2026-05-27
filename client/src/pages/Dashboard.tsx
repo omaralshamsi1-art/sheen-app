@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLanguage } from '../i18n/LanguageContext'
+import { useRole } from '../hooks/useRole'
+import { DASHBOARD_DATE_FILTER } from '../config/roles'
 import { useHourlySales, useTopSellers } from '../hooks/useSales'
 import { salesService } from '../services/salesService'
 import { useFixedCosts } from '../hooks/useFixedCosts'
@@ -63,10 +65,29 @@ function KPISkeleton() {
 
 export default function Dashboard() {
   const { t } = useLanguage()
+  const { role, allowedPages } = useRole()
   const todayStr = new Date().toISOString().split('T')[0]
   // Single-day mode when range is null; otherwise range.
   const [range, setRange] = useState<{ from: string; to: string } | null>(null)
   const [selectedDate, setSelectedDate] = useState(todayStr)
+
+  // Date/range filter card is gated through Page Access. Admins always see it;
+  // staff see it unless an admin has explicitly removed the toggle for them.
+  const canSeeDateFilter =
+    role === 'admin' ||
+    !allowedPages ||
+    allowedPages.length === 0 ||
+    allowedPages.includes(DASHBOARD_DATE_FILTER)
+
+  // Step the viewed day by ±1 (single-day mode). Never goes past today.
+  const stepDay = (delta: number) => {
+    const base = range ? range.to : selectedDate
+    const next = format(addDays(parseISO(base), delta), 'yyyy-MM-dd')
+    if (next > todayStr) return
+    setRange(null)
+    setSelectedDate(next)
+  }
+  const viewedDay = range ? range.to : selectedDate
 
   const kpiKey = range ? `${range.from}_${range.to}` : selectedDate
   const dateArg = range ?? selectedDate
@@ -203,6 +224,7 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* ---------- Date / Range Picker ---------- */}
+        {canSeeDateFilter && (
         <div className="bg-sheen-white rounded-xl shadow-sm p-4 space-y-3">
           {/* Preset buttons */}
           <div className="flex flex-wrap gap-2">
@@ -234,6 +256,30 @@ export default function Dashboard() {
 
           {/* Manual from-to inputs */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Previous / next day stepper */}
+            <div className="flex items-center gap-1 mr-1">
+              <button
+                onClick={() => stepDay(-1)}
+                aria-label="Previous day"
+                title="Previous day"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-sheen-muted/30 bg-sheen-cream text-sheen-brown hover:bg-sheen-gold/10 transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <button
+                onClick={() => stepDay(1)}
+                disabled={viewedDay >= todayStr}
+                aria-label="Next day"
+                title="Next day"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-sheen-muted/30 bg-sheen-cream text-sheen-brown hover:bg-sheen-gold/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            </div>
             <span className="font-body text-xs text-sheen-muted">From</span>
             <input
               type="date"
@@ -267,6 +313,7 @@ export default function Dashboard() {
             </span>
           </div>
         </div>
+        )}
 
         {/* ---------- KPI Row ---------- */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

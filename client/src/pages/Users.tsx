@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getUsers, addUser, updateUserRole, updateUserPages, updateUserPaymentMethods, deleteUser, changeUserPassword, toggleUserBan } from '../services/userService'
-import { navItems } from '../config/roles'
+import { navItems, FEATURE_PAGES } from '../config/roles'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -14,9 +14,13 @@ const ROLES: UserRole[] = ['admin', 'staff', 'customer']
 
 // Pages that admin can toggle for staff users
 // All pages that admin can toggle for staff (excludes customer-only pages)
-const STAFF_PAGES = navItems
-  .filter((item) => !item.roles.every(r => r === 'customer'))
-  .map((item) => ({ path: item.to, labelKey: item.labelKey }))
+const STAFF_PAGES = [
+  ...navItems
+    .filter((item) => !item.roles.every(r => r === 'customer'))
+    .map((item) => ({ path: item.to, labelKey: item.labelKey })),
+  // Feature toggles (not routes) — e.g. the dashboard date/range filter card
+  ...FEATURE_PAGES,
+]
 
 // Payment methods that admin can toggle
 const ALL_PAYMENT_METHODS = [
