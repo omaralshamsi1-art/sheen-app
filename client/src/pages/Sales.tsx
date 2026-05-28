@@ -235,11 +235,23 @@ export default function Sales() {
     })
   }, [])
 
+  // First bean in item.available_beans that still exists in the ingredients
+  // list — skips stale entries (e.g. a bean later deleted from ingredients).
+  const defaultBeanFor = useCallback(
+    (item: MenuItem) => {
+      const valid = (item.available_beans ?? []).find(name =>
+        beanOptions.some(b => b.name === name),
+      )
+      return valid || beanOptions[0]?.name || ''
+    },
+    [beanOptions],
+  )
+
   // Shared line builder — produces the display name + unit price for a given
   // item + chosen options. Used by the order summary, subtotal and record-sale.
   const describeLine = useCallback(
     (item: MenuItem, opts: { bean?: string; milk?: string; shots: number; addons: string[] }) => {
-      const beanName = opts.bean || item.available_beans?.[0] || beanOptions[0]?.name || ''
+      const beanName = opts.bean || defaultBeanFor(item)
       const beanPremium = item.category === 'Coffee' ? (beanOptions.find(b => b.name === beanName)?.premium ?? 0) : 0
       const milkPremium = opts.milk ? (milkOptions.find(m => m.name === opts.milk)?.premium ?? 0) : 0
       const shotPremium = opts.shots * extraShotPrice
@@ -252,7 +264,7 @@ export default function Sales() {
       if (opts.addons.length > 0) name += ` +${opts.addons.join(', ')}`
       return { name, unitPrice }
     },
-    [beanOptions, milkOptions, extraShotPrice, getBasePrice],
+    [defaultBeanFor, beanOptions, milkOptions, extraShotPrice, getBasePrice],
   )
 
   // Flattened order — every line (main + variants) across all categories, for the review summary
@@ -531,7 +543,7 @@ export default function Sales() {
                       </p>
                       <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
                         {getBasePrice(item)
-                          + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || '') : 0)
+                          + (item.category === 'Coffee' ? getBeanPremium(beanChoices[item.id] || defaultBeanFor(item)) : 0)
                           + (milkChoices[item.id] ? getMilkPremium(milkChoices[item.id]) : 0)
                           + ((shotChoices[item.id] ?? 0) * extraShotPrice)
                           + (addonChoices[item.id] ?? []).reduce((s, name) => s + (item.addons?.find(a => a.name === name)?.price ?? 0), 0)} د.إ
@@ -544,11 +556,11 @@ export default function Sales() {
                     <div className="mt-3">
                       <p className="font-body text-[10px] text-sheen-muted uppercase tracking-wider mb-1">
                         Bean: <span className="text-sheen-brown font-semibold normal-case tracking-normal">
-                          {beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || 'Default'}
+                          {beanChoices[item.id] || defaultBeanFor(item) || 'Default'}
                         </span>
                       </p>
                       <select
-                        value={beanChoices[item.id] || item.available_beans?.[0] || beanOptions[0]?.name || ''}
+                        value={beanChoices[item.id] || defaultBeanFor(item)}
                         onChange={(e) => setBeanChoices(prev => ({ ...prev, [item.id]: e.target.value }))}
                         className="w-full px-3 py-2 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-xs text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
                       >
@@ -692,7 +704,7 @@ export default function Sales() {
 
                       {item.category === 'Coffee' && beanOptions.length > 0 && (
                         <select
-                          value={v.bean || item.available_beans?.[0] || beanOptions[0]?.name || ''}
+                          value={v.bean || defaultBeanFor(item)}
                           onChange={(e) => updateVariant(item.id, v.vid, { bean: e.target.value })}
                           className="w-full px-2 py-1.5 rounded-lg border border-sheen-muted/30 bg-sheen-cream font-body text-xs text-sheen-black focus:outline-none focus:ring-1 focus:ring-sheen-gold"
                         >
