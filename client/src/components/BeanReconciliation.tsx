@@ -1,7 +1,6 @@
 import { Fragment, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../lib/api'
-import { useLanguage } from '../i18n/LanguageContext'
 
 interface BeanRow {
   id: string
@@ -25,7 +24,6 @@ function loadActuals(): Record<string, number> {
 }
 
 export default function BeanReconciliation() {
-  const { t } = useLanguage()
   const [actuals, setActuals] = useState<Record<string, number>>(loadActuals)
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -51,12 +49,9 @@ export default function BeanReconciliation() {
 
   return (
     <div className="bg-sheen-white rounded-xl shadow-sm p-5">
-      <h2 className="font-display text-lg text-sheen-black mb-1">
-        {t('beanReconciliation') || 'Bean Reconciliation'}
-      </h2>
+      <h2 className="font-display text-lg text-sheen-black mb-1">Bean Reconciliation</h2>
       <p className="text-xs text-sheen-muted mb-4">
-        {t('beanReconciliationHint') ||
-          'Enter what you physically counted on the shelf. Variance = actual − calculated remaining.'}
+        Enter what you physically counted on the shelf. Variance = actual − calculated remaining.
       </p>
 
       <div className="overflow-x-auto">
