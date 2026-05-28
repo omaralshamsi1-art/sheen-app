@@ -21,6 +21,7 @@ import {
 } from 'date-fns'
 import { useLanguage } from '../i18n/LanguageContext'
 import StockAlert from '../components/StockAlert'
+import BeanReconciliation from '../components/BeanReconciliation'
 import api from '../lib/api'
 
 const DEFAULT_CATEGORIES = ['Coffee', 'Dairy', 'Matcha', 'Packaging', 'Fruit', 'Syrup', 'Baking', 'Transportation', 'Other']
@@ -273,6 +274,11 @@ export default function Expenses() {
         {/* ── Stock Levels ── */}
         <div className="mb-6">
           <StockAlert />
+        </div>
+
+        {/* ── Bean Reconciliation ── */}
+        <div className="mb-6">
+          <BeanReconciliation />
         </div>
 
         {/* ── New Expense Form ── */}

@@ -204,4 +204,116 @@ router.get('/stock', async (_req: Request, res: Response) => {
   }
 })
 
+// GET /api/ingredients/bean-reconciliation
+// Per-bean audit: purchased, grams used, cups sold, breakdown by drink.
+router.get('/bean-reconciliation', async (_req: Request, res: Response) => {
+  try {
+    const { data: ingredients, error: ingErr } = await supabase
+      .from('ingredients').select('*').eq('category', 'Coffee').order('name')
+    if (ingErr) throw ingErr
+
+    const { data: allIngredients, error: allErr } = await supabase
+      .from('ingredients').select('id, name, category')
+    if (allErr) throw allErr
+
+    const { data: expenses, error: expErr } = await supabase
+      .from('expenses').select('ingredient_name, qty_bought')
+    if (expErr) throw expErr
+
+    const { data: recipeLines, error: recErr } = await supabase
+      .from('recipe_lines').select('ingredient_id, menu_item_id, qty')
+    if (recErr) throw recErr
+
+    const saleItems: Array<{ menu_item_id: string; name: string; qty: number }> = []
+    const PAGE = 1000
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error: saleErr } = await supabase
+        .from('sale_items')
+        .select('menu_item_id, name, qty')
+        .range(from, from + PAGE - 1)
+      if (saleErr) throw saleErr
+      if (!page || page.length === 0) break
+      saleItems.push(...page)
+      if (page.length < PAGE) break
+    }
+
+    const beans = ingredients ?? []
+    const ingredientMap = new Map((allIngredients ?? []).map((i: any) => [i.id, i]))
+
+    const recipesByItem: Record<string, Array<{ ingredient_id: string; qty: number }>> = {}
+    for (const rl of recipeLines ?? []) {
+      if (!recipesByItem[rl.menu_item_id]) recipesByItem[rl.menu_item_id] = []
+      recipesByItem[rl.menu_item_id].push({ ingredient_id: rl.ingredient_id, qty: Number(rl.qty) })
+    }
+
+    // For each bean: total grams used, total cups, breakdown by drink base name
+    const stats: Record<string, { used: number; cups: number; byDrink: Record<string, number> }> = {}
+    for (const b of beans) stats[b.id] = { used: 0, cups: 0, byDrink: {} }
+
+    for (const si of saleItems) {
+      const recipe = recipesByItem[si.menu_item_id]
+      if (!recipe) continue
+
+      const beanMatch = (si.name as string).match(/\(([^)]+)\)/)
+      const beanChoice = beanMatch ? beanMatch[1] : null
+
+      let beanIdForThisSale: string | null = null
+      let beanGrams = 0
+
+      for (const line of recipe) {
+        const recipeIng: any = ingredientMap.get(line.ingredient_id)
+        if (!recipeIng || recipeIng.category !== 'Coffee') continue
+
+        let targetId = line.ingredient_id
+        if (beanChoice) {
+          const chosen = beans.find((i: any) =>
+            i.name.toLowerCase().includes(beanChoice.toLowerCase())
+          )
+          if (chosen) targetId = chosen.id
+        }
+        beanIdForThisSale = targetId
+        beanGrams = line.qty * si.qty
+        break
+      }
+
+      if (beanIdForThisSale && stats[beanIdForThisSale]) {
+        stats[beanIdForThisSale].used += beanGrams
+        stats[beanIdForThisSale].cups += si.qty
+        const drinkBase = (si.name as string).replace(/\s*\(.*?\)\s*/g, '').replace(/\s*\[.*?\]\s*/g, '').trim()
+        stats[beanIdForThisSale].byDrink[drinkBase] =
+          (stats[beanIdForThisSale].byDrink[drinkBase] || 0) + si.qty
+      }
+    }
+
+    const purchasedByName: Record<string, number> = {}
+    for (const exp of expenses ?? []) {
+      const name = (exp.ingredient_name as string).toLowerCase().trim()
+      purchasedByName[name] = (purchasedByName[name] || 0) + Number(exp.qty_bought)
+    }
+
+    const result = beans.map((b: any) => {
+      const s = stats[b.id]
+      const purchased = purchasedByName[b.name.toLowerCase().trim()] || 0
+      const remaining = purchased - s.used
+      const byDrink = Object.entries(s.byDrink)
+        .map(([name, cups]) => ({ name, cups }))
+        .sort((a, b) => b.cups - a.cups)
+      return {
+        id: b.id,
+        name: b.name,
+        unit: b.unit,
+        purchased: Math.round(purchased * 100) / 100,
+        used: Math.round(s.used * 100) / 100,
+        remaining: Math.round(remaining * 100) / 100,
+        cups_sold: s.cups,
+        by_drink: byDrink,
+      }
+    })
+
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 export default router
