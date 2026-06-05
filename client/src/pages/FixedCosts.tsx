@@ -10,7 +10,7 @@ import type { FixedCostCategory, FixedCostPayload } from '../types'
 import TopBar from '../components/layout/TopBar'
 import { useLanguage } from '../i18n/LanguageContext'
 import Button from '../components/ui/Button'
-import { format, isBefore, addDays, addMonths, subMonths, parseISO } from 'date-fns'
+import { format, isBefore, addDays, parseISO } from 'date-fns'
 import { useRole } from '../hooks/useRole'
 
 const CATEGORIES: FixedCostCategory[] = [
@@ -39,7 +39,12 @@ export default function FixedCosts() {
   const { isAdmin } = useRole()
   // Defaults to the current month; 'all' = every month; otherwise a specific 'yyyy-MM'
   const [selectedMonth, setSelectedMonth] = useState<string>(() => format(new Date(), 'yyyy-MM'))
-  const { data: costs = [], isLoading } = useFixedCosts(selectedMonth)
+  // Fetch every month so the dropdown can list only the months that actually have entries
+  const { data: allCosts = [], isLoading } = useFixedCosts('all')
+  const costs = useMemo(
+    () => (selectedMonth === 'all' ? allCosts : allCosts.filter((c) => c.month === selectedMonth)),
+    [allCosts, selectedMonth],
+  )
   const createMutation = useCreateFixedCost()
   const togglePaidMutation = useTogglePaid()
   const deleteMutation = useDeleteFixedCost()
@@ -78,20 +83,13 @@ export default function FixedCosts() {
 
   const currentMonth = format(new Date(), 'yyyy-MM')
 
-  // Months offered in the filter dropdown: from March 2026 up to 2 months
-  // ahead of today, listed newest first.
+  // Months offered in the filter dropdown: only months that actually have a
+  // fixed expense, plus the current month (the default), newest first.
   const monthOptions = useMemo(() => {
-    const START_MONTH = '2026-03'
-    const months: string[] = []
-    let cursor = addMonths(new Date(), 2)
-    let guard = 0
-    while (format(cursor, 'yyyy-MM') >= START_MONTH && guard < 240) {
-      months.push(format(cursor, 'yyyy-MM'))
-      cursor = subMonths(cursor, 1)
-      guard++
-    }
-    return months
-  }, [])
+    const set = new Set<string>(allCosts.map((c) => c.month))
+    set.add(currentMonth)
+    return [...set].sort((a, b) => b.localeCompare(a))
+  }, [allCosts, currentMonth])
 
   // Break-even reflects the month being viewed (current month when "All" is selected)
   const breakEvenMonth = selectedMonth === 'all' ? currentMonth : selectedMonth
