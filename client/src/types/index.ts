@@ -155,6 +155,8 @@ export type FixedCostCategory =
   | 'Insurance'
   | 'Equipment'
   | 'Marketing'
+  | 'Licenses'
+  | 'Visa'
   | 'Other';
 
 export interface FixedCostPayload {

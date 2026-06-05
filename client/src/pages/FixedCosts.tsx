@@ -10,7 +10,7 @@ import type { FixedCostCategory, FixedCostPayload } from '../types'
 import TopBar from '../components/layout/TopBar'
 import { useLanguage } from '../i18n/LanguageContext'
 import Button from '../components/ui/Button'
-import { format, isBefore, addDays, parseISO } from 'date-fns'
+import { format, isBefore, addDays, addMonths, parseISO } from 'date-fns'
 
 const CATEGORIES: FixedCostCategory[] = [
   'Rent',
@@ -20,6 +20,8 @@ const CATEGORIES: FixedCostCategory[] = [
   'Insurance',
   'Equipment',
   'Marketing',
+  'Licenses',
+  'Visa',
   'Other',
 ]
 
@@ -33,7 +35,9 @@ const emptyForm: Omit<FixedCostPayload, 'month'> = {
 
 export default function FixedCosts() {
   const { t } = useLanguage()
-  const { data: costs = [], isLoading } = useFixedCosts()
+  // 'all' = every month; otherwise a specific 'yyyy-MM'
+  const [selectedMonth, setSelectedMonth] = useState<string>('all')
+  const { data: costs = [], isLoading } = useFixedCosts(selectedMonth)
   const createMutation = useCreateFixedCost()
   const togglePaidMutation = useTogglePaid()
   const deleteMutation = useDeleteFixedCost()
@@ -72,11 +76,24 @@ export default function FixedCosts() {
 
   const currentMonth = format(new Date(), 'yyyy-MM')
 
+  // Months offered in the filter dropdown: 6 ahead → 12 behind (newest first)
+  const monthOptions = useMemo(() => {
+    const now = new Date()
+    const months: string[] = []
+    for (let i = 6; i >= -12; i--) {
+      months.push(format(addMonths(now, i), 'yyyy-MM'))
+    }
+    return months
+  }, [])
+
+  // Break-even reflects the month being viewed (current month when "All" is selected)
+  const breakEvenMonth = selectedMonth === 'all' ? currentMonth : selectedMonth
+
   const totalMonthlyFixedCosts = useMemo(() => {
     return costs
-      .filter((c) => c.month === currentMonth)
+      .filter((c) => c.month === breakEvenMonth)
       .reduce((sum, c) => sum + Number(c.amount), 0)
-  }, [costs, currentMonth])
+  }, [costs, breakEvenMonth])
 
   const breakEvenCups =
     averageGrossMarginPerCup > 0
@@ -124,7 +141,7 @@ export default function FixedCosts() {
         <div className="rounded-xl bg-white shadow-sm p-5">
           <h2 className="font-display text-lg text-sheen-black mb-3">
             {t('breakEvenCalculator')}
-            <span className="ml-2 text-sm font-body text-sheen-muted">({currentMonth})</span>
+            <span className="ml-2 text-sm font-body text-sheen-muted">({breakEvenMonth})</span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
             <div>
@@ -152,6 +169,23 @@ export default function FixedCosts() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Month filter */}
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-body text-sheen-muted">{t('month')}</label>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="rounded-lg border border-sheen-cream bg-white px-3 py-2 font-body text-sheen-black focus:outline-none focus:ring-2 focus:ring-sheen-gold"
+          >
+            <option value="all">{t('allMonths')}</option>
+            {monthOptions.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Add fixed cost toggle / form */}

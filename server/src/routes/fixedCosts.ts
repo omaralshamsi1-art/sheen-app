@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import {
   getFixedCostsByMonth,
+  getAllFixedCosts,
   insertFixedCost,
 } from '../services/db'
 import { supabase } from '../lib/supabase'
@@ -8,11 +9,16 @@ import { logAudit } from '../lib/audit'
 
 const router = Router()
 
-// GET /api/fixed-costs?month=YYYY-MM
+// GET /api/fixed-costs?month=YYYY-MM (or month=all for every month)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const month =
-      (req.query.month as string) || new Date().toISOString().slice(0, 7)
+    const monthParam = req.query.month as string | undefined
+    if (monthParam === 'all') {
+      const costs = await getAllFixedCosts()
+      res.json(costs)
+      return
+    }
+    const month = monthParam || new Date().toISOString().slice(0, 7)
     const costs = await getFixedCostsByMonth(month)
     res.json(costs)
   } catch (err: any) {
@@ -35,7 +41,7 @@ router.post('/', async (req: Request, res: Response) => {
       return
     }
 
-    const validCategories = ['Rent', 'Wages', 'Utilities', 'Internet', 'Insurance', 'Equipment', 'Marketing', 'Other']
+    const validCategories = ['Rent', 'Wages', 'Utilities', 'Internet', 'Insurance', 'Equipment', 'Marketing', 'Licenses', 'Visa', 'Other']
     if (!validCategories.includes(category)) {
       res.status(400).json({ message: `category must be one of: ${validCategories.join(', ')}` })
       return

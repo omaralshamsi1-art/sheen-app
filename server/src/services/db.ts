@@ -110,6 +110,16 @@ export async function getFixedCostsByMonth(month: string) {
   return data as FixedCost[]
 }
 
+export async function getAllFixedCosts() {
+  const { data, error } = await supabase
+    .from('fixed_costs')
+    .select('*')
+    .order('due_date', { ascending: true })
+
+  if (error) throw error
+  return data as FixedCost[]
+}
+
 export async function insertFixedCost(cost: FixedCostPayload) {
   const { data, error } = await supabase
     .from('fixed_costs')

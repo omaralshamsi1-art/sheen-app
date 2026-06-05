@@ -241,6 +241,7 @@ export const translations = {
   amount: { en: 'Amount', ar: 'المبلغ' },
   dueDate: { en: 'Due Date', ar: 'تاريخ الاستحقاق' },
   month: { en: 'Month', ar: 'الشهر' },
+  allMonths: { en: 'All months', ar: 'كل الأشهر' },
   paid: { en: 'Paid', ar: 'مدفوع' },
   pending: { en: 'Pending', ar: 'معلّق' },
   noFixedCostsYet: { en: 'No fixed costs yet. Add your first one above.', ar: 'لا توجد تكاليف ثابتة بعد. أضف أول تكلفة أعلاه.' },
