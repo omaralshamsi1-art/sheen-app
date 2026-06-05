@@ -10,7 +10,8 @@ import type { FixedCostCategory, FixedCostPayload } from '../types'
 import TopBar from '../components/layout/TopBar'
 import { useLanguage } from '../i18n/LanguageContext'
 import Button from '../components/ui/Button'
-import { format, isBefore, addDays, addMonths, parseISO } from 'date-fns'
+import { format, isBefore, addDays, addMonths, subMonths, parseISO } from 'date-fns'
+import { useRole } from '../hooks/useRole'
 
 const CATEGORIES: FixedCostCategory[] = [
   'Rent',
@@ -35,8 +36,9 @@ const emptyForm: Omit<FixedCostPayload, 'month'> = {
 
 export default function FixedCosts() {
   const { t } = useLanguage()
-  // 'all' = every month; otherwise a specific 'yyyy-MM'
-  const [selectedMonth, setSelectedMonth] = useState<string>('all')
+  const { isAdmin } = useRole()
+  // Defaults to the current month; 'all' = every month; otherwise a specific 'yyyy-MM'
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => format(new Date(), 'yyyy-MM'))
   const { data: costs = [], isLoading } = useFixedCosts(selectedMonth)
   const createMutation = useCreateFixedCost()
   const togglePaidMutation = useTogglePaid()
@@ -76,12 +78,17 @@ export default function FixedCosts() {
 
   const currentMonth = format(new Date(), 'yyyy-MM')
 
-  // Months offered in the filter dropdown: 6 ahead → 12 behind (newest first)
+  // Months offered in the filter dropdown: from March 2026 up to 2 months
+  // ahead of today, listed newest first.
   const monthOptions = useMemo(() => {
-    const now = new Date()
+    const START_MONTH = '2026-03'
     const months: string[] = []
-    for (let i = 6; i >= -12; i--) {
-      months.push(format(addMonths(now, i), 'yyyy-MM'))
+    let cursor = addMonths(new Date(), 2)
+    let guard = 0
+    while (format(cursor, 'yyyy-MM') >= START_MONTH && guard < 240) {
+      months.push(format(cursor, 'yyyy-MM'))
+      cursor = subMonths(cursor, 1)
+      guard++
     }
     return months
   }, [])
@@ -171,22 +178,24 @@ export default function FixedCosts() {
           </div>
         </div>
 
-        {/* Month filter */}
-        <div className="flex items-center gap-3">
-          <label className="text-sm font-body text-sheen-muted">{t('month')}</label>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="rounded-lg border border-sheen-cream bg-white px-3 py-2 font-body text-sheen-black focus:outline-none focus:ring-2 focus:ring-sheen-gold"
-          >
-            <option value="all">{t('allMonths')}</option>
-            {monthOptions.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Month filter — admins only */}
+        {isAdmin && (
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-body text-sheen-muted">{t('month')}</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="rounded-lg border border-sheen-cream bg-white px-3 py-2 font-body text-sheen-black focus:outline-none focus:ring-2 focus:ring-sheen-gold"
+            >
+              <option value="all">{t('allMonths')}</option>
+              {monthOptions.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Add fixed cost toggle / form */}
         {!showForm ? (
