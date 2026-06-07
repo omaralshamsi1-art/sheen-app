@@ -72,6 +72,46 @@ In Xcode: set your Apple Team under **Signing & Capabilities**, then
 
 ---
 
+## Wallet loyalty card (Apple Wallet + Google Wallet)
+
+The loyalty card can be saved to **Apple Wallet** and **Google Wallet**. The
+"Add to Wallet" buttons appear on the *My Card* screen **only once the matching
+credentials are set** — until then the endpoints return `501` and the buttons
+stay hidden. Setting the cafe coordinates also makes the pass surface on the
+lock screen when the customer is near the shop.
+
+Set these on the **Railway** server:
+
+```
+SHEEN_STORE_LAT=25.20            # cafe latitude  (lock-screen "we're nearby")
+SHEEN_STORE_LNG=55.27            # cafe longitude
+
+# Apple Wallet — values are base64-encoded PEM strings
+APPLE_PASS_TYPE_ID=pass.ae.sheencafe.loyalty
+APPLE_TEAM_ID=XXXXXXXXXX
+APPLE_PASS_CERT=...              # base64 of the Pass Type ID signing cert (PEM)
+APPLE_PASS_KEY=...               # base64 of its private key (PEM)
+APPLE_PASS_KEY_PASSPHRASE=...    # if the key has one
+APPLE_WWDR_CERT=...              # base64 of Apple WWDR G4 cert (PEM)
+
+# Google Wallet
+GOOGLE_WALLET_ISSUER_ID=...      # from the Google Wallet console
+GOOGLE_WALLET_SA_EMAIL=...       # service-account email
+GOOGLE_WALLET_SA_KEY=...         # service-account private key (\n-escaped is fine)
+GOOGLE_WALLET_CLASS_ID=ISSUERID.sheen_loyalty
+```
+
+**Where the credentials come from**
+- **Apple:** Apple Developer → Identifiers → create a **Pass Type ID**, generate a
+  signing certificate, export cert + key as PEM, and download the **WWDR G4**
+  cert. Base64-encode each PEM (`base64 -w0 cert.pem`).
+- **Google:** [Google Wallet console](https://pay.google.com/business/console) →
+  create an **Issuer**, a **Loyalty class** (its id becomes `GOOGLE_WALLET_CLASS_ID`),
+  and a **service account** (Google Cloud) with the Wallet API enabled.
+
+> Placeholder pass artwork is generated on the fly (a branded "S"). Drop a real
+> logo later by extending `server/src/lib/wallet.ts`.
+
 ## Updating the apps after a code change
 ```
 cd client

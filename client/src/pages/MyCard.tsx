@@ -4,6 +4,7 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../i18n/LanguageContext'
 import TopBar from '../components/layout/TopBar'
+import AddToWallet from '../components/AddToWallet'
 
 const VISITS_FOR_FREE = 6
 
@@ -130,6 +131,9 @@ export default function MyCard() {
             )}
           </div>
         </div>
+
+        {/* Add to Apple / Google Wallet */}
+        {user && <AddToWallet userId={user.id} email={card.email} name={card.name} />}
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mt-4">
