@@ -15,6 +15,18 @@ const config: CapacitorConfig = {
     // Allow the WebView to load over https only (no cleartext in production)
     allowMixedContent: false,
   },
+  plugins: {
+    SplashScreen: {
+      // We hide it manually from initNative() once the web app has booted
+      launchAutoHide: false,
+      backgroundColor: '#1A1A1A',
+      showSpinner: false,
+    },
+    StatusBar: {
+      style: 'DARK',
+      backgroundColor: '#1A1A1A',
+    },
+  },
 }
 
 export default config
