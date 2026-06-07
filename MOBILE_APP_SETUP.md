@@ -140,6 +140,40 @@ Apply the new DB table once: run `supabase/migrations/023_push_tokens.sql`.
 The app asks the customer for notification permission after login and registers
 the device token automatically. Invalid tokens are pruned on send.
 
+## Apple Pay / Google Pay
+
+Payments go through **Stripe** (coffee is a physical good, so Apple allows
+Stripe/Apple Pay — IAP is only for digital goods).
+
+- **Web / PWA:** Apple Pay & Google Pay already appear automatically in the
+  Stripe `PaymentElement` — nothing to configure beyond Stripe itself.
+- **Native app:** uses the native Stripe SDK (`@capacitor-community/stripe`) to
+  present the real Apple Pay / Google Pay sheets. The wallet button only shows
+  when the device supports it (and, for Apple, when a merchant id is set).
+
+**Config**
+```
+VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...      # already used by the web app
+VITE_APPLE_MERCHANT_ID=merchant.ae.sheencafe # build-time, for native Apple Pay
+```
+
+**Apple Pay setup**
+1. Apple Developer → Identifiers → **Merchant IDs** → create `merchant.ae.sheencafe`.
+2. In Xcode → target **App** → Signing & Capabilities → add **Apple Pay** and
+   tick that merchant id.
+3. In the **Stripe Dashboard** → Settings → Payment methods → Apple Pay, register
+   the merchant / add the platform.
+4. Build with `VITE_APPLE_MERCHANT_ID` set (see `npm run cap:ios`).
+
+**Google Pay setup**
+1. In the **Stripe Dashboard**, enable Google Pay.
+2. No extra key needed in the app — it uses the Stripe publishable key. Google
+   reviews Google Pay for production use when you publish.
+
+> Note: the Capacitor Stripe plugin pins an older `@stripe/stripe-js` peer than
+> the web app uses, so `client/.npmrc` sets `legacy-peer-deps=true`. `react-is`
+> is declared explicitly because that flag disables npm peer auto-install.
+
 ## Updating the apps after a code change
 ```
 cd client

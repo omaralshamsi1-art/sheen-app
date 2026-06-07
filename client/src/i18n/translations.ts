@@ -163,6 +163,8 @@ export const translations = {
   processing: { en: 'Processing...', ar: 'جاري المعالجة...' },
   proceedToPayment: { en: 'Proceed to Payment', ar: 'المتابعة للدفع' },
   pay: { en: 'Pay', ar: 'ادفع' },
+  orPayByCard: { en: 'or pay by card', ar: 'أو ادفع بالبطاقة' },
+  paymentFailed: { en: 'Payment failed', ar: 'فشل الدفع' },
   confirmed: { en: 'Confirmed', ar: 'مؤكد' },
   rejected: { en: 'Rejected', ar: 'مرفوض' },
   completed: { en: 'Completed', ar: 'مكتمل' },

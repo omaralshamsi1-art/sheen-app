@@ -13,6 +13,7 @@
     "cap:ios": "npm run build && npx cap sync ios && npx cap open ios"
   },
   "dependencies": {
+    "@capacitor-community/stripe": "^8.1.1",
     "@capacitor/android": "^8.4.0",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",
@@ -37,6 +38,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hot-toast": "^2.6.0",
+    "react-is": "^19.2.7",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.14.0",
     "recharts": "^3.8.1",
