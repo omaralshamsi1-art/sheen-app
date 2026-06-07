@@ -32,6 +32,9 @@ export default function Privacy() {
               <li><strong>Location data:</strong> Home address and coordinates (only if you choose to provide them for delivery)</li>
               <li><strong>Order history:</strong> Items ordered, order dates, amounts, payment method chosen</li>
               <li><strong>Authentication data:</strong> Login credentials managed securely through Supabase Auth</li>
+              <li><strong>Camera (app only):</strong> Used solely to scan loyalty and order QR codes. Images are processed on your device and are not stored or transmitted.</li>
+              <li><strong>Notifications (app only):</strong> A device push token, so we can send you offers and order updates. You can turn notifications off at any time in your device settings.</li>
+              <li><strong>Biometrics (app only):</strong> If you enable Face ID / Touch ID, your login is stored only in your device's secure keychain. We never receive or store your biometric data.</li>
             </ul>
           </section>
 
