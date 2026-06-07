@@ -51,5 +51,7 @@
 	<string>SHEEN uses the camera to scan loyalty and order QR codes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>SHEEN uses your location for delivery and store features.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>SHEEN uses Face ID to securely log you in.</string>
 </dict>
 </plist>

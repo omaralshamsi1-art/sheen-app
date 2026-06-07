@@ -25,6 +25,8 @@ export function useAuth() {
   }, [])
 
   const signOut = async () => {
+    const { disableBiometricLogin } = await import('../native/biometric')
+    await disableBiometricLogin()
     await supabase.auth.signOut()
   }
 

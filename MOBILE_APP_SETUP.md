@@ -174,6 +174,19 @@ VITE_APPLE_MERCHANT_ID=merchant.ae.sheencafe # build-time, for native Apple Pay
 > the web app uses, so `client/.npmrc` sets `legacy-peer-deps=true`. `react-is`
 > is declared explicitly because that flag disables npm peer auto-install.
 
+## Face ID / Touch ID login
+
+In the native app, after a password sign-in the user is asked whether to enable
+**Face ID / Touch ID**. If they accept, the Supabase refresh token is stored in
+the biometric-protected keychain; on the next launch the login screen shows an
+**Unlock with Face ID / Touch ID** button that restores the session. Signing out
+clears the stored credential.
+
+- **No server config or accounts needed** — it works out of the box on device.
+- iOS: `NSFaceIDUsageDescription` is set in `Info.plist`.
+- Android: `USE_BIOMETRIC` permission is set in the manifest.
+- Web: the feature is inert (the button never appears).
+
 ## Updating the apps after a code change
 ```
 cd client

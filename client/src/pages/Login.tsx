@@ -6,6 +6,12 @@ import { useRole } from '../hooks/useRole'
 import { defaultRoute } from '../config/roles'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
+import {
+  biometricAvailable,
+  hasBiometricLogin,
+  enableBiometricLogin,
+  biometricUnlock,
+} from '../native/biometric'
 
 type LoginMode = 'password' | 'otp'
 
@@ -31,6 +37,13 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [biometricReady, setBiometricReady] = useState(false)
+  const [biometricBusy, setBiometricBusy] = useState(false)
+
+  // Show the "Unlock with Face ID" button if a biometric login was previously saved
+  useEffect(() => {
+    hasBiometricLogin().then(setBiometricReady)
+  }, [])
 
   // Email + Password login
   const handlePasswordLogin = async (e: React.FormEvent) => {
@@ -38,13 +51,38 @@ export default function Login() {
     setError(null)
     setLoading(true)
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) { setError(authError.message); return }
+
+      // Offer to enable Face ID for next time (native only)
+      const refreshToken = data.session?.refresh_token
+      if (refreshToken && (await biometricAvailable()) && !(await hasBiometricLogin())) {
+        if (window.confirm(t('enableBiometricPrompt'))) {
+          await enableBiometricLogin(email, refreshToken)
+        }
+      }
       navigate('/dashboard')
     } catch {
       setError(t('loginError'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Unlock a saved session with Face ID / Touch ID
+  const handleBiometricUnlock = async () => {
+    setError(null)
+    setBiometricBusy(true)
+    try {
+      const refreshToken = await biometricUnlock(t('biometricReason'))
+      if (!refreshToken) { setBiometricBusy(false); return }
+      const { error: refreshError } = await supabase.auth.refreshSession({ refresh_token: refreshToken })
+      if (refreshError) { setError(t('biometricExpired')); setBiometricReady(false); return }
+      navigate('/dashboard')
+    } catch {
+      setError(t('loginError'))
+    } finally {
+      setBiometricBusy(false)
     }
   }
 
@@ -142,6 +180,23 @@ export default function Login() {
             <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-body">
               {success}
             </div>
+          )}
+
+          {/* Biometric unlock (native, only when a session was saved) */}
+          {biometricReady && (
+            <button
+              onClick={handleBiometricUnlock}
+              disabled={biometricBusy}
+              className="w-full mb-5 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-sheen-black text-sheen-cream font-body text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {biometricBusy ? <Spinner /> : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 8V6a4 4 0 0 1 4-4h2M2 16v2a4 4 0 0 0 4 4h2M16 2h2a4 4 0 0 1 4 4v2M16 22h2a4 4 0 0 0 4-4v-2" />
+                  <path d="M9 10a3 3 0 0 1 6 0M8.5 13.5c.5 2 1.5 3 3.5 3s3-1 3.5-3M12 13v3" />
+                </svg>
+              )}
+              {t('unlockWithBiometrics')}
+            </button>
           )}
 
           {/* Login Mode Tabs */}
