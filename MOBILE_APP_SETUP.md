@@ -187,6 +187,22 @@ clears the stored credential.
 - Android: `USE_BIOMETRIC` permission is set in the manifest.
 - Web: the feature is inert (the button never appears).
 
+## App icons & splash screens
+
+Icons and splash screens for iOS, Android and the PWA are generated from source
+art in `client/assets/` (a gold "S" / "SHEEN" wordmark on the brand dark).
+
+To regenerate (e.g. after dropping in a real high-res logo):
+```
+cd client
+# 1. (optional) edit/replace the sources
+NODE_PATH=../server/node_modules node scripts/gen-assets.mjs   # rebuild assets/*.png
+# 2. generate every platform size
+npx capacitor-assets generate --assetPath assets
+```
+If you have a real **1024×1024** logo, replace `client/assets/icon-only.png`
+(and `icon-foreground.png`) with it and run step 2.
+
 ## Updating the apps after a code change
 ```
 cd client
