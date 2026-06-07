@@ -17,6 +17,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "firebase-admin": "^13.10.0",
     "groq-sdk": "^1.1.2",
     "jsonwebtoken": "^9.0.3",
     "passkit-generator": "^3.5.7",

@@ -112,6 +112,34 @@ GOOGLE_WALLET_CLASS_ID=ISSUERID.sheen_loyalty
 > Placeholder pass artwork is generated on the fly (a branded "S"). Drop a real
 > logo later by extending `server/src/lib/wallet.ts`.
 
+## Push notifications (discounts & announcements)
+
+Customers who install the app can receive push notifications. An admin sends
+them from **Settings → Send Notification** — the card stays hidden until push is
+configured on the server. Delivery uses **Firebase Cloud Messaging (FCM)**, which
+covers both iOS and Android.
+
+Set on the **Railway** server:
+
+```
+FIREBASE_SERVICE_ACCOUNT=...     # Firebase service-account JSON (raw or base64)
+```
+
+**Setup steps**
+1. Create a **Firebase project** and add an **Android app** (package
+   `ae.sheencafe.app`) and an **iOS app** (bundle `ae.sheencafe.app`).
+2. Download **`google-services.json`** → `client/android/app/`, and
+   **`GoogleService-Info.plist`** → `client/ios/App/App/` (add it in Xcode).
+3. For iOS, upload your **APNs key** in Firebase → Project Settings → Cloud
+   Messaging, and enable the **Push Notifications** capability in Xcode.
+4. Create a **service account** (Firebase → Project Settings → Service accounts →
+   Generate key) and put its JSON in `FIREBASE_SERVICE_ACCOUNT`.
+
+Apply the new DB table once: run `supabase/migrations/023_push_tokens.sql`.
+
+The app asks the customer for notification permission after login and registers
+the device token automatically. Invalid tokens are pruned on send.
+
 ## Updating the apps after a code change
 ```
 cd client
