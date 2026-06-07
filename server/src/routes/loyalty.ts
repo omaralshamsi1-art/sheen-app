@@ -11,7 +11,22 @@ import {
 
 const router = Router()
 
-const VISITS_FOR_FREE_CUP = 6
+const DEFAULT_VISITS_FOR_FREE_CUP = 6
+
+// Admin-configurable loyalty threshold (app_settings key: loyalty_visits_for_free)
+async function getVisitsForFreeCup(): Promise<number> {
+  try {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'loyalty_visits_for_free')
+      .single()
+    const n = Number(data?.value)
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : DEFAULT_VISITS_FOR_FREE_CUP
+  } catch {
+    return DEFAULT_VISITS_FOR_FREE_CUP
+  }
+}
 
 // Find a user's loyalty card, creating one (with a unique QR code) if needed
 async function getOrCreateCard(userId: string, email?: string, name?: string) {
@@ -63,7 +78,7 @@ router.get('/wallet/apple', async (req: Request, res: Response) => {
     }
 
     const card = await getOrCreateCard(userId, req.query.email as string, req.query.name as string)
-    const buffer = await generateApplePass(card)
+    const buffer = await generateApplePass(card, await getVisitsForFreeCup())
 
     res.setHeader('Content-Type', 'application/vnd.apple.pkpass')
     res.setHeader('Content-Disposition', 'attachment; filename="sheen-loyalty.pkpass"')
@@ -84,7 +99,7 @@ router.get('/wallet/google', async (req: Request, res: Response) => {
     }
 
     const card = await getOrCreateCard(userId, req.query.email as string, req.query.name as string)
-    res.json({ saveUrl: buildGoogleSaveUrl(card) })
+    res.json({ saveUrl: buildGoogleSaveUrl(card, await getVisitsForFreeCup()) })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
@@ -101,15 +116,16 @@ router.get('/scan/:qrCode', async (req: Request, res: Response) => {
 
     if (error || !data) { res.status(404).json({ message: 'Card not found' }); return }
 
-    const visits_toward_free = data.total_visits % VISITS_FOR_FREE_CUP
+    const visitsForFree = await getVisitsForFreeCup()
+    const visits_toward_free = data.total_visits % visitsForFree
     const free_cups_available = data.free_cups_earned - data.free_cups_used
 
     res.json({
       ...data,
       visits_toward_free,
-      visits_remaining: VISITS_FOR_FREE_CUP - visits_toward_free,
+      visits_remaining: visitsForFree - visits_toward_free,
       free_cups_available,
-      visits_for_free_cup: VISITS_FOR_FREE_CUP,
+      visits_for_free_cup: visitsForFree,
     })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -140,8 +156,9 @@ router.post('/add-visit', async (req: Request, res: Response) => {
     })
 
     // Update totals
+    const visitsForFree = await getVisitsForFreeCup()
     const newVisits = card.total_visits + 1
-    const newFreeCups = Math.floor(newVisits / VISITS_FOR_FREE_CUP)
+    const newFreeCups = Math.floor(newVisits / visitsForFree)
 
     const { data: updated, error: updateErr } = await supabase
       .from('loyalty_cards')
@@ -152,17 +169,17 @@ router.post('/add-visit', async (req: Request, res: Response) => {
 
     if (updateErr) throw updateErr
 
-    const earnedFree = newVisits % VISITS_FOR_FREE_CUP === 0
+    const earnedFree = newVisits % visitsForFree === 0
 
     await logAudit(req, { action: 'create', entity: 'order', entity_id: card.id, details: { page: 'Loyalty', customer: card.name || card.email, visit_number: newVisits, earned_free_cup: earnedFree } })
 
     res.json({
       ...updated,
-      visits_toward_free: newVisits % VISITS_FOR_FREE_CUP,
-      visits_remaining: VISITS_FOR_FREE_CUP - (newVisits % VISITS_FOR_FREE_CUP),
+      visits_toward_free: newVisits % visitsForFree,
+      visits_remaining: visitsForFree - (newVisits % visitsForFree),
       free_cups_available: newFreeCups - card.free_cups_used,
       earned_free_cup: earnedFree,
-      visits_for_free_cup: VISITS_FOR_FREE_CUP,
+      visits_for_free_cup: visitsForFree,
     })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -203,7 +220,7 @@ router.post('/redeem', async (req: Request, res: Response) => {
 
     await logAudit(req, { action: 'update', entity: 'order', entity_id: card.id, details: { page: 'Loyalty', customer: card.name || card.email, action: 'Free cup redeemed' } })
 
-    res.json({ ...updated, free_cups_available: updated.free_cups_earned - updated.free_cups_used, visits_for_free_cup: VISITS_FOR_FREE_CUP })
+    res.json({ ...updated, free_cups_available: updated.free_cups_earned - updated.free_cups_used, visits_for_free_cup: await getVisitsForFreeCup() })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }

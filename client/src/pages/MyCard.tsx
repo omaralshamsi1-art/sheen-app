@@ -6,7 +6,6 @@ import { useLanguage } from '../i18n/LanguageContext'
 import TopBar from '../components/layout/TopBar'
 import AddToWallet from '../components/AddToWallet'
 
-const VISITS_FOR_FREE = 6
 
 interface LoyaltyCard {
   id: string
@@ -23,6 +22,14 @@ export default function MyCard() {
   const { user } = useAuth()
   const [card, setCard] = useState<LoyaltyCard | null>(null)
   const [loading, setLoading] = useState(true)
+  const [visitsForFree, setVisitsForFree] = useState(6)
+
+  // Admin-configurable loyalty threshold
+  useEffect(() => {
+    api.get('/api/settings/loyalty_visits_for_free')
+      .then(({ data }) => { const n = Number(data); if (Number.isFinite(n) && n >= 1) setVisitsForFree(Math.floor(n)) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -52,10 +59,10 @@ export default function MyCard() {
 
   if (!card) return null
 
-  const visitsToward = card.total_visits % VISITS_FOR_FREE
-  const visitsRemaining = VISITS_FOR_FREE - visitsToward
+  const visitsToward = card.total_visits % visitsForFree
+  const visitsRemaining = visitsForFree - visitsToward
   const freeCups = card.free_cups_earned - card.free_cups_used
-  const progress = (visitsToward / VISITS_FOR_FREE) * 100
+  const progress = (visitsToward / visitsForFree) * 100
 
   return (
     <div className="min-h-screen bg-sheen-cream">
@@ -92,7 +99,7 @@ export default function MyCard() {
           <div className="px-6 pb-6">
             {/* Visit dots */}
             <div className="flex justify-center gap-2 mb-3">
-              {Array.from({ length: VISITS_FOR_FREE }).map((_, i) => (
+              {Array.from({ length: visitsForFree }).map((_, i) => (
                 <div
                   key={i}
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${

@@ -6,7 +6,7 @@ import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
 
-const VISITS_FOR_FREE = 6
+const DEFAULT_VISITS_FOR_FREE = 6
 
 interface CardResult {
   id: string
@@ -19,6 +19,7 @@ interface CardResult {
   visits_toward_free: number
   visits_remaining: number
   free_cups_available: number
+  visits_for_free_cup?: number
   earned_free_cup?: boolean
 }
 
@@ -119,7 +120,8 @@ export default function LoyaltyScan() {
     setActionLoading(false)
   }
 
-  const visitsToward = card ? card.total_visits % VISITS_FOR_FREE : 0
+  const visitsForFree = card?.visits_for_free_cup ?? DEFAULT_VISITS_FOR_FREE
+  const visitsToward = card ? card.total_visits % visitsForFree : 0
 
   return (
     <div className="min-h-screen bg-sheen-cream">
@@ -183,7 +185,7 @@ export default function LoyaltyScan() {
             <div className="px-5 pb-4">
               {/* Visit dots */}
               <div className="flex justify-center gap-2 mb-3">
-                {Array.from({ length: VISITS_FOR_FREE }).map((_, i) => (
+                {Array.from({ length: visitsForFree }).map((_, i) => (
                   <div
                     key={i}
                     className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${

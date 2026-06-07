@@ -10,7 +10,7 @@ import sharp from 'sharp'
  * instead of crashing. See MOBILE_APP_SETUP.md for how to obtain each value.
  */
 
-const VISITS_FOR_FREE_CUP = 6
+const DEFAULT_VISITS_FOR_FREE_CUP = 6
 
 export interface LoyaltyCardData {
   qr_code: string
@@ -21,8 +21,8 @@ export interface LoyaltyCardData {
   free_cups_used: number
 }
 
-function progress(card: LoyaltyCardData) {
-  const visitsToward = card.total_visits % VISITS_FOR_FREE_CUP
+function progress(card: LoyaltyCardData, visitsForFree: number) {
+  const visitsToward = card.total_visits % visitsForFree
   const freeCups = Math.max(0, card.free_cups_earned - card.free_cups_used)
   return { visitsToward, freeCups }
 }
@@ -61,12 +61,15 @@ async function brandPng(width: number, height: number): Promise<Buffer> {
   return sharp(Buffer.from(svg)).png().toBuffer()
 }
 
-export async function generateApplePass(card: LoyaltyCardData): Promise<Buffer> {
+export async function generateApplePass(
+  card: LoyaltyCardData,
+  visitsForFree: number = DEFAULT_VISITS_FOR_FREE_CUP,
+): Promise<Buffer> {
   if (!isAppleWalletConfigured()) {
     throw new Error('Apple Wallet is not configured')
   }
 
-  const { visitsToward, freeCups } = progress(card)
+  const { visitsToward, freeCups } = progress(card, visitsForFree)
 
   const [icon, icon2x, icon3x, logo, logo2x] = await Promise.all([
     brandPng(29, 29),
@@ -108,7 +111,7 @@ export async function generateApplePass(card: LoyaltyCardData): Promise<Buffer> 
   pass.primaryFields.push({
     key: 'visits',
     label: 'VISITS',
-    value: `${visitsToward} / ${VISITS_FOR_FREE_CUP}`,
+    value: `${visitsToward} / ${visitsForFree}`,
   })
   pass.secondaryFields.push(
     { key: 'free', label: 'FREE CUPS', value: String(freeCups) },
@@ -117,7 +120,7 @@ export async function generateApplePass(card: LoyaltyCardData): Promise<Buffer> 
   pass.backFields.push({
     key: 'about',
     label: 'How it works',
-    value: `Collect ${VISITS_FOR_FREE_CUP} visits to earn a free cup. Show this card to be scanned on each visit.`,
+    value: `Collect ${visitsForFree} visits to earn a free cup. Show this card to be scanned on each visit.`,
   })
 
   pass.setBarcodes({
@@ -151,12 +154,15 @@ export function isGoogleWalletConfigured(): boolean {
   )
 }
 
-export function buildGoogleSaveUrl(card: LoyaltyCardData): string {
+export function buildGoogleSaveUrl(
+  card: LoyaltyCardData,
+  visitsForFree: number = DEFAULT_VISITS_FOR_FREE_CUP,
+): string {
   if (!isGoogleWalletConfigured()) {
     throw new Error('Google Wallet is not configured')
   }
 
-  const { visitsToward, freeCups } = progress(card)
+  const { visitsToward, freeCups } = progress(card, visitsForFree)
   const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID!
   const classId = process.env.GOOGLE_WALLET_CLASS_ID! // e.g. `${issuerId}.sheen_loyalty`
   const objectId = `${issuerId}.${card.qr_code.replace(/[^\w.-]/g, '_')}`
@@ -170,7 +176,7 @@ export function buildGoogleSaveUrl(card: LoyaltyCardData): string {
     accountId: card.qr_code,
     loyaltyPoints: {
       label: 'Visits',
-      balance: { string: `${visitsToward} / ${VISITS_FOR_FREE_CUP}` },
+      balance: { string: `${visitsToward} / ${visitsForFree}` },
     },
     secondaryLoyaltyPoints: {
       label: 'Free cups',
