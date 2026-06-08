@@ -1,0 +1,50 @@
+# Codemagic CI config — builds the SHEEN iOS app on a cloud Mac and uploads to
+# App Store Connect / TestFlight. No local Mac required.
+#
+# One-time setup in the Codemagic UI (see store/ios-cloud-build.md):
+#   1. Connect this GitHub repo.
+#   2. Add an App Store Connect API key integration named "SHEEN ASC Key".
+#   3. Add an environment variable group "sheen" with:
+#        VITE_API_URL = https://<your-railway-api>   (so the app reaches the backend)
+#
+workflows:
+  ios-capacitor:
+    name: SHEEN iOS (Capacitor)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: SHEEN ASC Key
+    environment:
+      groups:
+        - sheen            # provides VITE_API_URL
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: ae.sheencafe.app
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Install JS dependencies
+        script: |
+          cd client
+          npm ci
+      - name: Build web assets + sync Capacitor (iOS)
+        script: |
+          cd client
+          VITE_API_URL="$VITE_API_URL" npm run build
+          npx cap sync ios
+      - name: Set up code signing (from App Store Connect)
+        script: |
+          xcode-project use-profiles
+      - name: Build signed IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "client/ios/App/App.xcworkspace" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Uploads to TestFlight. Flip to true only when you're ready for review.
+        submit_to_app_store: false
