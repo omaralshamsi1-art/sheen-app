@@ -35,6 +35,7 @@ export default function Login() {
   const [otpSent, setOtpSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [appleLoading, setAppleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [biometricReady, setBiometricReady] = useState(false)
@@ -130,34 +131,38 @@ export default function Login() {
     }
   }
 
-  // Google OAuth
-  const handleGoogleSignIn = async () => {
+  // Google / Apple OAuth (shared flow)
+  const oauthSignIn = async (provider: 'google' | 'apple') => {
     setError(null)
-    setGoogleLoading(true)
+    const setLoading = provider === 'google' ? setGoogleLoading : setAppleLoading
+    setLoading(true)
     try {
       const { Capacitor } = await import('@capacitor/core')
       if (Capacitor.isNativePlatform()) {
         // Native: open the OAuth page in the system browser and return via deep link
         const { data, error: authError } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
+          provider,
           options: { redirectTo: 'ae.sheencafe.app://login-callback', skipBrowserRedirect: true },
         })
-        if (authError) { setError(authError.message); setGoogleLoading(false); return }
+        if (authError) { setError(authError.message); setLoading(false); return }
         const { Browser } = await import('@capacitor/browser')
         if (data?.url) await Browser.open({ url: data.url })
-        setGoogleLoading(false)
+        setLoading(false)
       } else {
         const { error: authError } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
+          provider,
           options: { redirectTo: `${window.location.origin}/dashboard` },
         })
-        if (authError) { setError(authError.message); setGoogleLoading(false) }
+        if (authError) { setError(authError.message); setLoading(false) }
       }
     } catch {
       setError(t('loginError'))
-      setGoogleLoading(false)
+      setLoading(false)
     }
   }
+
+  const handleGoogleSignIn = () => oauthSignIn('google')
+  const handleAppleSignIn = () => oauthSignIn('apple')
 
   const Spinner = () => (
     <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -355,6 +360,22 @@ export default function Login() {
             <span className="text-xs font-body text-sheen-muted">{t('orContinueWith')}</span>
             <div className="flex-1 h-px bg-sheen-muted/20" />
           </div>
+
+          {/* Sign in with Apple */}
+          <button
+            onClick={handleAppleSignIn}
+            disabled={appleLoading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mb-3 rounded-lg bg-black font-body text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+          >
+            {appleLoading ? (
+              <Spinner />
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                <path d="M17.05 12.97c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.09-2.01-3.76-2.04-1.6-.16-3.12.94-3.93.94-.81 0-2.06-.92-3.39-.89-1.74.03-3.35 1.01-4.25 2.57-1.81 3.14-.46 7.79 1.3 10.34.86 1.25 1.88 2.65 3.22 2.6 1.29-.05 1.78-.83 3.34-.83 1.56 0 2 .83 3.37.81 1.39-.03 2.27-1.27 3.12-2.53.98-1.45 1.39-2.85 1.41-2.92-.03-.01-2.71-1.04-2.74-4.12zM14.6 5.31c.71-.86 1.19-2.06 1.06-3.25-1.02.04-2.26.68-2.99 1.54-.66.76-1.23 1.98-1.08 3.15 1.14.09 2.3-.58 3.01-1.44z"/>
+              </svg>
+            )}
+            {t('signInWithApple')}
+          </button>
 
           {/* Google Sign-In */}
           <button

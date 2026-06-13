@@ -195,6 +195,7 @@ export const translations = {
   loginError: { en: 'An unexpected error occurred. Please try again.', ar: 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.' },
   orContinueWith: { en: 'or continue with', ar: 'أو تابع عبر' },
   signInWithGoogle: { en: 'Sign in with Google', ar: 'تسجيل الدخول بحساب Google' },
+  signInWithApple: { en: 'Sign in with Apple', ar: 'تسجيل الدخول عبر Apple' },
   emailOTP: { en: 'Email Code', ar: 'رمز البريد' },
   sendCode: { en: 'Send Code', ar: 'إرسال الرمز' },
   sending: { en: 'Sending...', ar: 'جاري الإرسال...' },
