@@ -37,6 +37,30 @@ export async function initNative(): Promise<void> {
     /* App plugin not available — ignore */
   }
 
+  // OAuth deep-link callback (e.g. ae.sheencafe.app://login-callback?code=...)
+  try {
+    await App.addListener('appUrlOpen', async ({ url }) => {
+      if (!url || !url.includes('login-callback')) return
+      try {
+        const code = new URL(url).searchParams.get('code')
+        if (code) {
+          const { supabase } = await import('../lib/supabase')
+          await supabase.auth.exchangeCodeForSession(code)
+        }
+      } catch {
+        /* ignore — user can retry sign-in */
+      }
+      try {
+        const { Browser } = await import('@capacitor/browser')
+        await Browser.close()
+      } catch {
+        /* browser may already be closed */
+      }
+    })
+  } catch {
+    /* App plugin not available — ignore */
+  }
+
   // Hide the splash once the web app has booted
   try {
     await SplashScreen.hide()

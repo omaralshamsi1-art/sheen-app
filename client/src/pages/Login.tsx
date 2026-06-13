@@ -135,11 +135,24 @@ export default function Login() {
     setError(null)
     setGoogleLoading(true)
     try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: `${window.location.origin}/dashboard` },
-      })
-      if (authError) { setError(authError.message); setGoogleLoading(false) }
+      const { Capacitor } = await import('@capacitor/core')
+      if (Capacitor.isNativePlatform()) {
+        // Native: open the OAuth page in the system browser and return via deep link
+        const { data, error: authError } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: 'ae.sheencafe.app://login-callback', skipBrowserRedirect: true },
+        })
+        if (authError) { setError(authError.message); setGoogleLoading(false); return }
+        const { Browser } = await import('@capacitor/browser')
+        if (data?.url) await Browser.open({ url: data.url })
+        setGoogleLoading(false)
+      } else {
+        const { error: authError } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: `${window.location.origin}/dashboard` },
+        })
+        if (authError) { setError(authError.message); setGoogleLoading(false) }
+      }
     } catch {
       setError(t('loginError'))
       setGoogleLoading(false)

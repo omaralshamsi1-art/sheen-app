@@ -49,6 +49,17 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>ae.sheencafe.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ae.sheencafe.app</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>SHEEN uses the camera to scan loyalty and order QR codes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
