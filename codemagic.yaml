@@ -33,14 +33,20 @@ workflows:
           npx cap sync ios
       - name: Set up code signing (create cert + profile if missing)
         script: |
+          set -e
           keychain initialize
           # Creates the iOS Distribution certificate and an App Store
           # provisioning profile for the bundle id if they don't exist yet.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --platform IOS \
             --create
           keychain add-certificates
           xcode-project use-profiles
+          echo "=== Provisioning profiles on machine ==="
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" 2>/dev/null || echo "NONE FOUND"
+          echo "=== Signing identities in keychain ==="
+          keychain list-certificates 2>/dev/null | grep -i "common name" || echo "NONE FOUND"
       - name: Build signed IPA
         script: |
           xcode-project build-ipa \
