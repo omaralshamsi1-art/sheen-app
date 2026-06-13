@@ -47,6 +47,8 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>SHEEN uses the camera to scan loyalty and order QR codes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
