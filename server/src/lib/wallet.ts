@@ -50,13 +50,40 @@ export function isAppleWalletConfigured(): boolean {
   )
 }
 
-// Branded square logo, rendered as PNG via sharp (replaceable by a real asset later)
-async function brandPng(width: number, height: number): Promise<Buffer> {
-  const fontSize = Math.floor(height * 0.6)
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+// The SHEEN emblem (pour-over funnel + drop), drawn in white. Coordinates live
+// in a 1024 space; the viewBox below crops tightly to the mark.
+const EMBLEM = `
+  <g stroke="#ffffff" stroke-width="17" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M360,392 L664,392"/>
+    <path d="M360,392 L512,600"/>
+    <path d="M664,392 L512,600"/>
+    <path d="M398,556 L626,556"/>
+    <path d="M455,402 Q520,500 560,556"/>
+    <path d="M497,402 Q548,492 588,556"/>
+    <path d="M539,402 Q578,486 612,556"/>
+  </g>
+  <path d="M512,606 C526,626 529,642 512,657 C495,642 498,626 512,606 Z" fill="#ffffff"/>`
+const EMBLEM_VIEWBOX = '336 374 352 300'
+
+// Emblem placed/scaled anywhere via a nested <svg> with the cropped viewBox
+function emblemTag(x: number, y: number, w: number, h: number): string {
+  return `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="${EMBLEM_VIEWBOX}" preserveAspectRatio="xMidYMid meet">${EMBLEM}</svg>`
+}
+
+// Square app icon: emblem on the brand dark background
+async function iconPng(size: number): Promise<Buffer> {
+  const e = size * 0.7
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
     <rect width="100%" height="100%" fill="#1A1A1A"/>
-    <text x="50%" y="50%" font-family="Helvetica, Arial, sans-serif" font-size="${fontSize}"
-      font-weight="bold" fill="#D4A843" text-anchor="middle" dominant-baseline="central">S</text>
+    ${emblemTag((size - e) / 2, (size - e) / 2, e, e)}
+  </svg>`
+  return sharp(Buffer.from(svg)).png().toBuffer()
+}
+
+// Wide logo for the pass header: emblem on a TRANSPARENT background (no dark box)
+async function logoPng(width: number, height: number): Promise<Buffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+    ${emblemTag(0, 0, height * 1.1, height)}
   </svg>`
   return sharp(Buffer.from(svg)).png().toBuffer()
 }
@@ -64,23 +91,16 @@ async function brandPng(width: number, height: number): Promise<Buffer> {
 // One coffee-cup "stamp" — solid when earned, faded when still to collect
 function cupSvg(cx: number, cy: number, hw: number, hh: number, filled: boolean): string {
   const topY = cy - hh, botY = cy + hh
-  const tw = hw, bw = hw * 0.72
-  const sw = Math.max(3, hw * 0.07)
-  const op = filled ? 1 : 0.25
-  const eW = hw * 0.5
-  const eTop = cy - hh * 0.38, eBot = cy + hh * 0.18
+  const tw = hw, bw = hw * 0.74
+  const sw = Math.max(2.5, hw * 0.055)
+  const op = filled ? 1 : 0.22
+  const eS = hw * 1.25
   return `<g opacity="${op}">
     <path d="M ${cx - tw} ${topY} L ${cx + tw} ${topY} L ${cx + bw} ${botY} L ${cx - bw} ${botY} Z"
-      fill="#1A1A1A" stroke="#fff" stroke-width="${sw}" stroke-linejoin="round"/>
-    <ellipse cx="${cx}" cy="${topY}" rx="${tw}" ry="${hh * 0.13}" fill="#fff"/>
-    <path d="M ${cx - bw} ${botY} L ${cx + bw} ${botY}" stroke="#fff" stroke-width="${sw * 1.5}" stroke-linecap="round"/>
-    <g stroke="#fff" stroke-width="${sw * 0.85}" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M ${cx - eW} ${eTop} L ${cx + eW} ${eTop}"/>
-      <path d="M ${cx - eW} ${eTop} L ${cx} ${eBot}"/>
-      <path d="M ${cx + eW} ${eTop} L ${cx} ${eBot}"/>
-    </g>
-    <path d="M ${cx} ${eBot + hh * 0.04} c ${hw * 0.07} ${hh * 0.1} ${hw * 0.07} ${hh * 0.18} 0 ${hh * 0.22}
-      c ${-hw * 0.07} ${-hh * 0.04} ${-hw * 0.07} ${-hh * 0.12} 0 ${-hh * 0.22} Z" fill="#fff"/>
+      fill="#141414" stroke="#ffffff" stroke-width="${sw}" stroke-linejoin="round"/>
+    <ellipse cx="${cx}" cy="${topY}" rx="${tw}" ry="${hh * 0.15}" fill="#ffffff"/>
+    <rect x="${cx - bw}" y="${botY - sw}" width="${bw * 2}" height="${sw * 2.4}" rx="${sw}" fill="#ffffff"/>
+    ${emblemTag(cx - eS / 2, cy - eS * 0.46, eS, eS * 0.85)}
   </g>`
 }
 
@@ -111,11 +131,11 @@ export async function generateApplePass(
   const { visitsToward, freeCups } = progress(card, visitsForFree)
 
   const [icon, icon2x, icon3x, logo, logo2x, strip1x, strip2x, strip3x] = await Promise.all([
-    brandPng(29, 29),
-    brandPng(58, 58),
-    brandPng(87, 87),
-    brandPng(160, 50),
-    brandPng(320, 100),
+    iconPng(29),
+    iconPng(58),
+    iconPng(87),
+    logoPng(160, 50),
+    logoPng(320, 100),
     cupStripPng(visitsToward, visitsForFree, 375, 144),
     cupStripPng(visitsToward, visitsForFree, 750, 288),
     cupStripPng(visitsToward, visitsForFree, 1125, 432),
