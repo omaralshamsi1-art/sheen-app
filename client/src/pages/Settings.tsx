@@ -5,6 +5,8 @@ import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getDefaultPaymentMethods, updateDefaultPaymentMethods } from '../services/userService'
+import SendNotification from '../components/SendNotification'
+import LoyaltyPaymentSettings from '../components/LoyaltyPaymentSettings'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 
@@ -316,6 +318,12 @@ export default function Settings() {
       <TopBar title={t('settings')} />
 
       <main className="max-w-lg mx-auto px-4 py-6">
+        {/* Send push notification to customers */}
+        <SendNotification />
+
+        {/* Payment option + loyalty threshold */}
+        <LoyaltyPaymentSettings />
+
         {/* Online Ordering toggle */}
         <div className="bg-sheen-white rounded-xl shadow-sm p-5 mb-6">
           <div className="flex items-center justify-between">

@@ -2,40 +2,104 @@ import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
 import crypto from 'crypto'
+import {
+  isAppleWalletConfigured,
+  isGoogleWalletConfigured,
+  generateApplePass,
+  buildGoogleSaveUrl,
+} from '../lib/wallet'
 
 const router = Router()
 
-const VISITS_FOR_FREE_CUP = 6
+const DEFAULT_VISITS_FOR_FREE_CUP = 6
+
+// Admin-configurable loyalty threshold (app_settings key: loyalty_visits_for_free)
+async function getVisitsForFreeCup(): Promise<number> {
+  try {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'loyalty_visits_for_free')
+      .single()
+    const n = Number(data?.value)
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : DEFAULT_VISITS_FOR_FREE_CUP
+  } catch {
+    return DEFAULT_VISITS_FOR_FREE_CUP
+  }
+}
+
+// Find a user's loyalty card, creating one (with a unique QR code) if needed
+async function getOrCreateCard(userId: string, email?: string, name?: string) {
+  const { data: existing } = await supabase
+    .from('loyalty_cards')
+    .select('*')
+    .eq('user_id', userId)
+    .single()
+
+  if (existing) return existing
+
+  const qr_code = `SHEEN-${crypto.randomBytes(6).toString('hex').toUpperCase()}`
+  const { data, error } = await supabase
+    .from('loyalty_cards')
+    .insert({ user_id: userId, email: email || null, name: name || null, qr_code })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
 
 // GET /api/loyalty/my-card — get or create loyalty card for current user
 router.get('/my-card', async (req: Request, res: Response) => {
   try {
     const userId = req.query.user_id as string
-    const email = req.query.email as string
-    const name = req.query.name as string
-
     if (!userId) { res.status(400).json({ message: 'user_id required' }); return }
 
-    // Try to find existing card
-    const { data: existing } = await supabase
-      .from('loyalty_cards')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
+    const card = await getOrCreateCard(userId, req.query.email as string, req.query.name as string)
+    res.json(card)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
 
-    if (existing) { res.json(existing); return }
+// GET /api/loyalty/wallet/status — which wallet providers are configured
+router.get('/wallet/status', (_req: Request, res: Response) => {
+  res.json({ apple: isAppleWalletConfigured(), google: isGoogleWalletConfigured() })
+})
 
-    // Create new card with unique QR code
-    const qr_code = `SHEEN-${crypto.randomBytes(6).toString('hex').toUpperCase()}`
+// GET /api/loyalty/wallet/apple — download the signed .pkpass for Apple Wallet
+router.get('/wallet/apple', async (req: Request, res: Response) => {
+  try {
+    const userId = req.query.user_id as string
+    if (!userId) { res.status(400).json({ message: 'user_id required' }); return }
+    if (!isAppleWalletConfigured()) {
+      res.status(501).json({ message: 'Apple Wallet is not set up yet', configured: false })
+      return
+    }
 
-    const { data, error } = await supabase
-      .from('loyalty_cards')
-      .insert({ user_id: userId, email: email || null, name: name || null, qr_code })
-      .select()
-      .single()
+    const card = await getOrCreateCard(userId, req.query.email as string, req.query.name as string)
+    const buffer = await generateApplePass(card, await getVisitsForFreeCup())
 
-    if (error) throw error
-    res.json(data)
+    res.setHeader('Content-Type', 'application/vnd.apple.pkpass')
+    res.setHeader('Content-Disposition', 'attachment; filename="sheen-loyalty.pkpass"')
+    res.send(buffer)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// GET /api/loyalty/wallet/google — get the "Save to Google Wallet" URL
+router.get('/wallet/google', async (req: Request, res: Response) => {
+  try {
+    const userId = req.query.user_id as string
+    if (!userId) { res.status(400).json({ message: 'user_id required' }); return }
+    if (!isGoogleWalletConfigured()) {
+      res.status(501).json({ message: 'Google Wallet is not set up yet', configured: false })
+      return
+    }
+
+    const card = await getOrCreateCard(userId, req.query.email as string, req.query.name as string)
+    res.json({ saveUrl: buildGoogleSaveUrl(card, await getVisitsForFreeCup()) })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
@@ -52,15 +116,16 @@ router.get('/scan/:qrCode', async (req: Request, res: Response) => {
 
     if (error || !data) { res.status(404).json({ message: 'Card not found' }); return }
 
-    const visits_toward_free = data.total_visits % VISITS_FOR_FREE_CUP
+    const visitsForFree = await getVisitsForFreeCup()
+    const visits_toward_free = data.total_visits % visitsForFree
     const free_cups_available = data.free_cups_earned - data.free_cups_used
 
     res.json({
       ...data,
       visits_toward_free,
-      visits_remaining: VISITS_FOR_FREE_CUP - visits_toward_free,
+      visits_remaining: visitsForFree - visits_toward_free,
       free_cups_available,
-      visits_for_free_cup: VISITS_FOR_FREE_CUP,
+      visits_for_free_cup: visitsForFree,
     })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -91,8 +156,9 @@ router.post('/add-visit', async (req: Request, res: Response) => {
     })
 
     // Update totals
+    const visitsForFree = await getVisitsForFreeCup()
     const newVisits = card.total_visits + 1
-    const newFreeCups = Math.floor(newVisits / VISITS_FOR_FREE_CUP)
+    const newFreeCups = Math.floor(newVisits / visitsForFree)
 
     const { data: updated, error: updateErr } = await supabase
       .from('loyalty_cards')
@@ -103,17 +169,17 @@ router.post('/add-visit', async (req: Request, res: Response) => {
 
     if (updateErr) throw updateErr
 
-    const earnedFree = newVisits % VISITS_FOR_FREE_CUP === 0
+    const earnedFree = newVisits % visitsForFree === 0
 
     await logAudit(req, { action: 'create', entity: 'order', entity_id: card.id, details: { page: 'Loyalty', customer: card.name || card.email, visit_number: newVisits, earned_free_cup: earnedFree } })
 
     res.json({
       ...updated,
-      visits_toward_free: newVisits % VISITS_FOR_FREE_CUP,
-      visits_remaining: VISITS_FOR_FREE_CUP - (newVisits % VISITS_FOR_FREE_CUP),
+      visits_toward_free: newVisits % visitsForFree,
+      visits_remaining: visitsForFree - (newVisits % visitsForFree),
       free_cups_available: newFreeCups - card.free_cups_used,
       earned_free_cup: earnedFree,
-      visits_for_free_cup: VISITS_FOR_FREE_CUP,
+      visits_for_free_cup: visitsForFree,
     })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
@@ -154,7 +220,7 @@ router.post('/redeem', async (req: Request, res: Response) => {
 
     await logAudit(req, { action: 'update', entity: 'order', entity_id: card.id, details: { page: 'Loyalty', customer: card.name || card.email, action: 'Free cup redeemed' } })
 
-    res.json({ ...updated, free_cups_available: updated.free_cups_earned - updated.free_cups_used, visits_for_free_cup: VISITS_FOR_FREE_CUP })
+    res.json({ ...updated, free_cups_available: updated.free_cups_earned - updated.free_cups_used, visits_for_free_cup: await getVisitsForFreeCup() })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }

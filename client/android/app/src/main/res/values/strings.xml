@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SHEEN Speciality Coffee</string>
+    <string name="title_activity_main">SHEEN Speciality Coffee</string>
+    <string name="package_name">ae.sheencafe.app</string>
+    <string name="custom_url_scheme">ae.sheencafe.app</string>
+</resources>

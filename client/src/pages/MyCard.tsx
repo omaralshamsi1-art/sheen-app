@@ -4,8 +4,8 @@ import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../i18n/LanguageContext'
 import TopBar from '../components/layout/TopBar'
+import AddToWallet from '../components/AddToWallet'
 
-const VISITS_FOR_FREE = 6
 
 interface LoyaltyCard {
   id: string
@@ -22,6 +22,14 @@ export default function MyCard() {
   const { user } = useAuth()
   const [card, setCard] = useState<LoyaltyCard | null>(null)
   const [loading, setLoading] = useState(true)
+  const [visitsForFree, setVisitsForFree] = useState(6)
+
+  // Admin-configurable loyalty threshold
+  useEffect(() => {
+    api.get('/api/settings/loyalty_visits_for_free')
+      .then(({ data }) => { const n = Number(data); if (Number.isFinite(n) && n >= 1) setVisitsForFree(Math.floor(n)) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -51,10 +59,10 @@ export default function MyCard() {
 
   if (!card) return null
 
-  const visitsToward = card.total_visits % VISITS_FOR_FREE
-  const visitsRemaining = VISITS_FOR_FREE - visitsToward
+  const visitsToward = card.total_visits % visitsForFree
+  const visitsRemaining = visitsForFree - visitsToward
   const freeCups = card.free_cups_earned - card.free_cups_used
-  const progress = (visitsToward / VISITS_FOR_FREE) * 100
+  const progress = (visitsToward / visitsForFree) * 100
 
   return (
     <div className="min-h-screen bg-sheen-cream">
@@ -91,7 +99,7 @@ export default function MyCard() {
           <div className="px-6 pb-6">
             {/* Visit dots */}
             <div className="flex justify-center gap-2 mb-3">
-              {Array.from({ length: VISITS_FOR_FREE }).map((_, i) => (
+              {Array.from({ length: visitsForFree }).map((_, i) => (
                 <div
                   key={i}
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
@@ -131,6 +139,9 @@ export default function MyCard() {
           </div>
         </div>
 
+        {/* Add to Apple / Google Wallet */}
+        {user && <AddToWallet userId={user.id} email={card.email} name={card.name} />}
+
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mt-4">
           <div className="bg-sheen-white rounded-xl p-4 text-center shadow-sm">
@@ -150,20 +161,6 @@ export default function MyCard() {
         <p className="text-center font-body text-xs text-sheen-muted mt-4">
           {t('loyaltyInfo')}
         </p>
-
-        {/* Add to Home Screen */}
-        <div className="mt-4 bg-sheen-white rounded-xl shadow-sm p-4 text-center">
-          <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('addToHomeScreen')}</p>
-          <p className="font-body text-xs text-sheen-muted mb-3">{t('addToHomeScreenDesc')}</p>
-          <div className="bg-sheen-cream rounded-lg p-3 text-left">
-            <p className="font-body text-xs text-sheen-black">
-              <strong>iPhone/iPad:</strong> {t('iosInstructions')}
-            </p>
-            <p className="font-body text-xs text-sheen-black mt-2">
-              <strong>Android:</strong> {t('androidInstructions')}
-            </p>
-          </div>
-        </div>
       </main>
     </div>
   )

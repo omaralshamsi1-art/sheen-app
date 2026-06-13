@@ -91,6 +91,15 @@ export default function CustomerOrder() {
     queryFn: getDefaultPaymentMethods,
   })
 
+  // Admin toggle: is card / online payment enabled? (default true)
+  const { data: cardPaymentEnabled } = useQuery({
+    queryKey: ['settings', 'card_payment_enabled'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/card_payment_enabled')
+      return data === null ? true : data === true
+    },
+  })
+
   // User-specific methods take priority, then default, then all
   const effectivePaymentMethods = allowedPaymentMethods && allowedPaymentMethods.length > 0
     ? allowedPaymentMethods
@@ -718,7 +727,8 @@ export default function CustomerOrder() {
                   <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
                   <div className="flex gap-2">
                     {PAYMENT_METHODS.filter((m) =>
-                      !effectivePaymentMethods || effectivePaymentMethods.includes(m)
+                      (!effectivePaymentMethods || effectivePaymentMethods.includes(m)) &&
+                      (m !== 'card' || cardPaymentEnabled !== false)
                     ).map((method) => (
                       <button
                         key={method}

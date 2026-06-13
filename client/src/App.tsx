@@ -33,6 +33,7 @@ import Privacy from './pages/Privacy'
 import LoyaltyScan from './pages/LoyaltyScan'
 import OrderNotifier from './components/OrderNotifier'
 import SaleNotifier from './components/SaleNotifier'
+import PushManager from './components/PushManager'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +53,7 @@ function AppLayout() {
       <HamburgerMenu />
       <OrderNotifier />
       <SaleNotifier />
+      <PushManager />
     </ProtectedRoute>
   )
 }

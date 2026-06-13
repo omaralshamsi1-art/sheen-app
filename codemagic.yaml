@@ -1,0 +1,71 @@
+# Codemagic CI config — builds the SHEEN iOS app on a cloud Mac and uploads to
+# App Store Connect / TestFlight. No local Mac required.
+#
+# One-time setup in the Codemagic UI (see store/ios-cloud-build.md):
+#   1. Connect this GitHub repo.
+#   2. Add an App Store Connect API key integration named "SHEEN ASC Key".
+#   3. Add an environment variable group "sheen" with:
+#        VITE_API_URL = https://api.sheencafe.ae   (so the app reaches the backend)
+#
+workflows:
+  ios-capacitor:
+    name: SHEEN iOS (Capacitor)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: SHEEN ASC Key
+    environment:
+      groups:
+        - sheen            # provides VITE_API_URL
+      vars:
+        BUNDLE_ID: "ae.sheencafe.app"
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Install JS dependencies
+        script: |
+          cd client
+          npm ci
+      - name: Build web assets + sync Capacitor (iOS)
+        script: |
+          cd client
+          VITE_API_URL="$VITE_API_URL" npm run build
+          npx cap sync ios
+      - name: Set up code signing (create cert + profile if missing)
+        script: |
+          set -e
+          keychain initialize
+          # Creates the iOS Distribution certificate and an App Store
+          # provisioning profile for the bundle id if they don't exist yet.
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --platform IOS \
+            --certificate-key @env:CERTIFICATE_PRIVATE_KEY \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+          echo "=== Provisioning profiles on machine ==="
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" 2>/dev/null || echo "NONE FOUND"
+          echo "=== Signing identities in keychain ==="
+          keychain list-certificates 2>/dev/null | grep -i "common name" || echo "NONE FOUND"
+      - name: Set a unique build number
+        script: |
+          # App Store Connect rejects a re-used build number, so stamp each
+          # build with Codemagic's auto-incrementing $BUILD_NUMBER.
+          # CFBundleVersion in Info.plist is $(CURRENT_PROJECT_VERSION).
+          cd client/ios/App
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" App.xcodeproj/project.pbxproj
+          echo "Set CURRENT_PROJECT_VERSION to $BUILD_NUMBER"
+      - name: Build signed IPA
+        script: |
+          xcode-project build-ipa \
+            --project "client/ios/App/App.xcodeproj" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Uploads to TestFlight. Flip to true only when you're ready for review.
+        submit_to_app_store: false
