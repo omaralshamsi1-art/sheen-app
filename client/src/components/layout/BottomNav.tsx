@@ -99,7 +99,7 @@ export default function BottomNav() {
             </div>
           </div>
 
-          <div className="h-2" />
+          <div style={{ height: 'calc(env(safe-area-inset-bottom) + 0.5rem)' }} />
         </div>
       )}
 

@@ -97,7 +97,7 @@ export default function PublicMenu() {
   return (
     <div className="min-h-screen bg-sheen-cream">
       {/* Header */}
-      <header className="bg-sheen-black sticky top-0 z-20">
+      <header className="bg-sheen-black sticky top-0 z-20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/images/logo.png" alt="SHEEN" className="w-10 h-10 rounded-full" />

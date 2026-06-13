@@ -4,7 +4,7 @@ import Footer from '../components/layout/Footer'
 export default function Terms() {
   return (
     <div className="min-h-screen bg-sheen-cream">
-      <header className="bg-sheen-black sticky top-0 z-20">
+      <header className="bg-sheen-black sticky top-0 z-20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
           <Link to="/" className="flex items-center gap-3">
             <img src="/images/logo.png" alt="SHEEN" className="w-10 h-10 rounded-full" />
