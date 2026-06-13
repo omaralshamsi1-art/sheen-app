@@ -48,6 +48,14 @@ workflows:
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" 2>/dev/null || echo "NONE FOUND"
           echo "=== Signing identities in keychain ==="
           keychain list-certificates 2>/dev/null | grep -i "common name" || echo "NONE FOUND"
+      - name: Set a unique build number
+        script: |
+          # App Store Connect rejects a re-used build number, so stamp each
+          # build with Codemagic's auto-incrementing $BUILD_NUMBER.
+          # CFBundleVersion in Info.plist is $(CURRENT_PROJECT_VERSION).
+          cd client/ios/App
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" App.xcodeproj/project.pbxproj
+          echo "Set CURRENT_PROJECT_VERSION to $BUILD_NUMBER"
       - name: Build signed IPA
         script: |
           xcode-project build-ipa \
