@@ -5,7 +5,7 @@
 #   1. Connect this GitHub repo.
 #   2. Add an App Store Connect API key integration named "SHEEN ASC Key".
 #   3. Add an environment variable group "sheen" with:
-#        VITE_API_URL = https://<your-railway-api>   (so the app reaches the backend)
+#        VITE_API_URL = https://api.sheencafe.ae   (so the app reaches the backend)
 #
 workflows:
   ios-capacitor:
@@ -17,9 +17,8 @@ workflows:
     environment:
       groups:
         - sheen            # provides VITE_API_URL
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: ae.sheencafe.app
+      vars:
+        BUNDLE_ID: "ae.sheencafe.app"
       node: 22
       xcode: latest
     scripts:
@@ -32,8 +31,15 @@ workflows:
           cd client
           VITE_API_URL="$VITE_API_URL" npm run build
           npx cap sync ios
-      - name: Set up code signing (from App Store Connect)
+      - name: Set up code signing (create cert + profile if missing)
         script: |
+          keychain initialize
+          # Creates the iOS Distribution certificate and an App Store
+          # provisioning profile for the bundle id if they don't exist yet.
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
           xcode-project use-profiles
       - name: Build signed IPA
         script: |
