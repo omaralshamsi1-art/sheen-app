@@ -1,6 +1,7 @@
 import { PKPass } from 'passkit-generator'
 import jwt from 'jsonwebtoken'
 import sharp from 'sharp'
+import path from 'path'
 
 /**
  * Apple Wallet (.pkpass) + Google Wallet loyalty pass generation for SHEEN.
@@ -50,74 +51,96 @@ export function isAppleWalletConfigured(): boolean {
   )
 }
 
-// The SHEEN emblem (pour-over funnel + drop), drawn in white. Coordinates live
-// in a 1024 space; the viewBox below crops tightly to the mark.
-const EMBLEM = `
-  <g stroke="#ffffff" stroke-width="17" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M360,392 L664,392"/>
-    <path d="M360,392 L512,600"/>
-    <path d="M664,392 L512,600"/>
-    <path d="M398,556 L626,556"/>
-    <path d="M455,402 Q520,500 560,556"/>
-    <path d="M497,402 Q548,492 588,556"/>
-    <path d="M539,402 Q578,486 612,556"/>
-  </g>
-  <path d="M512,606 C526,626 529,642 512,657 C495,642 498,626 512,606 Z" fill="#ffffff"/>`
-const EMBLEM_VIEWBOX = '336 374 352 300'
+// Real image assets (committed under server/assets). Read relative to this
+// compiled file (dist/lib) so it works regardless of the runtime cwd.
+const ASSET_DIR = path.join(__dirname, '..', '..', 'assets')
+const CUP_PATH = path.join(ASSET_DIR, 'cup.png')
+const LOGO_PATH = path.join(ASSET_DIR, 'pass-logo.png')
 
-// Emblem placed/scaled anywhere via a nested <svg> with the cropped viewBox
-function emblemTag(x: number, y: number, w: number, h: number): string {
-  return `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="${EMBLEM_VIEWBOX}" preserveAspectRatio="xMidYMid meet">${EMBLEM}</svg>`
+// Flood-fill from the borders, making background pixels transparent. Keeps
+// interior pixels (e.g. the white emblem inside the cup) intact.
+async function keyOutBackground(
+  file: string,
+  isBg: (r: number, g: number, b: number) => boolean,
+): Promise<Buffer> {
+  const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  const { width, height } = info
+  const ch = info.channels
+  const seen = new Uint8Array(width * height)
+  const stack: number[] = []
+  const push = (x: number, y: number) => { if (x >= 0 && y >= 0 && x < width && y < height) stack.push(y * width + x) }
+  for (let x = 0; x < width; x++) { push(x, 0); push(x, height - 1) }
+  for (let y = 0; y < height; y++) { push(0, y); push(width - 1, y) }
+  while (stack.length) {
+    const p = stack.pop()!
+    if (seen[p]) continue
+    const o = p * ch
+    if (!isBg(data[o], data[o + 1], data[o + 2])) continue
+    seen[p] = 1
+    data[o + 3] = 0
+    const x = p % width, y = (p / width) | 0
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1)
+  }
+  return sharp(data, { raw: { width, height, channels: ch } }).png().toBuffer()
 }
 
-// Square app icon: emblem on the brand dark background
+// Memoized transparent versions of the real assets
+let _cup: Promise<Buffer> | null = null
+let _logo: Promise<Buffer> | null = null
+const cupTransparent = () => (_cup ??= keyOutBackground(CUP_PATH, (r, g, b) => r > 236 && g > 236 && b > 236))
+const logoTransparent = () => (_logo ??= keyOutBackground(LOGO_PATH, (r, g, b) => r < 75 && g < 75 && b < 75))
+
+// Square app icon: the logo emblem on the brand dark background
 async function iconPng(size: number): Promise<Buffer> {
-  const e = size * 0.7
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-    <rect width="100%" height="100%" fill="#1A1A1A"/>
-    ${emblemTag((size - e) / 2, (size - e) / 2, e, e)}
-  </svg>`
-  return sharp(Buffer.from(svg)).png().toBuffer()
+  const e = Math.round(size * 0.74)
+  const logo = await sharp(await logoTransparent())
+    .resize(e, e, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png().toBuffer()
+  return sharp({ create: { width: size, height: size, channels: 4, background: { r: 26, g: 26, b: 26, alpha: 1 } } })
+    .composite([{ input: logo, gravity: 'center' }])
+    .png().toBuffer()
 }
 
-// Wide logo for the pass header: emblem on a TRANSPARENT background (no dark box)
+// Wide logo for the pass header: the emblem, transparent, left-aligned
 async function logoPng(width: number, height: number): Promise<Buffer> {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-    ${emblemTag(0, 0, height * 1.1, height)}
-  </svg>`
-  return sharp(Buffer.from(svg)).png().toBuffer()
+  const logo = await sharp(await logoTransparent())
+    .resize(Math.round(height * 1.05), height, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png().toBuffer()
+  return sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite([{ input: logo, left: 0, top: 0 }])
+    .png().toBuffer()
 }
 
-// One coffee-cup "stamp" — solid when earned, faded when still to collect
-function cupSvg(cx: number, cy: number, hw: number, hh: number, filled: boolean): string {
-  const topY = cy - hh, botY = cy + hh
-  const tw = hw, bw = hw * 0.74
-  const sw = Math.max(2.5, hw * 0.055)
-  const op = filled ? 1 : 0.22
-  const eS = hw * 1.25
-  return `<g opacity="${op}">
-    <path d="M ${cx - tw} ${topY} L ${cx + tw} ${topY} L ${cx + bw} ${botY} L ${cx - bw} ${botY} Z"
-      fill="#141414" stroke="#ffffff" stroke-width="${sw}" stroke-linejoin="round"/>
-    <ellipse cx="${cx}" cy="${topY}" rx="${tw}" ry="${hh * 0.15}" fill="#ffffff"/>
-    <rect x="${cx - bw}" y="${botY - sw}" width="${bw * 2}" height="${sw * 2.4}" rx="${sw}" fill="#ffffff"/>
-    ${emblemTag(cx - eS / 2, cy - eS * 0.46, eS, eS * 0.85)}
-  </g>`
-}
-
-// Strip image: a 2×3 grid of cup stamps, `filled` of them solid
+// Strip image: a 2×3 grid of the real cup photo, `filled` of them full colour,
+// the rest faded to show remaining stamps.
 async function cupStripPng(filled: number, total: number, w: number, h: number): Promise<Buffer> {
   const cols = 3
   const rows = Math.ceil(total / cols)
   const cellW = w / cols
   const cellH = h / rows
-  let cups = ''
+  const cupH = Math.round(cellH * 0.92)
+  const cupFull = await sharp(await cupTransparent())
+    .resize({ height: cupH, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png().toBuffer()
+  const meta = await sharp(cupFull).metadata()
+  const cupW = meta.width || Math.round(cellW * 0.6)
+  // Faded copy: multiply alpha down via a dest-in overlay
+  const fade = await sharp({ create: { width: cupW, height: cupH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0.22 } } }).png().toBuffer()
+  const cupFaded = await sharp(cupFull).composite([{ input: fade, blend: 'dest-in' }]).png().toBuffer()
+
+  const layers = []
   for (let i = 0; i < total; i++) {
     const r = Math.floor(i / cols)
     const c = i % cols
-    cups += cupSvg(c * cellW + cellW / 2, r * cellH + cellH / 2, cellW * 0.28, cellH * 0.32, i < filled)
+    layers.push({
+      input: i < filled ? cupFull : cupFaded,
+      left: Math.round(c * cellW + (cellW - cupW) / 2),
+      top: Math.round(r * cellH + (cellH - cupH) / 2),
+    })
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${cups}</svg>`
-  return sharp(Buffer.from(svg)).png().toBuffer()
+  return sharp({ create: { width: w, height: h, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite(layers)
+    .png().toBuffer()
 }
 
 export async function generateApplePass(
@@ -188,7 +211,6 @@ export async function generateApplePass(
     message: card.qr_code,
     format: 'PKBarcodeFormatQR',
     messageEncoding: 'iso-8859-1',
-    altText: card.qr_code,
   })
 
   // Relevant location → iOS shows the pass on the lock screen when near the cafe
