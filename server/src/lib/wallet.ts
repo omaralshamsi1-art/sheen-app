@@ -61,6 +61,45 @@ async function brandPng(width: number, height: number): Promise<Buffer> {
   return sharp(Buffer.from(svg)).png().toBuffer()
 }
 
+// One coffee-cup "stamp" — solid when earned, faded when still to collect
+function cupSvg(cx: number, cy: number, hw: number, hh: number, filled: boolean): string {
+  const topY = cy - hh, botY = cy + hh
+  const tw = hw, bw = hw * 0.72
+  const sw = Math.max(3, hw * 0.07)
+  const op = filled ? 1 : 0.25
+  const eW = hw * 0.5
+  const eTop = cy - hh * 0.38, eBot = cy + hh * 0.18
+  return `<g opacity="${op}">
+    <path d="M ${cx - tw} ${topY} L ${cx + tw} ${topY} L ${cx + bw} ${botY} L ${cx - bw} ${botY} Z"
+      fill="#1A1A1A" stroke="#fff" stroke-width="${sw}" stroke-linejoin="round"/>
+    <ellipse cx="${cx}" cy="${topY}" rx="${tw}" ry="${hh * 0.13}" fill="#fff"/>
+    <path d="M ${cx - bw} ${botY} L ${cx + bw} ${botY}" stroke="#fff" stroke-width="${sw * 1.5}" stroke-linecap="round"/>
+    <g stroke="#fff" stroke-width="${sw * 0.85}" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M ${cx - eW} ${eTop} L ${cx + eW} ${eTop}"/>
+      <path d="M ${cx - eW} ${eTop} L ${cx} ${eBot}"/>
+      <path d="M ${cx + eW} ${eTop} L ${cx} ${eBot}"/>
+    </g>
+    <path d="M ${cx} ${eBot + hh * 0.04} c ${hw * 0.07} ${hh * 0.1} ${hw * 0.07} ${hh * 0.18} 0 ${hh * 0.22}
+      c ${-hw * 0.07} ${-hh * 0.04} ${-hw * 0.07} ${-hh * 0.12} 0 ${-hh * 0.22} Z" fill="#fff"/>
+  </g>`
+}
+
+// Strip image: a 2×3 grid of cup stamps, `filled` of them solid
+async function cupStripPng(filled: number, total: number, w: number, h: number): Promise<Buffer> {
+  const cols = 3
+  const rows = Math.ceil(total / cols)
+  const cellW = w / cols
+  const cellH = h / rows
+  let cups = ''
+  for (let i = 0; i < total; i++) {
+    const r = Math.floor(i / cols)
+    const c = i % cols
+    cups += cupSvg(c * cellW + cellW / 2, r * cellH + cellH / 2, cellW * 0.28, cellH * 0.32, i < filled)
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${cups}</svg>`
+  return sharp(Buffer.from(svg)).png().toBuffer()
+}
+
 export async function generateApplePass(
   card: LoyaltyCardData,
   visitsForFree: number = DEFAULT_VISITS_FOR_FREE_CUP,
@@ -71,12 +110,15 @@ export async function generateApplePass(
 
   const { visitsToward, freeCups } = progress(card, visitsForFree)
 
-  const [icon, icon2x, icon3x, logo, logo2x] = await Promise.all([
+  const [icon, icon2x, icon3x, logo, logo2x, strip1x, strip2x, strip3x] = await Promise.all([
     brandPng(29, 29),
     brandPng(58, 58),
     brandPng(87, 87),
     brandPng(160, 50),
     brandPng(320, 100),
+    cupStripPng(visitsToward, visitsForFree, 375, 144),
+    cupStripPng(visitsToward, visitsForFree, 750, 288),
+    cupStripPng(visitsToward, visitsForFree, 1125, 432),
   ])
 
   const pass = new PKPass(
@@ -86,6 +128,9 @@ export async function generateApplePass(
       'icon@3x.png': icon3x,
       'logo.png': logo,
       'logo@2x.png': logo2x,
+      'strip.png': strip1x,
+      'strip@2x.png': strip2x,
+      'strip@3x.png': strip3x,
     },
     {
       wwdr: b64(process.env.APPLE_WWDR_CERT)!,
@@ -100,22 +145,18 @@ export async function generateApplePass(
       organizationName: 'SHEEN CAFE',
       description: 'SHEEN Loyalty Card',
       serialNumber: card.qr_code,
-      backgroundColor: 'rgb(26, 26, 26)',
-      foregroundColor: 'rgb(245, 240, 230)',
-      labelColor: 'rgb(212, 168, 67)',
+      backgroundColor: 'rgb(43, 43, 43)',
+      foregroundColor: 'rgb(255, 255, 255)',
+      labelColor: 'rgb(170, 170, 170)',
     },
   )
 
   pass.type = 'storeCard'
 
-  pass.primaryFields.push({
-    key: 'visits',
-    label: 'VISITS',
-    value: `${visitsToward} / ${visitsForFree}`,
-  })
+  // Cups are shown via the strip image; fields below it: NAME + GIFT (rewards)
   pass.secondaryFields.push(
-    { key: 'free', label: 'FREE CUPS', value: String(freeCups) },
-    { key: 'member', label: 'MEMBER', value: card.name || card.email?.split('@')[0] || 'SHEEN' },
+    { key: 'name', label: 'NAME', value: card.name || card.email?.split('@')[0] || 'SHEEN' },
+    { key: 'gift', label: 'GIFT', value: `${freeCups} ${freeCups === 1 ? 'reward' : 'rewards'}`, textAlignment: 'PKTextAlignmentRight' },
   )
   pass.backFields.push({
     key: 'about',
