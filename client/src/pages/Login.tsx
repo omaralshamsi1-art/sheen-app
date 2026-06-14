@@ -11,6 +11,7 @@ import {
   hasBiometricLogin,
   enableBiometricLogin,
   biometricUnlock,
+  disableBiometricLogin,
 } from '../native/biometric'
 
 type LoginMode = 'password' | 'otp'
@@ -52,14 +53,14 @@ export default function Login() {
     setError(null)
     setLoading(true)
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) { setError(authError.message); return }
 
-      // Offer to enable Face ID for next time (native only)
-      const refreshToken = data.session?.refresh_token
-      if (refreshToken && (await biometricAvailable()) && !(await hasBiometricLogin())) {
+      // Offer to enable Face ID for next time (native only). Stores email+password
+      // in the biometric keychain so unlock can do a fresh, reliable sign-in.
+      if ((await biometricAvailable()) && !(await hasBiometricLogin())) {
         if (window.confirm(t('enableBiometricPrompt'))) {
-          await enableBiometricLogin(email, refreshToken)
+          await enableBiometricLogin(email, password)
         }
       }
       navigate('/dashboard')
@@ -75,10 +76,19 @@ export default function Login() {
     setError(null)
     setBiometricBusy(true)
     try {
-      const refreshToken = await biometricUnlock(t('biometricReason'))
-      if (!refreshToken) { setBiometricBusy(false); return }
-      const { error: refreshError } = await supabase.auth.refreshSession({ refresh_token: refreshToken })
-      if (refreshError) { setError(t('biometricExpired')); setBiometricReady(false); return }
+      const creds = await biometricUnlock(t('biometricReason'))
+      if (!creds) { setBiometricBusy(false); return }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: creds.email,
+        password: creds.password,
+      })
+      if (signInError) {
+        // Stored password no longer valid (e.g. changed) — clear and ask to sign in
+        setError(t('biometricExpired'))
+        setBiometricReady(false)
+        await disableBiometricLogin()
+        return
+      }
       navigate('/dashboard')
     } catch {
       setError(t('loginError'))
