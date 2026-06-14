@@ -4,8 +4,15 @@
 # One-time setup in the Codemagic UI (see store/ios-cloud-build.md):
 #   1. Connect this GitHub repo.
 #   2. Add an App Store Connect API key integration named "SHEEN ASC Key".
-#   3. Add an environment variable group "sheen" with:
-#        VITE_API_URL = https://api.sheencafe.ae   (so the app reaches the backend)
+#   3. Add an environment variable group "sheen" containing ALL of these — Vite
+#      bakes every VITE_* var into the web bundle at build time, so a missing one
+#      silently ships a broken app (e.g. no Apple Pay, no card form):
+#        VITE_API_URL                = https://api.sheencafe.ae   (backend)
+#        VITE_SUPABASE_URL           = <supabase project url>      (login)
+#        VITE_SUPABASE_ANON_KEY      = <supabase anon key>         (login)
+#        VITE_STRIPE_PUBLISHABLE_KEY = pk_live_...                 (card payments)
+#        VITE_APPLE_MERCHANT_ID      = merchant.ae.sheencafe       (Apple Pay)
+#      Plus CERTIFICATE_PRIVATE_KEY for iOS signing.
 #
 workflows:
   ios-capacitor:
@@ -16,7 +23,7 @@ workflows:
       app_store_connect: SHEEN ASC Key
     environment:
       groups:
-        - sheen            # provides VITE_API_URL
+        - sheen            # provides all VITE_* build vars (see header) + signing key
       vars:
         BUNDLE_ID: "ae.sheencafe.app"
       node: 22
@@ -29,7 +36,9 @@ workflows:
       - name: Build web assets + sync Capacitor (iOS)
         script: |
           cd client
-          VITE_API_URL="$VITE_API_URL" npm run build
+          # Vite automatically inlines every VITE_* var from the "sheen" group;
+          # no need to re-export them here. Build fails loudly if any are unset.
+          npm run build
           npx cap sync ios
       - name: Set up code signing (create cert + profile if missing)
         script: |
