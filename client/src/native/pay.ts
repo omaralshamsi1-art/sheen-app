@@ -20,25 +20,33 @@ async function ensureInit() {
   return Stripe
 }
 
-/** Which wallet (if any) the current device can use. Null on web / unsupported. */
-export async function availableWallet(): Promise<WalletKind | null> {
-  if (!Capacitor.isNativePlatform()) return null
+export interface WalletStatus {
+  wallet: WalletKind | null
+  /** Human-readable reason — 'ok' on success, otherwise why the wallet is hidden.
+   * Used by a TEMPORARY on-screen diagnostic; safe to surface (no secrets). */
+  reason: string
+}
+
+/** Which wallet (if any) the current device can use, plus the reason if none. */
+export async function availableWallet(): Promise<WalletStatus> {
+  if (!Capacitor.isNativePlatform()) return { wallet: null, reason: 'not a native app' }
   const platform = Capacitor.getPlatform()
+  const merchant = import.meta.env.VITE_APPLE_MERCHANT_ID
   try {
     const Stripe = await ensureInit()
     if (platform === 'ios') {
-      if (!import.meta.env.VITE_APPLE_MERCHANT_ID) return null // Apple Pay needs a merchant id
+      if (!merchant) return { wallet: null, reason: 'VITE_APPLE_MERCHANT_ID missing from build' }
       await Stripe.isApplePayAvailable() // rejects if unavailable
-      return 'apple'
+      return { wallet: 'apple', reason: 'ok' }
     }
     if (platform === 'android') {
       await Stripe.isGooglePayAvailable()
-      return 'google'
+      return { wallet: 'google', reason: 'ok' }
     }
-  } catch {
-    return null
+    return { wallet: null, reason: `unsupported platform: ${platform}` }
+  } catch (e: any) {
+    return { wallet: null, reason: `isApplePayAvailable failed: ${e?.message || String(e)} (merchant=${merchant || 'unset'})` }
   }
-  return null
 }
 
 /** Present the native wallet sheet for an existing PaymentIntent. Returns true if paid. */

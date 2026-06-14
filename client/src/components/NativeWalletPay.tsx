@@ -16,13 +16,30 @@ interface Props {
 export default function NativeWalletPay({ clientSecret, amount, onSuccess }: Props) {
   const { t } = useLanguage()
   const [wallet, setWallet] = useState<WalletKind | null>(null)
+  const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    availableWallet().then(setWallet)
+    availableWallet().then((s) => {
+      setWallet(s.wallet)
+      setReason(s.reason)
+    })
   }, [])
 
-  if (!wallet) return null
+  if (!wallet) {
+    // TEMPORARY diagnostic: surface why the native wallet button is hidden so we
+    // can tell apart "no card in Wallet" / "merchant id missing" / etc. Only shows
+    // inside the native app (web returns 'not a native app' → nothing rendered).
+    // Remove once Apple Pay is confirmed working.
+    if (reason && reason !== 'not a native app' && reason !== 'ok') {
+      return (
+        <div className="mb-3 rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-2 text-[11px] text-yellow-800 font-body break-words">
+          Apple Pay debug: {reason}
+        </div>
+      )
+    }
+    return null
+  }
 
   const pay = async () => {
     setBusy(true)
