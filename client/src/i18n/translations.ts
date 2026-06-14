@@ -155,6 +155,7 @@ export const translations = {
   viewCart: { en: 'View Cart', ar: 'عرض السلة' },
   yourOrder: { en: 'Your Order', ar: 'طلبك' },
   orderNotes: { en: 'Add a note (e.g. no sugar, extra hot)...', ar: 'أضف ملاحظة (مثلاً بدون سكر)...' },
+  pickupOnlyNotice: { en: 'Pickup only — delivery is currently unavailable.', ar: 'الاستلام فقط — التوصيل غير متاح حاليًا.' },
   submitOrder: { en: 'Submit Order', ar: 'إرسال الطلب' },
   submitting: { en: 'Submitting...', ar: 'جاري الإرسال...' },
   orderSubmitted: { en: 'Order submitted!', ar: 'تم إرسال الطلب!' },
