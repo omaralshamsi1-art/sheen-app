@@ -16,7 +16,7 @@ import toast from 'react-hot-toast'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
-const PAYMENT_METHODS = ['cash', 'card'] as const
+const PAYMENT_METHODS = ['card'] as const
 type PaymentMethod = typeof PAYMENT_METHODS[number]
 
 export default function CustomerOrder() {
@@ -110,7 +110,7 @@ export default function CustomerOrder() {
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [notes, setNotes] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card')
   const [showCart, setShowCart] = useState(false)
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
@@ -300,7 +300,7 @@ export default function CustomerOrder() {
     toast.success(t('orderSubmitted'))
     setQuantities({})
     setNotes('')
-    setPaymentMethod('cash')
+    setPaymentMethod('card')
     setShowCart(false)
     setStripeClientSecret(null)
     queryClient.invalidateQueries({ queryKey: ['orders'] })
@@ -335,13 +335,6 @@ export default function CustomerOrder() {
 
 
   const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
-    cash: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="6" width="20" height="12" rx="2" />
-        <circle cx="12" cy="12" r="3" />
-        <path d="M2 10H6" /><path d="M18 10H22" />
-      </svg>
-    ),
     card: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="5" width="20" height="14" rx="2" />
