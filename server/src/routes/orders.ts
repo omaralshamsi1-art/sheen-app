@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
+import { insertSale } from '../services/db'
 
 const router = Router()
 
@@ -179,6 +180,46 @@ router.patch('/:id', async (req: Request, res: Response) => {
         }
       } catch {
         // Loyalty update failed — don't block the order update
+      }
+    }
+
+    // Record a completed order as a sale so online (card/Apple Pay) revenue
+    // shows in the Dashboard, Reports and AI. De-duped via recorded_by.
+    if (status === 'completed') {
+      try {
+        const orderId = req.params.id
+        const { data: existingSale } = await supabase
+          .from('sales')
+          .select('id')
+          .eq('recorded_by', `order:${orderId}`)
+          .maybeSingle()
+
+        if (!existingSale) {
+          const { data: oItems } = await supabase
+            .from('order_items')
+            .select('menu_item_id, name, price, qty, total')
+            .eq('order_id', orderId)
+
+          if (oItems && oItems.length) {
+            await insertSale(
+              {
+                sale_date: new Date().toISOString().slice(0, 10),
+                recorded_by: `order:${orderId}`,
+                notes: 'Online order (card / Apple Pay)',
+              },
+              oItems.map((i: any) => ({
+                menu_item_id: i.menu_item_id,
+                name: i.name,
+                category: '',
+                price: Number(i.price),
+                qty: Number(i.qty),
+                total: Number(i.total),
+              })),
+            )
+          }
+        }
+      } catch {
+        // Don't block the order update if sale recording fails
       }
     }
 
