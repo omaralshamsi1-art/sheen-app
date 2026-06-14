@@ -14,7 +14,6 @@ import StripeCheckout from '../components/StripeCheckout'
 import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
 import { Capacitor } from '@capacitor/core'
-import { availableWallet } from '../native/pay'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
@@ -87,20 +86,33 @@ export default function CustomerOrder() {
   const [shotChoices, setShotChoices] = useState<Record<string, number>>({})
   const [addonChoices, setAddonChoices] = useState<Record<string, string[]>>({})
 
-  // TEMPORARY Apple Pay diagnostic — always visible in the cart so we can see
-  // exactly what the native wallet check reports. Remove once it's working.
+  // TEMPORARY Apple Pay diagnostic (DIAG-4) — instruments each native step with a
+  // timeout so we can see exactly which call hangs. Remove once Apple Pay works.
   const [payDiag, setPayDiag] = useState('checking…')
   useEffect(() => {
     let cancelled = false
+    const set = (s: string) => { if (!cancelled) setPayDiag(s) }
+    const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+      Promise.race([
+        p,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`TIMEOUT@${label} (${ms}ms)`)), ms)),
+      ])
     ;(async () => {
+      const native = Capacitor.isNativePlatform()
+      const platform = Capacitor.getPlatform()
+      const merchant = import.meta.env.VITE_APPLE_MERCHANT_ID ? 'set' : 'UNSET'
+      const head = `native=${native} platform=${platform} merchant=${merchant}`
+      if (!native) { set(`${head} — web, no native wallet`); return }
       try {
-        const native = Capacitor.isNativePlatform()
-        const platform = Capacitor.getPlatform()
-        const merchant = import.meta.env.VITE_APPLE_MERCHANT_ID ? 'set' : 'UNSET'
-        const { wallet, reason } = await availableWallet()
-        if (!cancelled) setPayDiag(`native=${native} platform=${platform} merchant=${merchant} wallet=${wallet ?? 'none'} reason=${reason}`)
+        set(`${head} — importing…`)
+        const { Stripe } = await withTimeout(import('@capacitor-community/stripe'), 8000, 'import')
+        set(`${head} — initializing…`)
+        await withTimeout(Stripe.initialize({ publishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '' }), 8000, 'initialize')
+        set(`${head} — checking ApplePay…`)
+        await withTimeout(Stripe.isApplePayAvailable(), 8000, 'isApplePayAvailable')
+        set(`${head} — wallet=apple ✅ OK`)
       } catch (e: any) {
-        if (!cancelled) setPayDiag('diag threw: ' + (e?.message || String(e)))
+        set(`${head} — FAILED: ${e?.message || String(e)}`)
       }
     })()
     return () => { cancelled = true }
@@ -661,9 +673,9 @@ export default function CustomerOrder() {
 
                 {/* Payment Method */}
                 <div className="pt-3 border-t border-sheen-cream">
-                  {/* TEMPORARY Apple Pay diagnostic — DIAG-3 marker confirms this build is current */}
+                  {/* TEMPORARY Apple Pay diagnostic — DIAG-4 marker confirms this build is current */}
                   <div className="mb-2 rounded bg-yellow-50 border border-yellow-300 px-2 py-1.5 text-[10px] leading-snug text-yellow-900 font-body break-words">
-                    DIAG-3 · {payDiag}
+                    DIAG-4 · {payDiag}
                   </div>
                   <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
                   <div className="flex gap-2">
