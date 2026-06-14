@@ -8,7 +8,6 @@ import {
 } from '@stripe/react-stripe-js'
 import { useLanguage } from '../i18n/LanguageContext'
 import Button from './ui/Button'
-import NativeWalletPay from './NativeWalletPay'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '')
 
@@ -86,8 +85,6 @@ interface StripeCheckoutProps {
 export default function StripeCheckout({ clientSecret, amount, onSuccess, onCancel }: StripeCheckoutProps) {
   return (
     <>
-      {/* Native Apple Pay / Google Pay (no-op on web) */}
-      <NativeWalletPay clientSecret={clientSecret} amount={amount} onSuccess={onSuccess} />
       <Elements
       stripe={stripePromise}
       options={{

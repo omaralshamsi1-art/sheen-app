@@ -13,7 +13,7 @@ import Button from '../components/ui/Button'
 import StripeCheckout from '../components/StripeCheckout'
 import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
-import { Capacitor } from '@capacitor/core'
+import { availableWallet, payWithWallet } from '../native/pay'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
@@ -86,37 +86,33 @@ export default function CustomerOrder() {
   const [shotChoices, setShotChoices] = useState<Record<string, number>>({})
   const [addonChoices, setAddonChoices] = useState<Record<string, string[]>>({})
 
-  // TEMPORARY Apple Pay diagnostic (DIAG-4) — instruments each native step with a
-  // timeout so we can see exactly which call hangs. Remove once Apple Pay works.
-  const [payDiag, setPayDiag] = useState('checking…')
+  // Native wallet (Apple Pay) availability — detected at the cart level, where
+  // the native check runs reliably (separate from the web Stripe card form).
+  const [walletReady, setWalletReady] = useState(false)
   useEffect(() => {
     let cancelled = false
-    const set = (s: string) => { if (!cancelled) setPayDiag(s) }
-    const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
-      Promise.race([
-        p,
-        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`TIMEOUT@${label} (${ms}ms)`)), ms)),
-      ])
-    ;(async () => {
-      const native = Capacitor.isNativePlatform()
-      const platform = Capacitor.getPlatform()
-      const merchant = import.meta.env.VITE_APPLE_MERCHANT_ID ? 'set' : 'UNSET'
-      const head = `native=${native} platform=${platform} merchant=${merchant}`
-      if (!native) { set(`${head} — web, no native wallet`); return }
-      try {
-        set(`${head} — importing…`)
-        const { Stripe } = await withTimeout(import('@capacitor-community/stripe'), 8000, 'import')
-        set(`${head} — initializing…`)
-        await withTimeout(Stripe.initialize({ publishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '' }), 8000, 'initialize')
-        set(`${head} — checking ApplePay…`)
-        await withTimeout(Stripe.isApplePayAvailable(), 8000, 'isApplePayAvailable')
-        set(`${head} — wallet=apple ✅ OK`)
-      } catch (e: any) {
-        set(`${head} — FAILED: ${e?.message || String(e)}`)
-      }
-    })()
+    availableWallet().then((s) => {
+      if (!cancelled) setWalletReady(s.wallet === 'apple')
+    })
     return () => { cancelled = true }
   }, [])
+
+  // Apple Pay straight from the cart: create the PaymentIntent, present the
+  // native sheet, then place the order on success.
+  const handleApplePay = async () => {
+    setStripeLoading(true)
+    try {
+      const { clientSecret } = await createPaymentIntent(cartTotal, user?.email ?? undefined)
+      const paid = await payWithWallet('apple', clientSecret, cartTotal)
+      if (paid) {
+        await placeOrder(`[Payment: Apple Pay - Stripe: ${clientSecret.split('_secret')[0]}]`)
+      }
+    } catch (e: any) {
+      toast.error(e?.message || t('paymentFailed'))
+    } finally {
+      setStripeLoading(false)
+    }
+  }
 
   const { data: extraShotPrice = 5 } = useQuery({
     queryKey: ['settings', 'extra_shot_price'],
@@ -673,10 +669,6 @@ export default function CustomerOrder() {
 
                 {/* Payment Method */}
                 <div className="pt-3 border-t border-sheen-cream">
-                  {/* TEMPORARY Apple Pay diagnostic — DIAG-4 marker confirms this build is current */}
-                  <div className="mb-2 rounded bg-yellow-50 border border-yellow-300 px-2 py-1.5 text-[10px] leading-snug text-yellow-900 font-body break-words">
-                    DIAG-4 · {payDiag}
-                  </div>
                   <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
                   <div className="flex gap-2">
                     {PAYMENT_METHODS.filter((m) =>
@@ -727,13 +719,25 @@ export default function CustomerOrder() {
                       onCancel={() => setStripeClientSecret(null)}
                     />
                   ) : paymentMethod === 'card' ? (
-                    <Button
-                      onClick={handleCardPayment}
-                      disabled={stripeLoading}
-                      className="w-full"
-                    >
-                      {stripeLoading ? t('processing') : t('proceedToPayment')}
-                    </Button>
+                    <>
+                      {/* Native Apple Pay (iOS app only) — straight from the cart */}
+                      {walletReady && (
+                        <button
+                          onClick={handleApplePay}
+                          disabled={stripeLoading}
+                          className="w-full bg-sheen-black text-sheen-cream rounded-xl py-3 mb-2 font-body text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                          {stripeLoading ? t('processing') : ' Pay'}
+                        </button>
+                      )}
+                      <Button
+                        onClick={handleCardPayment}
+                        disabled={stripeLoading}
+                        className="w-full"
+                      >
+                        {stripeLoading ? t('processing') : t('proceedToPayment')}
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       onClick={() => submitOrder.mutate()}
