@@ -1,7 +1,7 @@
 {
-  "name": "SHEEN Coffee",
-  "short_name": "SHEEN",
-  "description": "SHEEN Speciality Coffee — Order online, menu & loyalty card",
+  "name": "SHEEN Cafe",
+  "short_name": "SHEEN Cafe",
+  "description": "SHEEN Cafe — Speciality Coffee. Order online, menu & loyalty card",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -73,7 +73,8 @@ export default function MyCard() {
         <div className="bg-sheen-black rounded-2xl overflow-hidden shadow-lg">
           {/* Header */}
           <div className="px-6 pt-6 pb-4 text-center">
-            <h2 className="font-display text-3xl font-bold text-sheen-gold tracking-wider">SHEEN</h2>
+            <h2 className="font-display text-3xl font-bold text-sheen-gold tracking-wider">SHEEN Cafe</h2>
+            <p className="font-body text-[10px] text-sheen-gold/60 uppercase tracking-widest mt-0.5">Speciality Coffee</p>
             <p className="font-body text-xs text-gray-400 mt-1">{t('loyaltyCard')}</p>
             <p className="font-body text-sm text-sheen-cream mt-2 font-medium">
               {card.name || card.email?.split('@')[0] || ''}

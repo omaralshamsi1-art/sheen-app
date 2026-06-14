@@ -178,7 +178,8 @@ export default function Login() {
           {/* Branding */}
           <div className="text-center mb-6">
             <img src="/images/logo.png" alt="SHEEN" className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 rounded-full" />
-            <h1 className="font-display text-3xl sm:text-4xl text-sheen-black tracking-wide">SHEEN</h1>
+            <h1 className="font-display text-3xl sm:text-4xl text-sheen-black tracking-wide">SHEEN Cafe</h1>
+            <p className="text-[11px] text-sheen-muted font-body uppercase tracking-widest -mt-0.5 mb-1">Speciality Coffee</p>
             <Link
               to="/public-menu"
               className="inline-block mt-2 font-body font-semibold text-sm transition-opacity hover:opacity-75"
