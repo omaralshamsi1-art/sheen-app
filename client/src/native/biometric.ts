@@ -31,14 +31,14 @@ export async function hasBiometricLogin(): Promise<boolean> {
   }
 }
 
-/** Store the refresh token behind biometrics. Returns true if it was saved. */
-export async function enableBiometricLogin(email: string, refreshToken: string): Promise<boolean> {
+/** Store the user's email + password behind biometrics. Returns true if saved. */
+export async function enableBiometricLogin(email: string, password: string): Promise<boolean> {
   if (!(await biometricAvailable())) return false
   try {
     const { NativeBiometric, AccessControl } = await import('@capgo/capacitor-native-biometric')
     await NativeBiometric.setCredentials({
       username: email,
-      password: refreshToken,
+      password,
       server: SERVER,
       accessControl: AccessControl.BIOMETRY_ANY,
     })
@@ -48,13 +48,14 @@ export async function enableBiometricLogin(email: string, refreshToken: string):
   }
 }
 
-/** Prompt for biometrics and return the stored refresh token (null if cancelled/failed). */
-export async function biometricUnlock(reason: string): Promise<string | null> {
+/** Prompt for biometrics and return the stored { email, password } (null if cancelled/failed). */
+export async function biometricUnlock(reason: string): Promise<{ email: string; password: string } | null> {
   if (!Capacitor.isNativePlatform()) return null
   try {
     const { NativeBiometric } = await import('@capgo/capacitor-native-biometric')
     const creds = await NativeBiometric.getSecureCredentials({ server: SERVER, reason })
-    return creds.password || null
+    if (!creds?.username || !creds?.password) return null
+    return { email: creds.username, password: creds.password }
   } catch {
     return null
   }
