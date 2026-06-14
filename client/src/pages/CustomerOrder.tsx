@@ -13,6 +13,8 @@ import Button from '../components/ui/Button'
 import StripeCheckout from '../components/StripeCheckout'
 import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
+import { Capacitor } from '@capacitor/core'
+import { availableWallet } from '../native/pay'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
@@ -84,6 +86,25 @@ export default function CustomerOrder() {
   const [milkChoices, setMilkChoices] = useState<Record<string, string>>({}) // itemId → milk name
   const [shotChoices, setShotChoices] = useState<Record<string, number>>({})
   const [addonChoices, setAddonChoices] = useState<Record<string, string[]>>({})
+
+  // TEMPORARY Apple Pay diagnostic — always visible in the cart so we can see
+  // exactly what the native wallet check reports. Remove once it's working.
+  const [payDiag, setPayDiag] = useState('checking…')
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const native = Capacitor.isNativePlatform()
+        const platform = Capacitor.getPlatform()
+        const merchant = import.meta.env.VITE_APPLE_MERCHANT_ID ? 'set' : 'UNSET'
+        const { wallet, reason } = await availableWallet()
+        if (!cancelled) setPayDiag(`native=${native} platform=${platform} merchant=${merchant} wallet=${wallet ?? 'none'} reason=${reason}`)
+      } catch (e: any) {
+        if (!cancelled) setPayDiag('diag threw: ' + (e?.message || String(e)))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const { data: extraShotPrice = 5 } = useQuery({
     queryKey: ['settings', 'extra_shot_price'],
@@ -640,6 +661,10 @@ export default function CustomerOrder() {
 
                 {/* Payment Method */}
                 <div className="pt-3 border-t border-sheen-cream">
+                  {/* TEMPORARY Apple Pay diagnostic — DIAG-3 marker confirms this build is current */}
+                  <div className="mb-2 rounded bg-yellow-50 border border-yellow-300 px-2 py-1.5 text-[10px] leading-snug text-yellow-900 font-body break-words">
+                    DIAG-3 · {payDiag}
+                  </div>
                   <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
                   <div className="flex gap-2">
                     {PAYMENT_METHODS.filter((m) =>
