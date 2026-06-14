@@ -102,7 +102,7 @@ export default function PublicMenu() {
           <div className="flex items-center gap-3">
             <img src="/images/logo.png" alt="SHEEN" className="w-10 h-10 rounded-full" />
             <div>
-              <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN</h1>
+              <h1 className="font-display text-2xl font-bold text-sheen-gold tracking-wide">SHEEN Cafe</h1>
               <p className="text-[10px] text-sheen-gold/60 font-body uppercase tracking-widest">Speciality Coffee</p>
             </div>
           </div>
