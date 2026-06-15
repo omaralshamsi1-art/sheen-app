@@ -33,6 +33,14 @@ export default function PublicMenu() {
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
   const { data: offers = [] } = useQuery({ queryKey: ['offers'], queryFn: getOffers })
   const TABS: PubTab[] = useMemo(() => (offers.length ? ['Offers', ...CATEGORIES] : [...CATEGORIES]), [offers.length])
+  // Land on the Offers tab when there are offers (once, on first load).
+  const didDefaultTab = useRef(false)
+  useEffect(() => {
+    if (!didDefaultTab.current && offers.length > 0) {
+      didDefaultTab.current = true
+      setActiveCategory('Offers')
+    }
+  }, [offers.length])
   const offerDisplayPrice = (o: Offer): { final: number; original: number | null } => {
     if (o.discount_percent == null) return { final: o.price, original: o.original_price ?? null }
     const ids = [...(o.menu_item_ids ?? []), ...((o.slots ?? []).map(s => s.options[0]).filter(Boolean) as string[])]
