@@ -22,6 +22,12 @@ export interface MenuItem {
 // ─────────────────────────────────────────────
 // OFFERS (admin-managed deals shown on the Offers tab)
 // ─────────────────────────────────────────────
+/** A choice group in an offer — the customer picks one of `options`. */
+export interface OfferSlot {
+  label: string;
+  options: string[]; // menu_item_ids the customer can pick from
+}
+
 export interface Offer {
   id: string;
   name: string;
@@ -29,8 +35,9 @@ export interface Offer {
   price: number;
   original_price: number | null;
   category: MenuCategory;
-  menu_item_id: string | null; // legacy single link (first of menu_item_ids)
-  menu_item_ids: string[];     // items bundled in this offer (combo)
+  menu_item_id: string | null; // legacy single link (first fixed item)
+  menu_item_ids: string[];     // FIXED items always included
+  slots: OfferSlot[];          // choice groups (pick 1 each)
   is_active: boolean;
   sort_order: number;
   created_at: string;

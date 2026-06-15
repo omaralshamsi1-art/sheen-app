@@ -1,5 +1,5 @@
 import api from '../lib/api'
-import type { Offer } from '../types'
+import type { Offer, OfferSlot } from '../types'
 
 export type OfferInput = {
   name: string
@@ -8,6 +8,7 @@ export type OfferInput = {
   original_price?: number | null
   category?: string
   menu_item_ids?: string[]
+  slots?: OfferSlot[]
   is_active?: boolean
   sort_order?: number
 }

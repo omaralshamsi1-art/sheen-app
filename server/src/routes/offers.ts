@@ -34,10 +34,17 @@ function validate(body: any): string | null {
   return null
 }
 
+function strList(v: any): string[] {
+  return Array.isArray(v) ? v.filter((x: any) => typeof x === 'string' && x).map(String) : []
+}
+
 function row(body: any) {
-  const ids: string[] = Array.isArray(body.menu_item_ids)
-    ? body.menu_item_ids.filter((x: any) => typeof x === 'string' && x).map(String)
-    : (body.menu_item_id ? [String(body.menu_item_id)] : [])
+  const ids = strList(body.menu_item_ids).length ? strList(body.menu_item_ids) : (body.menu_item_id ? [String(body.menu_item_id)] : [])
+  const slots = Array.isArray(body.slots)
+    ? body.slots
+        .map((s: any) => ({ label: typeof s?.label === 'string' ? s.label.trim() : '', options: strList(s?.options) }))
+        .filter((s: any) => s.options.length > 0)
+    : []
   return {
     name: String(body.name).trim(),
     description: body.description ? String(body.description).trim() : null,
@@ -45,7 +52,8 @@ function row(body: any) {
     original_price: body.original_price != null ? Number(body.original_price) : null,
     category: body.category && VALID_CATEGORIES.includes(body.category) ? body.category : 'Coffee',
     menu_item_ids: ids,
-    menu_item_id: ids[0] ?? null, // keep legacy column in sync (first item)
+    menu_item_id: ids[0] ?? slots[0]?.options[0] ?? null, // legacy column: first usable item
+    slots,
     is_active: body.is_active !== false,
     sort_order: typeof body.sort_order === 'number' ? body.sort_order : 0,
   }

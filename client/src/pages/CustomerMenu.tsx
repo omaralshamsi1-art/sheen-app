@@ -79,6 +79,7 @@ export default function CustomerMenu() {
   const [cart, setCart] = useState<Record<string, CartLine>>({})
   const [cartOpen, setCartOpen] = useState(false)
   const [customizing, setCustomizing] = useState<MenuItem | null>(null)
+  const [pickingOffer, setPickingOffer] = useState<Offer | null>(null)
 
   // Checkout (reused Apple Pay + card flow)
   const [walletReady, setWalletReady] = useState(false)
@@ -113,11 +114,18 @@ export default function CustomerMenu() {
     if (customizable) { setCustomizing(it); return }
     addLine({ key: it.id, menu_item_id: it.id, name: it.name, price: it.selling_price, qty: 1 })
   }
+  const itemName = (id: string) => menuItems.find(m => m.id === id)?.name
   const addOffer = (o: Offer) => {
-    const ids = o.menu_item_ids?.length ? o.menu_item_ids : (o.menu_item_id ? [o.menu_item_id] : [])
-    const parts = ids.map(id => menuItems.find(m => m.id === id)?.name).filter(Boolean)
+    if (o.slots?.length) { setPickingOffer(o); return }
+    finalizeOffer(o, [])
+  }
+  const finalizeOffer = (o: Offer, chosen: string[]) => {
+    const fixed = o.menu_item_ids ?? []
+    const allIds = [...fixed, ...chosen]
+    const parts = allIds.map(itemName).filter(Boolean)
     const name = parts.length ? `${o.name} (${parts.join(' + ')})` : o.name
-    addLine({ key: `offer:${o.id}`, menu_item_id: ids[0] || fallbackItemId, name, price: o.price, qty: 1 })
+    addLine({ key: `offer:${o.id}:${chosen.join(',')}`, menu_item_id: allIds[0] || fallbackItemId, name, price: o.price, qty: 1 })
+    setPickingOffer(null)
   }
 
   const cartLines = Object.values(cart)
@@ -325,6 +333,18 @@ export default function CustomerMenu() {
           </div>
         )}
 
+        {/* Offer choice picker */}
+        {pickingOffer && (
+          <OfferPicker
+            offer={pickingOffer}
+            itemName={itemName}
+            money={money}
+            onClose={() => setPickingOffer(null)}
+            onConfirm={(chosen) => finalizeOffer(pickingOffer, chosen)}
+            t={t}
+          />
+        )}
+
         {/* Customization sheet */}
         {customizing && (
           <CustomizeSheet
@@ -432,6 +452,42 @@ function CustomizeSheet(props: {
 
         <button onClick={submit} style={{ marginTop: 14, width: '100%', height: 50, border: 'none', borderRadius: 14, background: T.espresso, color: T.onDark, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
           {t('addToCart')} · {props.money(price)}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function OfferPicker(props: {
+  offer: Offer; itemName: (id: string) => string | undefined; money: (n: number) => string
+  onClose: () => void; onConfirm: (chosen: string[]) => void; t: (k: TranslationKey) => string
+}) {
+  const { offer, t } = props
+  const slots = offer.slots ?? []
+  const [choices, setChoices] = useState<string[]>(slots.map(s => s.options[0] || ''))
+  const set = (i: number, v: string) => setChoices(c => c.map((x, idx) => idx === i ? v : x))
+  const ready = slots.every((_, i) => choices[i])
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, maxWidth: 440, margin: '0 auto' }}>
+      <div onClick={props.onClose} style={{ position: 'absolute', inset: 0, background: T.scrim }} />
+      <div style={{ position: 'absolute', insetInline: 0, bottom: 0, background: T.bg, borderRadius: '26px 26px 0 0', padding: '18px 18px calc(24px + env(safe-area-inset-bottom))', boxShadow: '0 -14px 44px rgba(30,20,14,.28)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18 }}>{offer.name}</span>
+          <button onClick={props.onClose} style={{ border: 'none', background: '#EFE7DB', width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', color: T.espresso }}>✕</button>
+        </div>
+        {offer.description && <div style={{ fontSize: 12, color: T.muted, marginBottom: 12 }}>{offer.description}</div>}
+
+        {slots.map((s, i) => (
+          <Field key={i} label={s.label || `${t('customizeTitle')} ${i + 1}`}>
+            <select value={choices[i]} onChange={e => set(i, e.target.value)} style={selectStyle}>
+              {s.options.map(id => <option key={id} value={id}>{props.itemName(id) || id}</option>)}
+            </select>
+          </Field>
+        ))}
+
+        <button onClick={() => props.onConfirm(choices)} disabled={!ready} style={{ marginTop: 8, width: '100%', height: 50, border: 'none', borderRadius: 14, background: T.espresso, color: T.onDark, fontWeight: 700, fontSize: 15, cursor: 'pointer', opacity: ready ? 1 : 0.5 }}>
+          {t('addToCart')} · {props.money(offer.price)}
         </button>
       </div>
     </div>
