@@ -17,6 +17,8 @@ import Reports from './pages/Reports'
 import Users from './pages/Users'
 import PublicMenu from './pages/PublicMenu'
 import CustomerOrder from './pages/CustomerOrder'
+import CustomerMenu from './pages/CustomerMenu'
+import OffersAdmin from './pages/OffersAdmin'
 import Orders from './pages/Orders'
 import AuditLog from './pages/AuditLog'
 import Ingredients from './pages/Ingredients'
@@ -79,8 +81,10 @@ export default function App() {
             <Route path="/ai-monitor" element={<AIMonitor />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/users" element={<Users />} />
-            <Route path="/order" element={<CustomerOrder />} />
+            <Route path="/order" element={<CustomerMenu />} />
+            <Route path="/order-classic" element={<CustomerOrder />} />
             <Route path="/orders" element={<Orders />} />
+            <Route path="/offers-admin" element={<OffersAdmin />} />
             <Route path="/ingredients" element={<Ingredients />} />
             <Route path="/stickers" element={<Stickers />} />
             <Route path="/petty-cash" element={<PettyCash />} />

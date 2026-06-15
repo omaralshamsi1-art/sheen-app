@@ -20,6 +20,7 @@ import emailRouter from './routes/email'
 import pettyCashRouter from './routes/pettyCash'
 import attendanceRouter from './routes/attendance'
 import pushRouter from './routes/push'
+import offersRouter from './routes/offers'
 
 const app = express()
 
@@ -54,6 +55,7 @@ app.use('/api/email', emailRouter)
 app.use('/api/petty-cash', pettyCashRouter)
 app.use('/api/attendance', attendanceRouter)
 app.use('/api/push', pushRouter)
+app.use('/api/offers', offersRouter)
 
 app.get('/health', (_, res) => res.json({ status: 'ok', version: '2.1' }))
 

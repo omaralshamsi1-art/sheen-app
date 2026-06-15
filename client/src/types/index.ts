@@ -19,6 +19,22 @@ export interface MenuItem {
   created_at: string;
 }
 
+// ─────────────────────────────────────────────
+// OFFERS (admin-managed deals shown on the Offers tab)
+// ─────────────────────────────────────────────
+export interface Offer {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  original_price: number | null;
+  category: MenuCategory;
+  menu_item_id: string | null; // representative item used for ordering
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
 export type MenuCategory =
   | 'Coffee'
   | 'Matcha'
