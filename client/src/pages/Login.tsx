@@ -239,23 +239,6 @@ export default function Login() {
             </div>
           )}
 
-          {/* Biometric unlock (native, only when a session was saved) */}
-          {biometricReady && (
-            <button
-              onClick={handleBiometricUnlock}
-              disabled={biometricBusy}
-              className="w-full mb-5 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-sheen-black text-sheen-cream font-body text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
-            >
-              {biometricBusy ? <Spinner /> : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2 8V6a4 4 0 0 1 4-4h2M2 16v2a4 4 0 0 0 4 4h2M16 2h2a4 4 0 0 1 4 4v2M16 22h2a4 4 0 0 0 4-4v-2" />
-                  <path d="M9 10a3 3 0 0 1 6 0M8.5 13.5c.5 2 1.5 3 3.5 3s3-1 3.5-3M12 13v3" />
-                </svg>
-              )}
-              {t('unlockWithBiometrics')}
-            </button>
-          )}
-
           {/* Sign in with Apple (customer) */}
           <button
             onClick={handleAppleSignIn}
@@ -302,6 +285,22 @@ export default function Login() {
 
           {showStaff && (
           <div className="mt-4 pt-4 border-t border-sheen-muted/15">
+          {/* Biometric unlock (native, only when a saved staff login exists) */}
+          {biometricReady && (
+            <button
+              onClick={handleBiometricUnlock}
+              disabled={biometricBusy}
+              className="w-full mb-5 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-sheen-black text-sheen-cream font-body text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {biometricBusy ? <Spinner /> : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 8V6a4 4 0 0 1 4-4h2M2 16v2a4 4 0 0 0 4 4h2M16 2h2a4 4 0 0 1 4 4v2M16 22h2a4 4 0 0 0 4-4v-2" />
+                  <path d="M9 10a3 3 0 0 1 6 0M8.5 13.5c.5 2 1.5 3 3.5 3s3-1 3.5-3M12 13v3" />
+                </svg>
+              )}
+              {t('unlockWithBiometrics')}
+            </button>
+          )}
           {/* Login Mode Tabs */}
           <div className="flex gap-1 mb-5 bg-sheen-cream/60 rounded-lg p-1">
             <button
