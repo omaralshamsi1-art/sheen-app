@@ -527,7 +527,7 @@ export default function Sales() {
                   : 'bg-sheen-white text-sheen-black border border-sheen-muted hover:bg-sheen-gold/10'
               }`}
             >
-              {cat === 'Offers' ? '🎁 Offers' : cat}
+              {cat}
             </button>
           ))}
         </div>

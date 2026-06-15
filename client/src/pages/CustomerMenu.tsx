@@ -154,6 +154,7 @@ export default function CustomerMenu() {
   const rootRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLElement | null>(null)
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const chipsRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     let el: HTMLElement | null = rootRef.current
     while (el && el !== document.body) {
@@ -185,6 +186,14 @@ export default function CustomerMenu() {
     root.addEventListener('scroll', onScroll, { passive: true })
     return () => { io.disconnect(); root.removeEventListener('scroll', onScroll) }
   }, [tab, grouped])
+
+  // Slide the (horizontal) chip bar so the active category chip stays in view.
+  useEffect(() => {
+    if (tab !== 'menu') return
+    const bar = chipsRef.current
+    const el = bar?.querySelector('[data-active="true"]') as HTMLElement | null
+    if (bar && el) bar.scrollTo({ left: el.offsetLeft - bar.clientWidth / 2 + el.clientWidth / 2, behavior: 'smooth' })
+  }, [category, tab])
 
   /* ---- Checkout ---- */
   const placeOrder = async (paymentNote: string) => {
@@ -259,8 +268,8 @@ export default function CustomerMenu() {
               return (
                 <button key={key} onClick={() => setTab(key)} style={{
                   flex: 1, padding: '9px 0', borderRadius: 11, fontFamily: FONT_BODY, fontSize: 13.5,
-                  fontWeight: active ? 700 : 500, background: active ? T.espresso : T.surface,
-                  color: active ? T.onDark : '#7A6C60', border: `1px solid ${active ? T.espresso : T.tabBorder}`,
+                  fontWeight: active ? 700 : 500, background: active ? '#8B4513' : '#FFFFFF',
+                  color: active ? '#FFFFFF' : '#1A1A1A', border: `1px solid ${active ? '#8B4513' : '#A0785A'}`,
                   cursor: 'pointer', transition: 'all .18s',
                 }}>{label}</button>
               )
@@ -268,18 +277,18 @@ export default function CustomerMenu() {
           </div>
           {/* Category chips — sticky with the header on the Menu tab */}
           {tab === 'menu' && (
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 16px 11px' }} className="no-scrollbar">
+            <div ref={chipsRef} style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 16px 11px' }} className="no-scrollbar">
               {(['all', ...CATEGORIES] as (MenuCategory | 'all')[]).map(c => {
                 const active = category === c
                 const label = c === 'all' ? t('catAll') : t(CAT_KEY[c])
                 return (
-                  <button key={c} onClick={() => goToCategory(c)} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 999,
-                    border: `1px solid ${active ? T.espresso : T.chipBorder}`, background: active ? T.espresso : T.surface,
-                    color: active ? T.onDark : '#5C4F44', fontSize: 12.5, fontWeight: active ? 700 : 500,
+                  <button key={c} data-active={active} onClick={() => goToCategory(c)} style={{
+                    padding: '7px 14px', borderRadius: 999,
+                    border: `1px solid ${active ? '#8B4513' : '#A0785A'}`, background: active ? '#8B4513' : '#FFFFFF',
+                    color: active ? '#FFFFFF' : '#1A1A1A', fontSize: 12.5, fontWeight: active ? 700 : 500,
                     whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .18s',
                   }}>
-                    <span>{c === 'all' ? '☰' : CAT_EMOJI[c]}</span>{label}
+                    {label}
                   </button>
                 )
               })}
