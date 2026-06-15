@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
 import { insertSale } from '../services/db'
+import { isPushConfigured, sendToRoles } from '../lib/push'
 
 const router = Router()
 
@@ -117,6 +118,20 @@ router.post('/', async (req: Request, res: Response) => {
     if (itemsErr) throw itemsErr
 
     await logAudit(req, { action: 'create', entity: 'order', entity_id: order.id, details: { page: 'Customer Order', customer: order.customer_name || order.customer_email, items: orderItems.map((i: any) => `${i.name} x${i.qty}`).join(', '), total_amount: order.total_amount } })
+
+    // Alert staff/admin devices of the new order (best-effort — never blocks or
+    // fails the order if push isn't configured or FCM errors).
+    if (isPushConfigured()) {
+      const who = order.customer_name || order.customer_email || 'A customer'
+      const summary = orderItems.map((i: any) => `${i.name} ×${i.qty}`).join(', ')
+      sendToRoles(
+        ['admin', 'staff'],
+        'New order received',
+        `${who}: ${summary} — ${Number(order.total_amount).toFixed(2)} AED`,
+        { type: 'new_order', orderId: String(order.id) },
+      ).catch((e) => console.error('new-order push failed:', e?.message || e))
+    }
+
     res.status(201).json(order)
   } catch (err: any) {
     res.status(500).json({ message: err.message })

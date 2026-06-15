@@ -36,16 +36,12 @@ export interface SendResult {
 }
 
 /**
- * Send a notification to every stored device token. Tokens FCM reports as
+ * Send a notification to a specific list of device tokens. Tokens FCM reports as
  * permanently invalid are pruned from the database.
  */
-export async function sendToAll(title: string, body: string, data?: Record<string, string>): Promise<SendResult> {
-  const messaging = getApp().messaging()
-
-  const { data: rows, error } = await supabase.from('push_tokens').select('token')
-  if (error) throw error
-  const tokens = (rows ?? []).map((r) => r.token as string).filter(Boolean)
+async function sendToTokens(tokens: string[], title: string, body: string, data?: Record<string, string>): Promise<SendResult> {
   if (tokens.length === 0) return { sent: 0, failed: 0, removed: 0 }
+  const messaging = getApp().messaging()
 
   let sent = 0
   let failed = 0
@@ -77,4 +73,31 @@ export async function sendToAll(title: string, body: string, data?: Record<strin
   }
 
   return { sent, failed, removed: invalid.length }
+}
+
+/** Send a notification to every stored device token. */
+export async function sendToAll(title: string, body: string, data?: Record<string, string>): Promise<SendResult> {
+  const { data: rows, error } = await supabase.from('push_tokens').select('token')
+  if (error) throw error
+  const tokens = (rows ?? []).map((r) => r.token as string).filter(Boolean)
+  return sendToTokens(tokens, title, body, data)
+}
+
+/** Send a notification only to devices of users holding one of the given roles. */
+export async function sendToRoles(roles: string[], title: string, body: string, data?: Record<string, string>): Promise<SendResult> {
+  const { data: roleRows, error: roleErr } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .in('role', roles)
+  if (roleErr) throw roleErr
+  const userIds = (roleRows ?? []).map((r) => r.user_id as string).filter(Boolean)
+  if (userIds.length === 0) return { sent: 0, failed: 0, removed: 0 }
+
+  const { data: rows, error } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .in('user_id', userIds)
+  if (error) throw error
+  const tokens = (rows ?? []).map((r) => r.token as string).filter(Boolean)
+  return sendToTokens(tokens, title, body, data)
 }
