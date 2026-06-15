@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
@@ -142,13 +142,49 @@ export default function CustomerMenu() {
   const count = cartLines.reduce((s, l) => s + l.qty, 0)
   const total = cartLines.reduce((s, l) => s + l.price * l.qty, 0)
 
-  /* ---- Lists per tab ---- */
-  const list = useMemo(() => {
-    if (tab === 'offers') return [] // offers rendered separately
-    if (tab === 'new') return menuItems.filter(m => m.is_active && isNewItem(m))
-    const active = menuItems.filter(m => m.is_active)
-    return category === 'all' ? active : active.filter(m => m.category === category)
-  }, [tab, category, menuItems])
+  /* ---- New-arrivals list ---- */
+  const newItems = useMemo(() => menuItems.filter(m => m.is_active && isNewItem(m)), [menuItems])
+  /* ---- Menu grouped by category (for sticky chips + scroll-spy) ---- */
+  const grouped = useMemo(
+    () => CATEGORIES.map(c => ({ cat: c, items: menuItems.filter(m => m.is_active && m.category === c) })).filter(g => g.items.length > 0),
+    [menuItems],
+  )
+
+  // Find the scrolling ancestor (AppLayout's <main>) so chips can scroll-spy.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLElement | null>(null)
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  useEffect(() => {
+    let el: HTMLElement | null = rootRef.current
+    while (el && el !== document.body) {
+      const oy = getComputedStyle(el).overflowY
+      if (oy === 'auto' || oy === 'scroll') { scrollRef.current = el; break }
+      el = el.parentElement
+    }
+  }, [])
+
+  const goToCategory = (c: MenuCategory | 'all') => {
+    setCategory(c)
+    if (c === 'all') { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); return }
+    sectionRefs.current[c]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  // Scroll-spy: highlight the category section currently at the top.
+  useEffect(() => {
+    if (tab !== 'menu') return
+    const root = scrollRef.current
+    if (!root) return
+    const io = new IntersectionObserver((entries) => {
+      if (root.scrollTop < 60) { setCategory('all'); return } // near top → All
+      const vis = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+      const c = vis[0]?.target.getAttribute('data-cat')
+      if (c) setCategory(c as MenuCategory)
+    }, { root, rootMargin: '-140px 0px -55% 0px', threshold: 0 })
+    grouped.forEach(g => { const el = sectionRefs.current[g.cat]; if (el) io.observe(el) })
+    const onScroll = () => { if (root.scrollTop < 60) setCategory('all') }
+    root.addEventListener('scroll', onScroll, { passive: true })
+    return () => { io.disconnect(); root.removeEventListener('scroll', onScroll) }
+  }, [tab, grouped])
 
   /* ---- Checkout ---- */
   const placeOrder = async (paymentNote: string) => {
@@ -188,10 +224,8 @@ export default function CustomerMenu() {
     catch { toast.error(t('orderFailed')) }
   }
 
-  const heading = tab === 'offers' ? t('headingCurrentOffers') : tab === 'new' ? t('headingNewArrivals') : t('headingFullMenu')
-
   return (
-    <div dir={isRTL ? 'rtl' : 'ltr'} style={{ background: T.bg, color: T.espresso, fontFamily: FONT_BODY, minHeight: '100vh' }}>
+    <div ref={rootRef} dir={isRTL ? 'rtl' : 'ltr'} style={{ background: T.bg, color: T.espresso, fontFamily: FONT_BODY, minHeight: '100vh' }}>
       <div style={{ maxWidth: 440, margin: '0 auto', minHeight: '100vh', position: 'relative' }}>
         {/* Header */}
         <div
@@ -232,17 +266,14 @@ export default function CustomerMenu() {
               )
             })}
           </div>
-        </div>
-
-        {/* Scroll content */}
-        <div style={{ padding: '2px 16px 110px' }}>
+          {/* Category chips — sticky with the header on the Menu tab */}
           {tab === 'menu' && (
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '6px 0 13px' }} className="no-scrollbar">
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 16px 11px' }} className="no-scrollbar">
               {(['all', ...CATEGORIES] as (MenuCategory | 'all')[]).map(c => {
                 const active = category === c
                 const label = c === 'all' ? t('catAll') : t(CAT_KEY[c])
                 return (
-                  <button key={c} onClick={() => setCategory(c)} style={{
+                  <button key={c} onClick={() => goToCategory(c)} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 999,
                     border: `1px solid ${active ? T.espresso : T.chipBorder}`, background: active ? T.espresso : T.surface,
                     color: active ? T.onDark : '#5C4F44', fontSize: 12.5, fontWeight: active ? 700 : 500,
@@ -254,30 +285,50 @@ export default function CustomerMenu() {
               })}
             </div>
           )}
+        </div>
 
-          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 19, margin: '8px 0 13px' }}>{heading}</div>
-
+        {/* Scroll content */}
+        <div style={{ padding: '2px 16px 110px' }}>
           {tab === 'offers' ? (
-            offers.length === 0
-              ? <Empty text={t('noOffers')} />
-              : offers.map(o => {
-                const { final, original } = offerPrice(o, defaultChoice(o))
-                const badge = o.discount_percent != null ? `-${o.discount_percent}%` : (original && original > final ? `${t('save')} ${money(original - final)}` : '')
-                return (
-                  <Row key={o.id} category={o.category} title={o.name} secondary={o.description || ''}
-                    badge={badge}
-                    price={((o.slots?.length ?? 0) > 0 ? '~' : '') + money(final)}
-                    oldPrice={original && original > final ? money(original) : ''}
-                    onAdd={() => addOffer(o)} />
-                )
-              })
-          ) : list.length === 0 ? (
+            <>
+              <SectionHeading>{t('headingCurrentOffers')}</SectionHeading>
+              {offers.length === 0
+                ? <Empty text={t('noOffers')} />
+                : offers.map(o => {
+                  const { final, original } = offerPrice(o, defaultChoice(o))
+                  const badge = o.discount_percent != null ? `-${o.discount_percent}%` : (original && original > final ? `${t('save')} ${money(original - final)}` : '')
+                  return (
+                    <Row key={o.id} category={o.category} title={o.name} secondary={o.description || ''}
+                      badge={badge}
+                      price={((o.slots?.length ?? 0) > 0 ? '~' : '') + money(final)}
+                      oldPrice={original && original > final ? money(original) : ''}
+                      onAdd={() => addOffer(o)} />
+                  )
+                })}
+            </>
+          ) : tab === 'new' ? (
+            <>
+              <SectionHeading>{t('headingNewArrivals')}</SectionHeading>
+              {newItems.length === 0
+                ? <Empty text={t('noItemsHere')} />
+                : newItems.map(it => (
+                  <Row key={it.id} category={it.category} image={getItemImage(it.name, it.image_url)}
+                    title={it.name} secondary={it.description || ''} badge={t('badgeNew')}
+                    price={money(it.selling_price)} oldPrice="" onAdd={() => addMenuItem(it)} />
+                ))}
+            </>
+          ) : grouped.length === 0 ? (
             <Empty text={t('noItemsHere')} />
           ) : (
-            list.map(it => (
-              <Row key={it.id} category={it.category} image={getItemImage(it.name, it.image_url)}
-                title={it.name} secondary={it.description || ''} badge={isNewItem(it) ? t('badgeNew') : ''}
-                price={money(it.selling_price)} oldPrice="" onAdd={() => addMenuItem(it)} />
+            grouped.map(g => (
+              <div key={g.cat} ref={el => { sectionRefs.current[g.cat] = el }} data-cat={g.cat} style={{ scrollMarginTop: 132 }}>
+                <SectionHeading>{t(CAT_KEY[g.cat])}</SectionHeading>
+                {g.items.map(it => (
+                  <Row key={it.id} category={it.category} image={getItemImage(it.name, it.image_url)}
+                    title={it.name} secondary={it.description || ''} badge={isNewItem(it) ? t('badgeNew') : ''}
+                    price={money(it.selling_price)} oldPrice="" onAdd={() => addMenuItem(it)} />
+                ))}
+              </div>
             ))
           )}
         </div>
@@ -385,6 +436,10 @@ const stepBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 8, b
 
 function Empty({ text }: { text: string }) {
   return <div style={{ textAlign: 'center', padding: '40px 8px', color: T.muted, fontSize: 14, fontFamily: FONT_BODY }}>{text}</div>
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 19, margin: '8px 0 13px' }}>{children}</div>
 }
 
 function Row(props: {
