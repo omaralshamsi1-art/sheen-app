@@ -466,7 +466,7 @@ function Row(props: {
           <span style={{ fontWeight: 600, fontSize: 15 }}>{props.title}</span>
           {props.badge && <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.06em', background: T.badgeBg, color: T.terracotta, padding: '2px 6px', borderRadius: 6 }}>{props.badge}</span>}
         </div>
-        {props.secondary && <div style={{ fontSize: 12, color: T.muted, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{props.secondary}</div>}
+        {props.secondary && <div style={{ fontSize: 12, color: T.muted, marginTop: 3, lineHeight: 1.4, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{props.secondary}</div>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7 }}>
           <span style={{ fontWeight: 700, fontSize: 14 }}>{props.price}</span>
           {props.oldPrice && <span style={{ fontSize: 12, color: T.struck, textDecoration: 'line-through' }}>{props.oldPrice}</span>}
