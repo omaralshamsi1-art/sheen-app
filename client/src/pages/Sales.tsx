@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useTodaySales, useRecordSale, useDeleteSale } from '../hooks/useSales'
 import { useMenuItems } from '../hooks/useFixedCosts'
-import type { MenuCategory, SalePayload, MenuItem, Sale, SaleItem } from '../types'
+import type { MenuCategory, SalePayload, MenuItem, Sale, SaleItem, Offer } from '../types'
+import { getOffers } from '../services/offerService'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
@@ -26,6 +27,9 @@ const CATEGORIES: MenuCategory[] = [
   'Beans',
 ]
 
+type PosTab = MenuCategory | 'Offers'
+const TABS: PosTab[] = [...CATEGORIES, 'Offers']
+
 type Variant = {
   vid: string
   bean?: string
@@ -45,7 +49,8 @@ export default function Sales() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; summary: string } | null>(null)
   const [deleteReason, setDeleteReason] = useState('')
 
-  const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
+  const [activeCategory, setActiveCategory] = useState<PosTab>('Coffee')
+  const { data: offers = [] } = useQuery({ queryKey: ['offers'], queryFn: getOffers })
   const [stickerForSale, setStickerForSale] = useState<{ customerName?: string } | null>(null)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
@@ -267,6 +272,23 @@ export default function Sales() {
     [defaultBeanFor, beanOptions, milkOptions, extraShotPrice, getBasePrice],
   )
 
+  // Resolve an offer to a single sale line (default choices for combos; % off
+  // computed from item prices). itemId is a representative menu item (valid FK).
+  const offerSaleLine = useCallback((o: Offer) => {
+    const fixedIds = o.menu_item_ids ?? []
+    const chosen = ((o.slots ?? []).map(s => s.options[0]).filter(Boolean)) as string[]
+    const allIds = [...fixedIds, ...chosen]
+    const repId = allIds[0] || menuItems[0]?.id || ''
+    let price = o.price
+    if (o.discount_percent != null) {
+      const base = allIds.reduce((s, id) => s + (menuItems.find(m => m.id === id)?.selling_price ?? 0), 0)
+      price = Math.round(base * (1 - o.discount_percent / 100))
+    }
+    const parts = allIds.map(id => menuItems.find(m => m.id === id)?.name).filter(Boolean)
+    const name = parts.length ? `${o.name} (${parts.join(' + ')})` : o.name
+    return { price, name, itemId: repId }
+  }, [menuItems])
+
   // Flattened order — every line (main + variants) across all categories, for the review summary
   const orderLines = useMemo(() => {
     const lines: Array<{ key: string; itemId: string; vid: string | null; name: string; category: string; qty: number; unitPrice: number; lineTotal: number }> = []
@@ -288,8 +310,16 @@ export default function Sales() {
         lines.push({ key: v.vid, itemId: id, vid: v.vid, name, category: item.category, qty: v.qty, unitPrice, lineTotal: unitPrice * v.qty })
       }
     }
+    // Offers (combos) — keyed as `offer:<id>` in quantities
+    for (const o of offers) {
+      const qty = quantities[`offer:${o.id}`] ?? 0
+      if (qty <= 0) continue
+      const { price, name, itemId } = offerSaleLine(o)
+      if (!itemId) continue
+      lines.push({ key: `offer:${o.id}`, itemId, vid: null, name, category: 'Offers', qty, unitPrice: price, lineTotal: price * qty })
+    }
     return lines
-  }, [quantities, variants, menuItems, beanChoices, milkChoices, shotChoices, addonChoices, describeLine])
+  }, [quantities, variants, menuItems, beanChoices, milkChoices, shotChoices, addonChoices, describeLine, offers, offerSaleLine])
 
   const subtotal = useMemo(() => orderLines.reduce((s, l) => s + l.lineTotal, 0), [orderLines])
 
@@ -439,13 +469,13 @@ export default function Sales() {
     const threshold = 50
     if (Math.abs(deltaX) < threshold) return
 
-    const currentIndex = CATEGORIES.indexOf(activeCategory)
-    if (deltaX < 0 && currentIndex < CATEGORIES.length - 1) {
+    const currentIndex = TABS.indexOf(activeCategory)
+    if (deltaX < 0 && currentIndex < TABS.length - 1) {
       // Swipe left → next category
-      setActiveCategory(CATEGORIES[currentIndex + 1])
+      setActiveCategory(TABS[currentIndex + 1])
     } else if (deltaX > 0 && currentIndex > 0) {
       // Swipe right → previous category
-      setActiveCategory(CATEGORIES[currentIndex - 1])
+      setActiveCategory(TABS[currentIndex - 1])
     }
   }
 
@@ -486,7 +516,7 @@ export default function Sales() {
           className="flex gap-2 mb-6 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none no-scrollbar snap-x snap-mandatory"
           style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
         >
-          {CATEGORIES.map((cat) => (
+          {TABS.map((cat) => (
             <button
               key={cat}
               data-active={activeCategory === cat}
@@ -497,7 +527,7 @@ export default function Sales() {
                   : 'bg-sheen-white text-sheen-black border border-sheen-muted hover:bg-sheen-gold/10'
               }`}
             >
-              {cat}
+              {cat === 'Offers' ? '🎁 Offers' : cat}
             </button>
           ))}
         </div>
@@ -511,6 +541,40 @@ export default function Sales() {
         >
           {menuLoading ? (
             <p className="text-sheen-muted font-body">{t('loadingMenu')}</p>
+          ) : activeCategory === 'Offers' ? (
+            offers.length === 0 ? (
+              <p className="text-sheen-muted font-body">No active offers.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {offers.map((o) => {
+                  const { price, name } = offerSaleLine(o)
+                  const key = `offer:${o.id}`
+                  return (
+                    <div key={o.id} className="border border-sheen-muted/30 rounded-xl p-4 flex flex-col">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {o.image_url ? (
+                          <img src={o.image_url} alt={o.name} loading="lazy" className="w-20 h-20 rounded-xl object-cover shrink-0" />
+                        ) : (
+                          <div className="w-20 h-20 rounded-xl bg-sheen-cream flex items-center justify-center shrink-0 text-3xl">🎁</div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-body font-semibold text-sheen-black text-base leading-tight truncate">{o.name}</p>
+                          <p className="font-body text-base font-semibold text-sheen-brown mt-0.5">
+                            {price.toFixed(2)} د.إ{o.discount_percent != null ? ` (-${o.discount_percent}%)` : ''}
+                          </p>
+                          {(o.slots?.length ?? 0) > 0 && <p className="font-body text-[10px] text-sheen-muted truncate">{name}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center gap-1.5 mt-3">
+                        <button onClick={() => decrement(key)} disabled={getQty(key) === 0} className="w-9 h-9 flex items-center justify-center rounded-lg bg-sheen-cream text-sheen-black font-bold text-base hover:bg-sheen-gold/20 disabled:opacity-30 transition-colors">&minus;</button>
+                        <input type="number" min={0} value={getQty(key)} onChange={(e) => setQty(key, parseInt(e.target.value, 10) || 0)} className="w-12 h-9 text-center font-body text-sm font-semibold border border-sheen-muted/40 rounded-lg bg-sheen-cream focus:outline-none focus:ring-1 focus:ring-sheen-gold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                        <button onClick={() => increment(key)} className="w-9 h-9 flex items-center justify-center rounded-lg bg-sheen-brown text-white font-bold text-base hover:bg-sheen-brown/90 transition-colors">+</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
           ) : currentItems.length === 0 ? (
             <p className="text-sheen-muted font-body">
               {t('noItemsInCategory')}
@@ -862,7 +926,7 @@ export default function Sales() {
                       <span className="flex-1 min-w-0 font-body text-sm text-sheen-black truncate">{l.name}</span>
                       <span className="shrink-0 font-body text-sm text-sheen-brown font-semibold">{l.lineTotal.toFixed(2)}</span>
                       <button
-                        onClick={() => (l.vid ? removeVariant(l.itemId, l.vid) : setQty(l.itemId, 0))}
+                        onClick={() => (l.vid ? removeVariant(l.itemId, l.vid) : setQty(l.key, 0))}
                         className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-red-500 hover:bg-red-100 transition-colors"
                         aria-label="Remove line"
                         title="Remove"
