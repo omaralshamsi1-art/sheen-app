@@ -69,10 +69,10 @@ export async function initNative(): Promise<void> {
     /* App plugin not available — ignore */
   }
 
-  // Hide the splash once the web app has booted
-  try {
-    await SplashScreen.hide()
-  } catch {
-    /* no splash — ignore */
-  }
+  // Keep the splash up as a brief, clean welcome (~2s), then fade it out.
+  // Hiding it the instant the web boots flashed the still-loading menu
+  // underneath; the short hold lets the first screen finish rendering.
+  setTimeout(() => {
+    SplashScreen.hide({ fadeOutDuration: 300 }).catch(() => {/* no splash */})
+  }, 2000)
 }

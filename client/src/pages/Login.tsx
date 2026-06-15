@@ -181,6 +181,19 @@ export default function Login() {
     </svg>
   )
 
+  // Once authenticated (e.g. straight after Apple/Google OAuth), don't flash the
+  // login form again — show a branded loader until the redirect to the home page
+  // fires. Also covers the initial auth check on a cold start.
+  if (authLoading || user) {
+    return (
+      <div className="min-h-screen bg-sheen-cream flex flex-col items-center justify-center gap-4 px-6">
+        <img src="/images/logo.png" alt="SHEEN" className="w-20 h-20 rounded-full" />
+        <div className="w-8 h-8 border-2 border-sheen-brown border-t-transparent rounded-full animate-spin" />
+        <p className="font-body text-sm text-sheen-muted">{t('signingIn')}</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-sheen-cream px-4 py-8 flex flex-col items-center justify-start sm:justify-center overflow-y-auto">
       <div className="w-full max-w-md">
