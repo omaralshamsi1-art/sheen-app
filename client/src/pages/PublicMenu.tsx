@@ -7,11 +7,13 @@ import { useRole } from '../hooks/useRole'
 import { defaultRoute } from '../config/roles'
 import { useLanguage } from '../i18n/LanguageContext'
 import { getItemImage } from '../data/itemImages'
+import { getOffers } from '../services/offerService'
 import api from '../lib/api'
 import Footer from '../components/layout/Footer'
-import type { MenuItem, MenuCategory } from '../types'
+import type { MenuItem, MenuCategory, Offer } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
+type PubTab = MenuCategory | 'Offers'
 const PENDING_ORDER_KEY = 'sheen-pending-order'
 
 export default function PublicMenu() {
@@ -27,8 +29,16 @@ export default function PublicMenu() {
       navigate(defaultRoute[role as keyof typeof defaultRoute] || '/order', { replace: true })
     }
   }, [authLoading, user, role])
-  const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
+  const [activeCategory, setActiveCategory] = useState<PubTab>('Coffee')
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
+  const { data: offers = [] } = useQuery({ queryKey: ['offers'], queryFn: getOffers })
+  const TABS: PubTab[] = useMemo(() => (offers.length ? ['Offers', ...CATEGORIES] : [...CATEGORIES]), [offers.length])
+  const offerDisplayPrice = (o: Offer): { final: number; original: number | null } => {
+    if (o.discount_percent == null) return { final: o.price, original: o.original_price ?? null }
+    const ids = [...(o.menu_item_ids ?? []), ...((o.slots ?? []).map(s => s.options[0]).filter(Boolean) as string[])]
+    const base = ids.reduce((s, id) => s + (menuItems.find((m: MenuItem) => m.id === id)?.selling_price ?? 0), 0)
+    return { final: Math.round(base * (1 - o.discount_percent / 100)), original: base }
+  }
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [beanChoices, setBeanChoices] = useState<Record<string, string>>({})
 
@@ -79,13 +89,13 @@ export default function PublicMenu() {
     if (!isSwiping.current) return
     const dx = e.changedTouches[0].clientX - touchStartX.current
     if (Math.abs(dx) < 30) return
-    const idx = CATEGORIES.indexOf(activeCategory)
-    if (dx < 0 && idx < CATEGORIES.length - 1) {
+    const idx = TABS.indexOf(activeCategory)
+    if (dx < 0 && idx < TABS.length - 1) {
       setSlideDir('left')
-      setTimeout(() => { setActiveCategory(CATEGORIES[idx + 1]); setSlideDir(null) }, 150)
+      setTimeout(() => { setActiveCategory(TABS[idx + 1]); setSlideDir(null) }, 150)
     } else if (dx > 0 && idx > 0) {
       setSlideDir('right')
-      setTimeout(() => { setActiveCategory(CATEGORIES[idx - 1]); setSlideDir(null) }, 150)
+      setTimeout(() => { setActiveCategory(TABS[idx - 1]); setSlideDir(null) }, 150)
     }
   }
 
@@ -126,7 +136,7 @@ export default function PublicMenu() {
       <main className="max-w-5xl mx-auto px-4 py-6">
         {/* Category Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none no-scrollbar" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-          {CATEGORIES.map((cat) => (
+          {TABS.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -136,13 +146,50 @@ export default function PublicMenu() {
                   : 'bg-sheen-white text-sheen-black border border-sheen-muted/30 hover:bg-sheen-gold/10'
               }`}
             >
-              {cat}
+              {cat === 'Offers' ? t('tabOffers') : cat}
             </button>
           ))}
         </div>
 
-        {/* Menu Items */}
-        {isLoading ? (
+        {/* Offers */}
+        {activeCategory === 'Offers' ? (
+          offers.length === 0 ? (
+            <p className="text-center py-12 text-sheen-muted font-body">{t('noOffers')}</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {offers.map((o) => {
+                const { final, original } = offerDisplayPrice(o)
+                return (
+                  <div key={o.id} className="bg-sheen-white rounded-xl shadow-sm overflow-hidden">
+                    {o.image_url ? (
+                      <img src={o.image_url} alt={o.name} loading="lazy" className="w-full h-40 object-cover" />
+                    ) : (
+                      <div className="w-full h-40 bg-sheen-cream flex items-center justify-center text-4xl">🎁</div>
+                    )}
+                    <div className="p-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-body font-semibold text-sheen-black text-sm">{o.name}</h3>
+                        {o.discount_percent != null && <span className="text-[10px] bg-sheen-gold/20 text-sheen-brown px-1.5 py-0.5 rounded font-semibold">-{o.discount_percent}%</span>}
+                      </div>
+                      {o.description && <p className="text-xs text-sheen-muted mt-1 leading-snug">{o.description}</p>}
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="font-display font-semibold text-sheen-brown text-lg">
+                          {final} <span className="text-sm">AED</span>
+                          {original && original > final ? <span className="text-xs text-sheen-muted line-through ml-1">{original}</span> : null}
+                        </p>
+                        {orderingEnabled && (
+                          <button onClick={() => navigate('/login')} className="rounded-lg bg-sheen-brown text-white font-body font-medium px-3 py-1 text-xs hover:bg-sheen-brown/90 transition-colors">
+                            {t('orderNow')}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        ) : isLoading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-2 border-sheen-brown border-t-transparent rounded-full animate-spin" />
           </div>
