@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMenuItems } from '../hooks/useFixedCosts'
 import api from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
@@ -17,8 +17,6 @@ import { availableWallet, payWithWallet } from '../native/pay'
 import type { MenuItem, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
-const PAYMENT_METHODS = ['card'] as const
-type PaymentMethod = typeof PAYMENT_METHODS[number]
 
 export default function CustomerOrder() {
   const { t } = useLanguage()
@@ -77,7 +75,6 @@ export default function CustomerOrder() {
   const [activeCategory, setActiveCategory] = useState<MenuCategory>('Coffee')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [notes, setNotes] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card')
   const [showCart, setShowCart] = useState(false)
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
@@ -89,18 +86,18 @@ export default function CustomerOrder() {
   // Native wallet (Apple Pay) availability — detected at the cart level, where
   // the native check runs reliably (separate from the web Stripe card form).
   const [walletReady, setWalletReady] = useState(false)
-  const [payDiag, setPayDiag] = useState('checking…') // TEMP build/status marker
   useEffect(() => {
     let cancelled = false
     availableWallet().then((s) => {
-      if (cancelled) return
-      setWalletReady(s.wallet === 'apple')
-      setPayDiag(`wallet=${s.wallet ?? 'none'} reason=${s.reason}`)
-    }).catch((e) => {
-      if (!cancelled) setPayDiag('threw: ' + (e?.message || String(e)))
+      if (!cancelled) setWalletReady(s.wallet === 'apple')
     })
     return () => { cancelled = true }
   }, [])
+
+  // Is online card payment allowed? (per-user methods + admin toggle)
+  const cardAllowed =
+    (!effectivePaymentMethods || effectivePaymentMethods.includes('card')) &&
+    cardPaymentEnabled !== false
 
   // Apple Pay straight from the cart: create the PaymentIntent, present the
   // native sheet, then place the order on success.
@@ -300,16 +297,10 @@ export default function CustomerOrder() {
     toast.success(t('orderSubmitted'))
     setQuantities({})
     setNotes('')
-    setPaymentMethod('card')
     setShowCart(false)
     setStripeClientSecret(null)
     queryClient.invalidateQueries({ queryKey: ['orders'] })
   }
-
-  const submitOrder = useMutation({
-    mutationFn: () => placeOrder(`[Payment: ${t(paymentMethod as any)}]`),
-    onError: () => toast.error(t('orderFailed')),
-  })
 
   // Start Stripe checkout for card payments (Apple Pay/Google Pay included)
   const handleCardPayment = async () => {
@@ -333,16 +324,6 @@ export default function CustomerOrder() {
     }
   }
 
-
-  const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
-    card: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="5" width="20" height="14" rx="2" />
-        <path d="M2 10H22" />
-        <path d="M6 14H10" />
-      </svg>
-    ),
-  }
 
   // Show profile form as a full page (not a modal) to avoid iOS keyboard/fixed-position issues
   return (
@@ -672,34 +653,6 @@ export default function CustomerOrder() {
                   </div>
                 )}
 
-                {/* Payment Method */}
-                <div className="pt-3 border-t border-sheen-cream">
-                  {/* TEMPORARY status marker — BUILD-A confirms this build; shows wallet detection result */}
-                  <div className="mb-2 rounded bg-yellow-50 border border-yellow-300 px-2 py-1.5 text-[10px] leading-snug text-yellow-900 font-body break-words">
-                    BUILD-B · walletReady={String(walletReady)} · {payDiag}
-                  </div>
-                  <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
-                  <div className="flex gap-2">
-                    {PAYMENT_METHODS.filter((m) =>
-                      (!effectivePaymentMethods || effectivePaymentMethods.includes(m)) &&
-                      (m !== 'card' || cardPaymentEnabled !== false)
-                    ).map((method) => (
-                      <button
-                        key={method}
-                        onClick={() => setPaymentMethod(method)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-body font-medium transition-all ${
-                          paymentMethod === method
-                            ? 'bg-sheen-brown text-white shadow-md'
-                            : 'bg-sheen-cream text-sheen-black border border-sheen-muted/20'
-                        }`}
-                      >
-                        {paymentIcons[method]}
-                        {t(method as any)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Notes */}
                 <div className="pt-3">
                   <textarea
@@ -711,7 +664,7 @@ export default function CustomerOrder() {
                   />
                 </div>
 
-                {/* Total + Submit */}
+                {/* Total + Pay */}
                 <div className="border-t border-sheen-cream pt-4">
                   <div className="flex justify-between mb-1">
                     <span className="font-body font-semibold text-sheen-black">{t('total')}</span>
@@ -719,42 +672,47 @@ export default function CustomerOrder() {
                   </div>
                   <p className="font-body text-[10px] text-sheen-muted text-right mb-3">{t('allPricesInAED' as any)}</p>
 
-                  {/* Stripe checkout form for card payments */}
-                  {stripeClientSecret && paymentMethod === 'card' ? (
+                  {!cardAllowed ? (
+                    <p className="font-body text-sm text-sheen-muted text-center py-2">{t('paymentUnavailable')}</p>
+                  ) : stripeClientSecret ? (
+                    /* Card / Link form (opened by "Pay by Card") */
                     <StripeCheckout
                       clientSecret={stripeClientSecret}
                       amount={cartTotal}
                       onSuccess={handlePaymentSuccess}
                       onCancel={() => setStripeClientSecret(null)}
                     />
-                  ) : paymentMethod === 'card' ? (
-                    <>
-                      {/* Native Apple Pay (iOS app only) — straight from the cart */}
+                  ) : (
+                    <div>
+                      {/* Apple Pay — native, iOS app only */}
                       {walletReady && (
                         <button
                           onClick={handleApplePay}
                           disabled={stripeLoading}
-                          className="w-full bg-sheen-black text-sheen-cream rounded-xl py-3 mb-2 font-body text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
+                          className="w-full bg-sheen-black text-white rounded-xl py-3.5 font-body text-[15px] font-semibold flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-60"
                         >
-                          {stripeLoading ? t('processing') : ' Pay'}
+                          {stripeLoading ? t('processing') : <>{''} Pay</>}
                         </button>
                       )}
+
+                      {/* Divider only when Apple Pay sits above */}
+                      {walletReady && (
+                        <div className="flex items-center gap-3 my-3">
+                          <div className="flex-1 h-px bg-sheen-muted/25" />
+                          <span className="font-body text-xs text-sheen-muted">{t('orPayByCard')}</span>
+                          <div className="flex-1 h-px bg-sheen-muted/25" />
+                        </div>
+                      )}
+
+                      {/* Pay by Card → opens the Stripe card form (Link included) */}
                       <Button
                         onClick={handleCardPayment}
                         disabled={stripeLoading}
                         className="w-full"
                       >
-                        {stripeLoading ? t('processing') : t('proceedToPayment')}
+                        {stripeLoading ? t('processing') : t('payByCard')}
                       </Button>
-                    </>
-                  ) : (
-                    <Button
-                      onClick={() => submitOrder.mutate()}
-                      disabled={submitOrder.isPending}
-                      className="w-full"
-                    >
-                      {submitOrder.isPending ? t('submitting') : t('submitOrder')}
-                    </Button>
+                    </div>
                   )}
                 </div>
               </div>
