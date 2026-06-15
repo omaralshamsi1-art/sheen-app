@@ -33,6 +33,7 @@ export interface SendResult {
   sent: number
   failed: number
   removed: number
+  errors?: string[]
 }
 
 /**
@@ -46,6 +47,7 @@ async function sendToTokens(tokens: string[], title: string, body: string, data?
   let sent = 0
   let failed = 0
   const invalid: string[] = []
+  const errorCounts = new Map<string, number>()
 
   // FCM multicast caps at 500 tokens per call
   for (let i = 0; i < tokens.length; i += 500) {
@@ -65,6 +67,11 @@ async function sendToTokens(tokens: string[], title: string, body: string, data?
       ) {
         invalid.push(batch[idx])
       }
+      if (r.error) {
+        const key = `${r.error.code}: ${r.error.message}`
+        errorCounts.set(key, (errorCounts.get(key) ?? 0) + 1)
+        console.error('[push] send failure:', key)
+      }
     })
   }
 
@@ -72,7 +79,8 @@ async function sendToTokens(tokens: string[], title: string, body: string, data?
     await supabase.from('push_tokens').delete().in('token', invalid)
   }
 
-  return { sent, failed, removed: invalid.length }
+  const errors = [...errorCounts.entries()].map(([k, n]) => `${k} (x${n})`)
+  return { sent, failed, removed: invalid.length, ...(errors.length ? { errors } : {}) }
 }
 
 /** Send a notification to every stored device token. */
