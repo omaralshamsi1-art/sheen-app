@@ -53,6 +53,7 @@ function row(body: any) {
     price: Number(body.price) || 0,
     original_price: body.original_price != null ? Number(body.original_price) : null,
     discount_percent,
+    image_url: body.image_url ? String(body.image_url) : null,
     category: body.category && VALID_CATEGORIES.includes(body.category) ? body.category : 'Coffee',
     menu_item_ids: ids,
     menu_item_id: ids[0] ?? slots[0]?.options[0] ?? null, // legacy column: first usable item

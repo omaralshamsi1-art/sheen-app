@@ -298,7 +298,7 @@ export default function CustomerMenu() {
                   const { final, original } = offerPrice(o, defaultChoice(o))
                   const badge = o.discount_percent != null ? `-${o.discount_percent}%` : (original && original > final ? `${t('save')} ${money(original - final)}` : '')
                   return (
-                    <Row key={o.id} category={o.category} title={o.name} secondary={o.description || ''}
+                    <Row key={o.id} category={o.category} image={o.image_url || undefined} title={o.name} secondary={o.description || ''}
                       badge={badge}
                       price={((o.slots?.length ?? 0) > 0 ? '~' : '') + money(final)}
                       oldPrice={original && original > final ? money(original) : ''}

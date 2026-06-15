@@ -7,6 +7,7 @@ export type OfferInput = {
   price: number
   original_price?: number | null
   discount_percent?: number | null
+  image_url?: string | null
   category?: string
   menu_item_ids?: string[]
   slots?: OfferSlot[]
