@@ -164,7 +164,15 @@ export default function PublicMenu() {
           offers.length === 0 ? (
             <p className="text-center py-12 text-sheen-muted font-body">{t('noOffers')}</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 transition-all duration-150 ${
+                slideDir === 'left' ? 'opacity-0 -translate-x-8' :
+                slideDir === 'right' ? 'opacity-0 translate-x-8' : 'opacity-100 translate-x-0'
+              }`}
+            >
               {offers.map((o) => {
                 const { final, original } = offerDisplayPrice(o)
                 return (
