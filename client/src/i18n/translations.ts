@@ -172,6 +172,7 @@ export const translations = {
   card: { en: 'Card', ar: 'بطاقة' },
   apple_pay: { en: 'Apple Pay', ar: 'Apple Pay' },
   processing: { en: 'Processing...', ar: 'جاري المعالجة...' },
+  staffSignIn: { en: 'Staff sign-in', ar: 'دخول الموظفين' },
   proceedToPayment: { en: 'Proceed to Payment', ar: 'المتابعة للدفع' },
   pay: { en: 'Pay', ar: 'ادفع' },
   payByCard: { en: 'Pay by Card', ar: 'الدفع بالبطاقة' },

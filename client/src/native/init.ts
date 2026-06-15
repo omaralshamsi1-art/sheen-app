@@ -42,6 +42,10 @@ export async function initNative(): Promise<void> {
     await App.addListener('appUrlOpen', async ({ url }) => {
       if (!url || !url.includes('login-callback')) return
 
+      // Tell the Login page we're returning from OAuth so it shows a loader
+      // (not the login form) for the whole exchange — no more form flash.
+      window.dispatchEvent(new Event('sheen-oauth-start'))
+
       // Close the in-app browser FIRST so the app returns to the foreground
       // right away. Otherwise the (sometimes slow) code exchange runs while the
       // OAuth page is still on screen, leaving the user staring at a blank
@@ -53,16 +57,19 @@ export async function initNative(): Promise<void> {
         /* browser may already be closed */
       }
 
-      // Now exchange the auth code for a session (in the foreground). The
-      // logged-in redirect in Login.tsx then routes to the user's home page.
+      // Now exchange the auth code for a session (in the foreground). On success
+      // the logged-in redirect in Login.tsx routes to the user's home page (so
+      // we leave the loader up). On failure, tell Login to restore the form.
       try {
         const code = new URL(url).searchParams.get('code')
         if (code) {
           const { supabase } = await import('../lib/supabase')
           await supabase.auth.exchangeCodeForSession(code)
+        } else {
+          window.dispatchEvent(new Event('sheen-oauth-end'))
         }
       } catch {
-        /* ignore — user can retry sign-in */
+        window.dispatchEvent(new Event('sheen-oauth-end'))
       }
     })
   } catch {
