@@ -101,13 +101,11 @@ async function iconPng(size: number): Promise<Buffer> {
     .png().toBuffer()
 }
 
-// Wide logo for the pass header: the emblem, transparent, left-aligned
-async function logoPng(width: number, height: number): Promise<Buffer> {
-  const logo = await sharp(await logoTransparent())
-    .resize(Math.round(height * 1.05), height, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png().toBuffer()
-  return sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-    .composite([{ input: logo, left: 0, top: 0 }])
+// Compact square emblem for the pass header, leaving room for the gold
+// logoText (brand name "SHEEN Cafe · Speciality Coffee") that sits beside it.
+async function logoPng(side: number): Promise<Buffer> {
+  return sharp(await logoTransparent())
+    .resize(side, side, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png().toBuffer()
 }
 
@@ -157,8 +155,8 @@ export async function generateApplePass(
     iconPng(29),
     iconPng(58),
     iconPng(87),
-    logoPng(160, 50),
-    logoPng(320, 100),
+    logoPng(50),
+    logoPng(100),
     cupStripPng(visitsToward, visitsForFree, 375, 144),
     cupStripPng(visitsToward, visitsForFree, 750, 288),
     cupStripPng(visitsToward, visitsForFree, 1125, 432),
@@ -187,14 +185,22 @@ export async function generateApplePass(
       teamIdentifier: process.env.APPLE_TEAM_ID!,
       organizationName: 'SHEEN CAFE',
       description: 'SHEEN Loyalty Card',
+      logoText: 'SHEEN Cafe · Speciality Coffee',
       serialNumber: card.qr_code,
       backgroundColor: 'rgb(43, 43, 43)',
-      foregroundColor: 'rgb(255, 255, 255)',
+      foregroundColor: 'rgb(212, 168, 67)',
       labelColor: 'rgb(170, 170, 170)',
     },
   )
 
   pass.type = 'storeCard'
+
+  // Visits toward the next free cup, shown as a number (e.g. 3/6) like the app.
+  pass.headerFields.push({
+    key: 'visits',
+    label: 'VISITS',
+    value: `${visitsToward}/${visitsForFree}`,
+  })
 
   // Cups are shown via the strip image; fields below it: NAME + GIFT (rewards)
   pass.secondaryFields.push(
