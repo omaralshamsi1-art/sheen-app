@@ -89,10 +89,15 @@ export default function CustomerOrder() {
   // Native wallet (Apple Pay) availability — detected at the cart level, where
   // the native check runs reliably (separate from the web Stripe card form).
   const [walletReady, setWalletReady] = useState(false)
+  const [payDiag, setPayDiag] = useState('checking…') // TEMP build/status marker
   useEffect(() => {
     let cancelled = false
     availableWallet().then((s) => {
-      if (!cancelled) setWalletReady(s.wallet === 'apple')
+      if (cancelled) return
+      setWalletReady(s.wallet === 'apple')
+      setPayDiag(`wallet=${s.wallet ?? 'none'} reason=${s.reason}`)
+    }).catch((e) => {
+      if (!cancelled) setPayDiag('threw: ' + (e?.message || String(e)))
     })
     return () => { cancelled = true }
   }, [])
@@ -669,6 +674,10 @@ export default function CustomerOrder() {
 
                 {/* Payment Method */}
                 <div className="pt-3 border-t border-sheen-cream">
+                  {/* TEMPORARY status marker — BUILD-A confirms this build; shows wallet detection result */}
+                  <div className="mb-2 rounded bg-yellow-50 border border-yellow-300 px-2 py-1.5 text-[10px] leading-snug text-yellow-900 font-body break-words">
+                    BUILD-A · walletReady={String(walletReady)} · {payDiag}
+                  </div>
                   <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
                   <div className="flex gap-2">
                     {PAYMENT_METHODS.filter((m) =>
