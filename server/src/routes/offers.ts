@@ -45,11 +45,14 @@ function row(body: any) {
         .map((s: any) => ({ label: typeof s?.label === 'string' ? s.label.trim() : '', options: strList(s?.options) }))
         .filter((s: any) => s.options.length > 0)
     : []
+  const dp = body.discount_percent
+  const discount_percent = typeof dp === 'number' && dp > 0 ? Math.min(100, dp) : null
   return {
     name: String(body.name).trim(),
     description: body.description ? String(body.description).trim() : null,
-    price: Number(body.price),
+    price: Number(body.price) || 0,
     original_price: body.original_price != null ? Number(body.original_price) : null,
+    discount_percent,
     category: body.category && VALID_CATEGORIES.includes(body.category) ? body.category : 'Coffee',
     menu_item_ids: ids,
     menu_item_id: ids[0] ?? slots[0]?.options[0] ?? null, // legacy column: first usable item

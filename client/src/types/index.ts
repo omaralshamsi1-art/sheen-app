@@ -34,6 +34,7 @@ export interface Offer {
   description: string | null;
   price: number;
   original_price: number | null;
+  discount_percent: number | null; // when set, price = items total − this %
   category: MenuCategory;
   menu_item_id: string | null; // legacy single link (first fixed item)
   menu_item_ids: string[];     // FIXED items always included

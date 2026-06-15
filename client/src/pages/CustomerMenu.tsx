@@ -115,6 +115,16 @@ export default function CustomerMenu() {
     addLine({ key: it.id, menu_item_id: it.id, name: it.name, price: it.selling_price, qty: 1 })
   }
   const itemName = (id: string) => menuItems.find(m => m.id === id)?.name
+  const itemPrice = (id: string) => menuItems.find(m => m.id === id)?.selling_price ?? 0
+  // Final + original price for an offer given the chosen choice-group items.
+  const offerPrice = (o: Offer, chosen: string[]): { final: number; original: number | null } => {
+    if (o.discount_percent == null) return { final: o.price, original: o.original_price ?? null }
+    const ids = [...(o.menu_item_ids ?? []), ...chosen]
+    const base = ids.reduce((s, id) => s + itemPrice(id), 0)
+    return { final: Math.round(base * (1 - o.discount_percent / 100)), original: base }
+  }
+  const defaultChoice = (o: Offer) => (o.slots ?? []).map(s => s.options[0] || '')
+
   const addOffer = (o: Offer) => {
     if (o.slots?.length) { setPickingOffer(o); return }
     finalizeOffer(o, [])
@@ -124,7 +134,7 @@ export default function CustomerMenu() {
     const allIds = [...fixed, ...chosen]
     const parts = allIds.map(itemName).filter(Boolean)
     const name = parts.length ? `${o.name} (${parts.join(' + ')})` : o.name
-    addLine({ key: `offer:${o.id}:${chosen.join(',')}`, menu_item_id: allIds[0] || fallbackItemId, name, price: o.price, qty: 1 })
+    addLine({ key: `offer:${o.id}:${chosen.join(',')}`, menu_item_id: allIds[0] || fallbackItemId, name, price: offerPrice(o, chosen).final, qty: 1 })
     setPickingOffer(null)
   }
 
@@ -250,12 +260,17 @@ export default function CustomerMenu() {
           {tab === 'offers' ? (
             offers.length === 0
               ? <Empty text={t('noOffers')} />
-              : offers.map(o => (
-                <Row key={o.id} category={o.category} title={o.name} secondary={o.description || ''}
-                  badge={o.original_price && o.original_price > o.price ? `${t('save')} ${money(o.original_price - o.price)}` : ''}
-                  price={money(o.price)} oldPrice={o.original_price && o.original_price > o.price ? money(o.original_price) : ''}
-                  onAdd={() => addOffer(o)} />
-              ))
+              : offers.map(o => {
+                const { final, original } = offerPrice(o, defaultChoice(o))
+                const badge = o.discount_percent != null ? `-${o.discount_percent}%` : (original && original > final ? `${t('save')} ${money(original - final)}` : '')
+                return (
+                  <Row key={o.id} category={o.category} title={o.name} secondary={o.description || ''}
+                    badge={badge}
+                    price={((o.slots?.length ?? 0) > 0 ? '~' : '') + money(final)}
+                    oldPrice={original && original > final ? money(original) : ''}
+                    onAdd={() => addOffer(o)} />
+                )
+              })
           ) : list.length === 0 ? (
             <Empty text={t('noItemsHere')} />
           ) : (
@@ -339,6 +354,7 @@ export default function CustomerMenu() {
             offer={pickingOffer}
             itemName={itemName}
             money={money}
+            compute={(chosen) => offerPrice(pickingOffer, chosen)}
             onClose={() => setPickingOffer(null)}
             onConfirm={(chosen) => finalizeOffer(pickingOffer, chosen)}
             t={t}
@@ -460,6 +476,7 @@ function CustomizeSheet(props: {
 
 function OfferPicker(props: {
   offer: Offer; itemName: (id: string) => string | undefined; money: (n: number) => string
+  compute: (chosen: string[]) => { final: number; original: number | null }
   onClose: () => void; onConfirm: (chosen: string[]) => void; t: (k: TranslationKey) => string
 }) {
   const { offer, t } = props
@@ -467,6 +484,7 @@ function OfferPicker(props: {
   const [choices, setChoices] = useState<string[]>(slots.map(s => s.options[0] || ''))
   const set = (i: number, v: string) => setChoices(c => c.map((x, idx) => idx === i ? v : x))
   const ready = slots.every((_, i) => choices[i])
+  const { final, original } = props.compute(choices)
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, maxWidth: 440, margin: '0 auto' }}>
@@ -487,7 +505,8 @@ function OfferPicker(props: {
         ))}
 
         <button onClick={() => props.onConfirm(choices)} disabled={!ready} style={{ marginTop: 8, width: '100%', height: 50, border: 'none', borderRadius: 14, background: T.espresso, color: T.onDark, fontWeight: 700, fontSize: 15, cursor: 'pointer', opacity: ready ? 1 : 0.5 }}>
-          {t('addToCart')} · {props.money(offer.price)}
+          {t('addToCart')} · {props.money(final)}
+          {original && original > final ? <span style={{ textDecoration: 'line-through', opacity: 0.6, marginInlineStart: 8, fontWeight: 400 }}>{props.money(original)}</span> : null}
         </button>
       </div>
     </div>

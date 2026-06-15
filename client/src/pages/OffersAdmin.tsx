@@ -9,7 +9,7 @@ import type { Offer, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
 
-const empty: OfferInput = { name: '', description: '', price: 0, original_price: null, category: 'Coffee', menu_item_ids: [], slots: [], is_active: true, sort_order: 0 }
+const empty: OfferInput = { name: '', description: '', price: 0, original_price: null, discount_percent: null, category: 'Coffee', menu_item_ids: [], slots: [], is_active: true, sort_order: 0 }
 
 export default function OffersAdmin() {
   const qc = useQueryClient()
@@ -24,10 +24,12 @@ export default function OffersAdmin() {
 
   const save = useMutation({
     mutationFn: () => {
+      const percent = form.discount_percent != null
       const payload: OfferInput = {
         ...form,
-        price: Number(form.price),
-        original_price: form.original_price ? Number(form.original_price) : null,
+        price: percent ? 0 : Number(form.price),
+        original_price: percent ? null : (form.original_price ? Number(form.original_price) : null),
+        discount_percent: percent ? Number(form.discount_percent) : null,
       }
       return editingId ? updateOffer(editingId, payload) : createOffer(payload)
     },
@@ -43,7 +45,7 @@ export default function OffersAdmin() {
 
   const startEdit = (o: Offer) => {
     setEditingId(o.id)
-    setForm({ name: o.name, description: o.description ?? '', price: o.price, original_price: o.original_price, category: o.category, menu_item_ids: o.menu_item_ids?.length ? o.menu_item_ids : (o.menu_item_id ? [o.menu_item_id] : []), slots: o.slots ?? [], is_active: o.is_active, sort_order: o.sort_order })
+    setForm({ name: o.name, description: o.description ?? '', price: o.price, original_price: o.original_price, discount_percent: o.discount_percent ?? null, category: o.category, menu_item_ids: o.menu_item_ids?.length ? o.menu_item_ids : (o.menu_item_id ? [o.menu_item_id] : []), slots: o.slots ?? [], is_active: o.is_active, sort_order: o.sort_order })
   }
 
   const toggleItem = (id: string) => setForm(f => {
@@ -83,13 +85,32 @@ export default function OffersAdmin() {
               <input className={input} value={form.description ?? ''} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Any coffee + butter croissant" />
             </label>
             <label className="block">
-              <span className="text-xs font-body text-sheen-muted">Price (AED)</span>
-              <input type="number" className={input} value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} />
+              <span className="text-xs font-body text-sheen-muted">Pricing</span>
+              <select className={input} value={form.discount_percent != null ? 'percent' : 'fixed'}
+                onChange={e => setForm(f => e.target.value === 'percent'
+                  ? { ...f, discount_percent: f.discount_percent ?? 20, original_price: null }
+                  : { ...f, discount_percent: null })}>
+                <option value="fixed">Fixed price</option>
+                <option value="percent">% off items total</option>
+              </select>
             </label>
-            <label className="block">
-              <span className="text-xs font-body text-sheen-muted">Original price (optional)</span>
-              <input type="number" className={input} value={form.original_price ?? ''} onChange={e => setForm(f => ({ ...f, original_price: e.target.value ? Number(e.target.value) : null }))} />
-            </label>
+            {form.discount_percent != null ? (
+              <label className="block">
+                <span className="text-xs font-body text-sheen-muted">Discount %</span>
+                <input type="number" min={0} max={100} className={input} value={form.discount_percent ?? ''} onChange={e => setForm(f => ({ ...f, discount_percent: e.target.value ? Number(e.target.value) : 0 }))} />
+              </label>
+            ) : (
+              <>
+                <label className="block">
+                  <span className="text-xs font-body text-sheen-muted">Price (AED)</span>
+                  <input type="number" className={input} value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-body text-sheen-muted">Original price (optional)</span>
+                  <input type="number" className={input} value={form.original_price ?? ''} onChange={e => setForm(f => ({ ...f, original_price: e.target.value ? Number(e.target.value) : null }))} />
+                </label>
+              </>
+            )}
             <div className="block sm:col-span-2">
               <span className="text-xs font-body text-sheen-muted">Fixed items — always included (tick all that apply)</span>
               <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-sheen-muted/30 bg-sheen-cream/40 p-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
@@ -156,7 +177,7 @@ export default function OffersAdmin() {
                   {!o.is_active && <span className="text-[10px] bg-sheen-muted/15 text-sheen-muted px-1.5 py-0.5 rounded">hidden</span>}
                 </div>
                 <div className="font-body text-xs text-sheen-muted">
-                  {o.price} AED{o.original_price ? ` (was ${o.original_price})` : ''} · {(o.menu_item_ids?.length ?? 0)} fixed · {(o.slots?.length ?? 0)} choice
+                  {o.discount_percent != null ? `${o.discount_percent}% off items` : `${o.price} AED${o.original_price ? ` (was ${o.original_price})` : ''}`} · {(o.menu_item_ids?.length ?? 0)} fixed · {(o.slots?.length ?? 0)} choice
                   {!(o.menu_item_ids?.length) && !(o.slots?.length) && <span className="text-orange-600"> · not orderable</span>}
                 </div>
               </div>
