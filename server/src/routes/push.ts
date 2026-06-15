@@ -28,6 +28,19 @@ router.post('/register', async (req: Request, res: Response) => {
         { onConflict: 'token' },
       )
     if (error) throw error
+
+    // Keep a single token per user/platform: drop this user's older tokens for
+    // the same platform so a device's rotated/duplicate tokens don't pile up
+    // (which would otherwise deliver the same notification more than once).
+    if (userId) {
+      await supabase
+        .from('push_tokens')
+        .delete()
+        .eq('user_id', userId)
+        .eq('platform', platform ?? null)
+        .neq('token', token)
+    }
+
     res.json({ ok: true })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
