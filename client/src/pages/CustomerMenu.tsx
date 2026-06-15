@@ -240,7 +240,7 @@ export default function CustomerMenu() {
         <div
           style={{ position: 'sticky', top: 0, zIndex: 20, background: T.bg, borderBottom: `1px solid ${T.hair}`, paddingTop: 'env(safe-area-inset-top)' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 18px 12px', paddingInlineStart: 56 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 18px 12px', paddingLeft: 56 }}>
             <div>
               <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 25, letterSpacing: '.16em', lineHeight: 1 }}>SHEEN</div>
               <div style={{ fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: '#9A8B7C', marginTop: 4 }}>{t('coffeeShop')}</div>
