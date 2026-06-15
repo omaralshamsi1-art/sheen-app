@@ -17,25 +17,17 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   ])
 }
 
-// Cache the initialize() promise so concurrent callers (the cart check + the
-// pay action) share ONE init instead of racing a second initialize(), which
-// could hang the native plugin. Reset on failure so it can be retried.
-let initPromise: Promise<unknown> | null = null
-
-async function getStripe() {
-  const { Stripe } = await import('@capacitor-community/stripe')
-  if (!initPromise) {
-    initPromise = withTimeout(
-      Stripe.initialize({ publishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '' }),
-      8000,
-      'initialize',
-    ).catch((e) => {
-      initPromise = null // allow a later retry
-      throw e
-    })
-  }
-  await initPromise
-  return Stripe
+// Import + initialize the plugin, timing BOTH steps. The dynamic import is
+// timed too: an un-timed import was what left the wallet check stuck on
+// "checking…" forever. This mirrors the diagnostic that proved Apple Pay works.
+async function loadStripe() {
+  const mod = await withTimeout(import('@capacitor-community/stripe'), 8000, 'import')
+  await withTimeout(
+    mod.Stripe.initialize({ publishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '' }),
+    8000,
+    'initialize',
+  )
+  return mod
 }
 
 export interface WalletStatus {
@@ -50,7 +42,7 @@ export async function availableWallet(): Promise<WalletStatus> {
   const platform = Capacitor.getPlatform()
   const merchant = import.meta.env.VITE_APPLE_MERCHANT_ID
   try {
-    const Stripe = await getStripe()
+    const { Stripe } = await loadStripe()
     if (platform === 'ios') {
       if (!merchant) return { wallet: null, reason: 'VITE_APPLE_MERCHANT_ID missing from build' }
       await withTimeout(Stripe.isApplePayAvailable(), 8000, 'isApplePayAvailable')
@@ -72,8 +64,7 @@ export async function payWithWallet(
   clientSecret: string,
   amount: number,
 ): Promise<boolean> {
-  const Stripe = await getStripe()
-  const { ApplePayEventsEnum, GooglePayEventsEnum } = await import('@capacitor-community/stripe')
+  const { Stripe, ApplePayEventsEnum, GooglePayEventsEnum } = await loadStripe()
   const paymentSummaryItems = [{ label: 'SHEEN CAFE', amount }]
 
   if (kind === 'apple') {

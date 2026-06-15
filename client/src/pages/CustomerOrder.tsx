@@ -676,7 +676,7 @@ export default function CustomerOrder() {
                 <div className="pt-3 border-t border-sheen-cream">
                   {/* TEMPORARY status marker — BUILD-A confirms this build; shows wallet detection result */}
                   <div className="mb-2 rounded bg-yellow-50 border border-yellow-300 px-2 py-1.5 text-[10px] leading-snug text-yellow-900 font-body break-words">
-                    BUILD-A · walletReady={String(walletReady)} · {payDiag}
+                    BUILD-B · walletReady={String(walletReady)} · {payDiag}
                   </div>
                   <p className="font-body text-sm font-medium text-sheen-black mb-2">{t('paymentMethod')}</p>
                   <div className="flex gap-2">
