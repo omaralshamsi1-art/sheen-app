@@ -9,7 +9,7 @@ import type { Offer, MenuCategory } from '../types'
 
 const CATEGORIES: MenuCategory[] = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
 
-const empty: OfferInput = { name: '', description: '', price: 0, original_price: null, category: 'Coffee', menu_item_id: null, is_active: true, sort_order: 0 }
+const empty: OfferInput = { name: '', description: '', price: 0, original_price: null, category: 'Coffee', menu_item_ids: [], is_active: true, sort_order: 0 }
 
 export default function OffersAdmin() {
   const qc = useQueryClient()
@@ -43,8 +43,13 @@ export default function OffersAdmin() {
 
   const startEdit = (o: Offer) => {
     setEditingId(o.id)
-    setForm({ name: o.name, description: o.description ?? '', price: o.price, original_price: o.original_price, category: o.category, menu_item_id: o.menu_item_id, is_active: o.is_active, sort_order: o.sort_order })
+    setForm({ name: o.name, description: o.description ?? '', price: o.price, original_price: o.original_price, category: o.category, menu_item_ids: o.menu_item_ids?.length ? o.menu_item_ids : (o.menu_item_id ? [o.menu_item_id] : []), is_active: o.is_active, sort_order: o.sort_order })
   }
+
+  const toggleItem = (id: string) => setForm(f => {
+    const ids = f.menu_item_ids ?? []
+    return { ...f, menu_item_ids: ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id] }
+  })
 
   const input = 'w-full rounded-lg border border-sheen-muted/30 bg-sheen-cream/40 px-3 py-2 font-body text-sm focus:outline-none focus:ring-1 focus:ring-sheen-gold'
 
@@ -78,13 +83,20 @@ export default function OffersAdmin() {
               <span className="text-xs font-body text-sheen-muted">Original price (optional)</span>
               <input type="number" className={input} value={form.original_price ?? ''} onChange={e => setForm(f => ({ ...f, original_price: e.target.value ? Number(e.target.value) : null }))} />
             </label>
-            <label className="block sm:col-span-2">
-              <span className="text-xs font-body text-sheen-muted">Linked menu item (used for ordering)</span>
-              <select className={input} value={form.menu_item_id ?? ''} onChange={e => setForm(f => ({ ...f, menu_item_id: e.target.value || null }))}>
-                <option value="">— pick an item —</option>
-                {menuItems.filter(m => m.is_active).map(m => <option key={m.id} value={m.id}>{m.name} ({m.category})</option>)}
-              </select>
-            </label>
+            <div className="block sm:col-span-2">
+              <span className="text-xs font-body text-sheen-muted">Items in this offer (tick all that apply)</span>
+              <div className="mt-1 max-h-44 overflow-y-auto rounded-lg border border-sheen-muted/30 bg-sheen-cream/40 p-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
+                {menuItems.filter(m => m.is_active).map(m => {
+                  const checked = (form.menu_item_ids ?? []).includes(m.id)
+                  return (
+                    <label key={m.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-sheen-cream cursor-pointer">
+                      <input type="checkbox" checked={checked} onChange={() => toggleItem(m.id)} />
+                      <span className="font-body text-xs text-sheen-black truncate">{m.name} <span className="text-sheen-muted">({m.category})</span></span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
             <label className="flex items-center gap-2 sm:col-span-2">
               <input type="checkbox" checked={form.is_active !== false} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
               <span className="text-sm font-body text-sheen-black">Active (visible to customers)</span>
@@ -94,7 +106,7 @@ export default function OffersAdmin() {
             <Button onClick={() => save.mutate()} disabled={save.isPending || !form.name.trim()}>{editingId ? 'Save changes' : 'Create offer'}</Button>
             {editingId && <button onClick={reset} className="px-4 py-2 text-sm font-body text-sheen-muted hover:text-sheen-black">Cancel</button>}
           </div>
-          {!form.menu_item_id && <p className="text-xs font-body text-orange-600">Tip: pick a linked menu item so the offer can be ordered.</p>}
+          {!(form.menu_item_ids?.length) && <p className="text-xs font-body text-orange-600">Tip: tick at least one item so the offer can be ordered.</p>}
         </div>
 
         {/* List */}
@@ -111,8 +123,8 @@ export default function OffersAdmin() {
                   {!o.is_active && <span className="text-[10px] bg-sheen-muted/15 text-sheen-muted px-1.5 py-0.5 rounded">hidden</span>}
                 </div>
                 <div className="font-body text-xs text-sheen-muted">
-                  {o.price} AED{o.original_price ? ` (was ${o.original_price})` : ''} · {o.category}
-                  {!o.menu_item_id && <span className="text-orange-600"> · no linked item</span>}
+                  {o.price} AED{o.original_price ? ` (was ${o.original_price})` : ''} · {(o.menu_item_ids?.length ?? 0)} item{(o.menu_item_ids?.length ?? 0) === 1 ? '' : 's'}
+                  {!(o.menu_item_ids?.length) && <span className="text-orange-600"> · no items</span>}
                 </div>
               </div>
               <button onClick={() => startEdit(o)} className="text-sm font-body text-sheen-brown hover:underline">Edit</button>

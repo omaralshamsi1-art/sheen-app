@@ -29,7 +29,8 @@ export interface Offer {
   price: number;
   original_price: number | null;
   category: MenuCategory;
-  menu_item_id: string | null; // representative item used for ordering
+  menu_item_id: string | null; // legacy single link (first of menu_item_ids)
+  menu_item_ids: string[];     // items bundled in this offer (combo)
   is_active: boolean;
   sort_order: number;
   created_at: string;

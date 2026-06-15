@@ -35,13 +35,17 @@ function validate(body: any): string | null {
 }
 
 function row(body: any) {
+  const ids: string[] = Array.isArray(body.menu_item_ids)
+    ? body.menu_item_ids.filter((x: any) => typeof x === 'string' && x).map(String)
+    : (body.menu_item_id ? [String(body.menu_item_id)] : [])
   return {
     name: String(body.name).trim(),
     description: body.description ? String(body.description).trim() : null,
     price: Number(body.price),
     original_price: body.original_price != null ? Number(body.original_price) : null,
     category: body.category && VALID_CATEGORIES.includes(body.category) ? body.category : 'Coffee',
-    menu_item_id: body.menu_item_id ? String(body.menu_item_id) : null,
+    menu_item_ids: ids,
+    menu_item_id: ids[0] ?? null, // keep legacy column in sync (first item)
     is_active: body.is_active !== false,
     sort_order: typeof body.sort_order === 'number' ? body.sort_order : 0,
   }

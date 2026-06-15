@@ -114,7 +114,10 @@ export default function CustomerMenu() {
     addLine({ key: it.id, menu_item_id: it.id, name: it.name, price: it.selling_price, qty: 1 })
   }
   const addOffer = (o: Offer) => {
-    addLine({ key: `offer:${o.id}`, menu_item_id: o.menu_item_id || fallbackItemId, name: o.name, price: o.price, qty: 1 })
+    const ids = o.menu_item_ids?.length ? o.menu_item_ids : (o.menu_item_id ? [o.menu_item_id] : [])
+    const parts = ids.map(id => menuItems.find(m => m.id === id)?.name).filter(Boolean)
+    const name = parts.length ? `${o.name} (${parts.join(' + ')})` : o.name
+    addLine({ key: `offer:${o.id}`, menu_item_id: ids[0] || fallbackItemId, name, price: o.price, qty: 1 })
   }
 
   const cartLines = Object.values(cart)

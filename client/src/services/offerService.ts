@@ -7,7 +7,7 @@ export type OfferInput = {
   price: number
   original_price?: number | null
   category?: string
-  menu_item_id?: string | null
+  menu_item_ids?: string[]
   is_active?: boolean
   sort_order?: number
 }
