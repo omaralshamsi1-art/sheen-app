@@ -3,6 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode'
 import api from '../lib/api'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
+import { useMenuItems } from '../hooks/useFixedCosts'
 import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
 
@@ -30,6 +31,10 @@ export default function LoyaltyScan() {
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
+  const [orderOpen, setOrderOpen] = useState(false)
+  const [qtys, setQtys] = useState<Record<string, number>>({})
+  const { data: menuItems = [] } = useMenuItems()
+  const activeItems = menuItems.filter((m) => m.is_active)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const scannerDivId = 'qr-scanner'
 
@@ -79,6 +84,8 @@ export default function LoyaltyScan() {
     if (!qrCode.trim()) return
     setLoading(true)
     setCard(null)
+    setOrderOpen(false)
+    setQtys({})
     try {
       const { data } = await api.get(`/api/loyalty/scan/${qrCode.trim()}`)
       setCard(data)
@@ -90,16 +97,33 @@ export default function LoyaltyScan() {
 
   const handleLookup = () => lookupCard(code)
 
-  const handleAddVisit = async () => {
+  const orderTotal = activeItems.reduce((s, m) => s + (qtys[m.id] || 0) * m.selling_price, 0)
+  const orderCount = Object.values(qtys).reduce((s, n) => s + n, 0)
+  const setQty = (id: string, delta: number) => setQtys(prev => {
+    const next = { ...prev }
+    const v = (next[id] || 0) + delta
+    if (v <= 0) delete next[id]; else next[id] = v
+    return next
+  })
+
+  // Attach the current cash order's items to the scanned customer: records the
+  // sale and adds one visit, on the customer's record.
+  const handleSaveOrder = async () => {
     if (!card) return
+    const items = activeItems
+      .filter(m => (qtys[m.id] || 0) > 0)
+      .map(m => ({ menu_item_id: m.id, name: m.name, price: m.selling_price, qty: qtys[m.id] }))
+    if (items.length === 0) { toast.error(t('noItemsSelected')); return }
     setActionLoading(true)
     try {
-      const { data } = await api.post('/api/loyalty/add-visit', { qr_code: card.qr_code })
+      const { data } = await api.post('/api/loyalty/order-visit', { qr_code: card.qr_code, items })
       setCard(data)
+      setOrderOpen(false)
+      setQtys({})
       if (data.earned_free_cup) {
         toast.success(`🎉 ${card.name || 'Customer'} ${t('earnedFreeCup')}!`, { duration: 5000 })
       } else {
-        toast.success(`${t('visitAdded')} — ${data.visits_remaining} ${t('visitsToFreeCup')}`)
+        toast.success(t('orderSavedVisit'))
       }
     } catch {
       toast.error('Failed')
@@ -212,20 +236,59 @@ export default function LoyaltyScan() {
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <Button onClick={handleAddVisit} disabled={actionLoading} className="flex-1">
-                  {actionLoading ? '...' : `+ ${t('addVisit')}`}
-                </Button>
-                {card.free_cups_available > 0 && (
-                  <button
-                    onClick={handleRedeem}
-                    disabled={actionLoading}
-                    className="flex-1 px-4 py-2 rounded-lg bg-green-500 text-white font-body text-sm font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
-                  >
-                    {`☕ ${t('redeemFreeCup')}`}
-                  </button>
-                )}
-              </div>
+              {card.free_cups_available > 0 && (
+                <button
+                  onClick={handleRedeem}
+                  disabled={actionLoading}
+                  className="w-full px-4 py-2 rounded-lg bg-green-500 text-white font-body text-sm font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+                >
+                  {`☕ ${t('redeemFreeCup')}`}
+                </button>
+              )}
+
+              {/* Attach the current cash order to this customer */}
+              {!orderOpen ? (
+                <button
+                  onClick={() => setOrderOpen(true)}
+                  className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-sheen-brown/40 text-sheen-brown font-body text-sm font-medium hover:bg-sheen-brown/5 transition-colors"
+                >
+                  💵 {t('attachCashOrder')}
+                </button>
+              ) : (
+                <div className="mt-3 border-t border-sheen-cream pt-3">
+                  <p className="font-body text-xs text-sheen-muted mb-2">{t('attachOrderHint')}</p>
+                  <div className="max-h-64 overflow-y-auto -mx-1 px-1">
+                    {activeItems.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between py-1.5 border-b border-sheen-cream/60 last:border-0">
+                        <div className="min-w-0 pr-2">
+                          <p className="font-body text-sm text-sheen-black truncate">{m.name}</p>
+                          <p className="font-body text-[11px] text-sheen-muted">{m.selling_price} AED</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button onClick={() => setQty(m.id, -1)} disabled={!qtys[m.id]} className="w-7 h-7 rounded-md bg-sheen-cream text-sheen-black font-bold disabled:opacity-40">−</button>
+                          <span className="w-6 text-center font-body text-sm font-medium">{qtys[m.id] || 0}</span>
+                          <button onClick={() => setQty(m.id, 1)} className="w-7 h-7 rounded-md bg-sheen-brown text-white font-bold">+</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between mt-3 mb-2">
+                    <span className="font-body text-sm text-sheen-muted">{orderCount} · </span>
+                    <span className="font-display text-lg font-semibold text-sheen-brown">{orderTotal.toFixed(2)} AED</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setOrderOpen(false); setQtys({}) }}
+                      className="px-4 py-2 rounded-lg bg-sheen-cream text-sheen-black font-body text-sm font-medium"
+                    >
+                      {t('cancelLabel')}
+                    </button>
+                    <Button onClick={handleSaveOrder} disabled={actionLoading || orderCount === 0} className="flex-1">
+                      {actionLoading ? '...' : t('saveOrderVisit')}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

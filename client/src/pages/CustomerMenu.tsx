@@ -67,6 +67,29 @@ export default function CustomerMenu() {
     },
   })
 
+  // Cash payment toggle (admin → Settings). When on, customers can place an order
+  // to pay cash and collect by showing the order QR code to staff.
+  const { data: cashEnabled = true } = useQuery({
+    queryKey: ['settings', 'cash_payment_enabled'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/cash_payment_enabled')
+      return data === true || data === null // enabled by default
+    },
+  })
+
+  // Loyalty card — how many free cups the customer can redeem right now
+  const { data: loyaltyCard } = useQuery({
+    queryKey: ['loyalty', 'my-card', user?.id],
+    queryFn: async () => {
+      const { data } = await api.get('/api/loyalty/my-card', { params: { user_id: user!.id, email: user!.email } })
+      return data as { free_cups_earned: number; free_cups_used: number }
+    },
+    enabled: !!user?.id,
+  })
+  const freeCups = loyaltyCard ? loyaltyCard.free_cups_earned - loyaltyCard.free_cups_used : 0
+  // Which menu items an admin marked as redeemable with a free cup
+  const freeEligibleIds = useMemo(() => new Set(menuItems.filter(m => m.free_cup_eligible).map(m => m.id)), [menuItems])
+
   // Customization settings (same sources as the classic order page)
   const { data: extraShotPrice = 5 } = useQuery({
     queryKey: ['settings', 'extra_shot_price'],
@@ -89,6 +112,7 @@ export default function CustomerMenu() {
   const [cartOpen, setCartOpen] = useState(false)
   const [customizing, setCustomizing] = useState<MenuItem | null>(null)
   const [pickingOffer, setPickingOffer] = useState<Offer | null>(null)
+  const [freeKey, setFreeKey] = useState<string | null>(null) // cart line redeemed with a free cup
 
   // Checkout (reused Apple Pay + card flow)
   const [walletReady, setWalletReady] = useState(false)
@@ -150,6 +174,18 @@ export default function CustomerMenu() {
   const cartLines = Object.values(cart)
   const count = cartLines.reduce((s, l) => s + l.qty, 0)
   const total = cartLines.reduce((s, l) => s + l.price * l.qty, 0)
+
+  // Free-cup redemption: one unit of the chosen eligible line is free.
+  const freeLine = freeKey ? cart[freeKey] : null
+  const freeDiscount = freeLine ? freeLine.price : 0
+  const payTotal = Math.max(0, total - freeDiscount)
+  // Drop a stale redemption if its line left the cart
+  useEffect(() => { if (freeKey && !cart[freeKey]) setFreeKey(null) }, [cart, freeKey])
+  const toggleFreeCup = (line: CartLine) => {
+    if (freeKey === line.key) { setFreeKey(null); return }
+    if (!freeEligibleIds.has(line.menu_item_id)) { toast.error(t('itemNotFreeEligible')); return }
+    setFreeKey(line.key)
+  }
 
   /* ---- New-arrivals list ---- */
   const newItems = useMemo(() => menuItems.filter(m => m.is_active && isNewItem(m)), [menuItems])
@@ -244,18 +280,23 @@ export default function CustomerMenu() {
       customer_name: user!.user_metadata?.full_name || user!.user_metadata?.name || user!.email?.split('@')[0] || user!.email,
       items: cartLines.map(l => ({ menu_item_id: l.menu_item_id, name: l.name, price: l.price, qty: l.qty })),
       notes: paymentNote,
+      free_item_id: freeLine?.menu_item_id,
     })
     toast.success(t('orderSubmitted'))
     setCart({})
+    setFreeKey(null)
     setCartOpen(false)
     setStripeClientSecret(null)
     queryClient.invalidateQueries({ queryKey: ['orders'] })
+    queryClient.invalidateQueries({ queryKey: ['loyalty', 'my-card'] })
   }
   const handleApplePay = async () => {
     setBusy(true)
     try {
-      const { clientSecret } = await createPaymentIntent(total, user?.email ?? undefined)
-      const paid = await payWithWallet('apple', clientSecret, total)
+      // Fully covered by a free cup — no charge needed
+      if (payTotal <= 0) { await placeOrder('[Payment: Free cup]'); return }
+      const { clientSecret } = await createPaymentIntent(payTotal, user?.email ?? undefined)
+      const paid = await payWithWallet('apple', clientSecret, payTotal)
       if (paid) await placeOrder(`[Payment: Apple Pay - Stripe: ${clientSecret.split('_secret')[0]}]`)
     } catch (e: any) {
       toast.error(e?.message || t('paymentFailed'))
@@ -264,9 +305,22 @@ export default function CustomerMenu() {
   const handleCardPayment = async () => {
     setBusy(true)
     try {
-      const { clientSecret } = await createPaymentIntent(total, user?.email ?? undefined)
+      if (payTotal <= 0) { await placeOrder('[Payment: Free cup]'); return }
+      const { clientSecret } = await createPaymentIntent(payTotal, user?.email ?? undefined)
       setStripeClientSecret(clientSecret)
     } catch { toast.error(t('paymentFailed')) } finally { setBusy(false) }
+  }
+  // Cash: place the order now (no Stripe charge). The customer pays cash on
+  // arrival and staff complete the order in the Orders page, which records the
+  // sale and adds the loyalty visit.
+  const handleCashOrder = async () => {
+    if (cartLines.length === 0) return
+    setBusy(true)
+    try {
+      await placeOrder('[Payment: Cash]')
+    } catch {
+      toast.error(t('orderFailed'))
+    } finally { setBusy(false) }
   }
   const handlePaymentSuccess = async (paymentIntentId: string) => {
     try { await placeOrder(`[Payment: Card/Wallet - Stripe: ${paymentIntentId}]`) }
@@ -425,27 +479,56 @@ export default function CustomerMenu() {
                 <div style={{ textAlign: 'center', padding: '34px 0', color: T.muted, fontSize: 14 }}>☕<div style={{ marginTop: 8 }}>{t('cartEmpty')}</div></div>
               ) : (
                 <>
+                  {freeCups > 0 && (
+                    <div style={{ background: '#F3E8DF', borderRadius: 12, padding: '8px 12px', marginBottom: 8, fontSize: 12.5, fontWeight: 600, color: T.terracotta, textAlign: 'center' }}>
+                      🎁 {freeCups} {t('freeCupsAvailableLabel')}
+                    </div>
+                  )}
                   <div style={{ overflowY: 'auto', flex: 1 }}>
-                    {cartLines.map(l => (
-                      <div key={l.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 0', borderBottom: `1px solid ${T.hair}` }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, flex: 1, minWidth: 0 }}>{l.name}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                          <button onClick={() => changeQty(l.key, -1)} style={stepBtn}>−</button>
-                          <span style={{ minWidth: 18, textAlign: 'center', fontWeight: 700 }}>{l.qty}</span>
-                          <button onClick={() => changeQty(l.key, 1)} style={stepBtn}>+</button>
+                    {cartLines.map(l => {
+                      const isFree = freeKey === l.key
+                      return (
+                        <div key={l.key} style={{ padding: '10px 0', borderBottom: `1px solid ${T.hair}` }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                            <span style={{ fontSize: 14, fontWeight: 600, flex: 1, minWidth: 0 }}>{l.name}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                              <button onClick={() => changeQty(l.key, -1)} style={stepBtn}>−</button>
+                              <span style={{ minWidth: 18, textAlign: 'center', fontWeight: 700 }}>{l.qty}</span>
+                              <button onClick={() => changeQty(l.key, 1)} style={stepBtn}>+</button>
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: 13.5, minWidth: 70, textAlign: 'end' }}>{money(l.price * l.qty)}</span>
+                          </div>
+                          {freeCups > 0 && (isFree || !freeKey) && (
+                            <button
+                              onClick={() => toggleFreeCup(l)}
+                              style={{
+                                marginTop: 6, padding: '4px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+                                border: `1px solid ${T.terracotta}`,
+                                background: isFree ? T.terracotta : 'transparent',
+                                color: isFree ? '#fff' : T.terracotta,
+                              }}
+                            >
+                              {isFree ? `🎁 ${t('freeCupApplied')} (−${money(l.price)}) ✕` : `🎁 ${t('useFreeCup')}`}
+                            </button>
+                          )}
                         </div>
-                        <span style={{ fontWeight: 700, fontSize: 13.5, minWidth: 70, textAlign: 'end' }}>{money(l.price * l.qty)}</span>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '14px 0 12px' }}>
+                  {freeDiscount > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, color: T.terracotta, fontSize: 13.5, fontWeight: 600 }}>
+                      <span>🎁 {t('freeCupDiscount')}</span>
+                      <span>−{money(freeDiscount)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: `${freeDiscount > 0 ? '6px' : '14px'} 0 12px` }}>
                     <span style={{ color: T.muted, fontSize: 14 }}>{t('total')}</span>
-                    <span style={{ fontWeight: 800, fontSize: 21, fontFamily: FONT_DISPLAY }}>{money(total)}</span>
+                    <span style={{ fontWeight: 800, fontSize: 21, fontFamily: FONT_DISPLAY }}>{money(payTotal)}</span>
                   </div>
 
                   {stripeClientSecret ? (
-                    <StripeCheckout clientSecret={stripeClientSecret} amount={total} onSuccess={handlePaymentSuccess} onCancel={() => setStripeClientSecret(null)} />
+                    <StripeCheckout clientSecret={stripeClientSecret} amount={payTotal} onSuccess={handlePaymentSuccess} onCancel={() => setStripeClientSecret(null)} />
                   ) : (
                     <>
                       {walletReady && (
@@ -463,6 +546,11 @@ export default function CustomerMenu() {
                       <button onClick={handleCardPayment} disabled={busy} style={{ width: '100%', height: 50, border: 'none', borderRadius: 14, background: T.espresso, color: T.onDark, fontWeight: 700, fontSize: 15, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
                         {busy ? t('processing') : t('payByCard')}
                       </button>
+                      {cashEnabled && (
+                        <button onClick={handleCashOrder} disabled={busy} style={{ width: '100%', height: 50, marginTop: 10, borderRadius: 14, background: T.surface, color: T.espresso, border: `1px solid ${T.chipBorder}`, fontWeight: 700, fontSize: 15, cursor: 'pointer', opacity: busy ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                          💵 {busy ? t('processing') : t('payWithCash')}
+                        </button>
+                      )}
                     </>
                   )}
                 </>

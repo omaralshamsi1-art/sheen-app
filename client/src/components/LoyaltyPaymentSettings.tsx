@@ -12,12 +12,16 @@ import toast from 'react-hot-toast'
 export default function LoyaltyPaymentSettings() {
   const { t } = useLanguage()
   const [cardEnabled, setCardEnabled] = useState(true)
+  const [cashEnabled, setCashEnabled] = useState(true)
   const [visits, setVisits] = useState('6')
   const [savingVisits, setSavingVisits] = useState(false)
 
   useEffect(() => {
     api.get('/api/settings/card_payment_enabled')
       .then(({ data }) => setCardEnabled(data === null ? true : data === true))
+      .catch(() => {})
+    api.get('/api/settings/cash_payment_enabled')
+      .then(({ data }) => setCashEnabled(data === null ? true : data === true))
       .catch(() => {})
     api.get('/api/settings/loyalty_visits_for_free')
       .then(({ data }) => { const n = Number(data); if (Number.isFinite(n) && n >= 1) setVisits(String(Math.floor(n))) })
@@ -32,6 +36,18 @@ export default function LoyaltyPaymentSettings() {
       toast.success(next ? t('cardPaymentOn') : t('cardPaymentOff'))
     } catch {
       setCardEnabled(!next)
+      toast.error(t('saveFailed'))
+    }
+  }
+
+  const toggleCash = async () => {
+    const next = !cashEnabled
+    setCashEnabled(next)
+    try {
+      await api.put('/api/settings/cash_payment_enabled', { value: next })
+      toast.success(next ? t('cashPaymentOn') : t('cashPaymentOff'))
+    } catch {
+      setCashEnabled(!next)
       toast.error(t('saveFailed'))
     }
   }
@@ -67,6 +83,22 @@ export default function LoyaltyPaymentSettings() {
           className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${cardEnabled ? 'bg-sheen-brown' : 'bg-sheen-muted/40'}`}
         >
           <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${cardEnabled ? 'translate-x-5' : ''}`} />
+        </button>
+      </div>
+
+      {/* Cash payment toggle */}
+      <div className="flex items-center justify-between py-2 border-t border-sheen-cream mt-1 pt-3">
+        <div className="pr-3">
+          <p className="font-body text-sm font-medium text-sheen-black">{t('cashPayment')}</p>
+          <p className="font-body text-xs text-sheen-muted mt-0.5">{t('cashPaymentDesc')}</p>
+        </div>
+        <button
+          onClick={toggleCash}
+          role="switch"
+          aria-checked={cashEnabled}
+          className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${cashEnabled ? 'bg-sheen-brown' : 'bg-sheen-muted/40'}`}
+        >
+          <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${cashEnabled ? 'translate-x-5' : ''}`} />
         </button>
       </div>
 

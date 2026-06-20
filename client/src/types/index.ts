@@ -16,6 +16,7 @@ export interface MenuItem {
   available_milks: string[] | null;
   addons: { name: string; price: number }[] | null;
   show_extra_shot: boolean | null;
+  free_cup_eligible: boolean | null;
   created_at: string;
 }
 

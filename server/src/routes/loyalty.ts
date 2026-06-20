@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
+import { insertSale } from '../services/db'
 import crypto from 'crypto'
 import {
   isAppleWalletConfigured,
@@ -132,11 +133,19 @@ router.get('/scan/:qrCode', async (req: Request, res: Response) => {
   }
 })
 
-// POST /api/loyalty/add-visit — staff adds a visit after scanning
-router.post('/add-visit', async (req: Request, res: Response) => {
+// POST /api/loyalty/order-visit — staff attaches the items of a walk-up / drive-
+// through CASH order to the scanned customer. Creates a completed order on the
+// customer's record, records the sale, and adds one loyalty visit.
+router.post('/order-visit', async (req: Request, res: Response) => {
   try {
-    const { qr_code } = req.body
+    const { qr_code, items } = req.body
     if (!qr_code) { res.status(400).json({ message: 'qr_code required' }); return }
+    if (!Array.isArray(items) || items.length === 0) { res.status(400).json({ message: 'items array is required' }); return }
+    for (const it of items) {
+      if (!it.menu_item_id || !it.name || typeof it.qty !== 'number' || typeof it.price !== 'number') {
+        res.status(400).json({ message: 'Each item requires menu_item_id, name, qty, and price' }); return
+      }
+    }
 
     // Find card
     const { data: card, error: findErr } = await supabase
@@ -144,18 +153,51 @@ router.post('/add-visit', async (req: Request, res: Response) => {
       .select('*')
       .eq('qr_code', qr_code)
       .single()
-
     if (findErr || !card) { res.status(404).json({ message: 'Card not found' }); return }
 
-    // Add visit record
+    const total_amount = items.reduce((s: number, i: any) => s + i.price * i.qty, 0)
+
+    // Create the order on the customer's record, already completed (cash paid)
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .insert({
+        customer_id: card.user_id,
+        customer_email: card.email,
+        customer_name: card.name,
+        status: 'completed',
+        total_amount,
+        notes: '[Payment: Cash - Drive-through]',
+      })
+      .select()
+      .single()
+    if (orderErr) throw orderErr
+
+    const orderItems = items.map((i: any) => ({
+      order_id: order.id,
+      menu_item_id: String(i.menu_item_id),
+      name: String(i.name).trim(),
+      price: Number(i.price),
+      qty: Number(i.qty),
+      total: Number(i.price) * Number(i.qty),
+    }))
+    await supabase.from('order_items').insert(orderItems)
+
+    // Record the sale so the revenue shows in Dashboard / Reports
+    try {
+      await insertSale(
+        { sale_date: new Date().toISOString().slice(0, 10), recorded_by: `order:${order.id}`, notes: 'Cash order (drive-through)' },
+        orderItems.map((i: any) => ({ menu_item_id: i.menu_item_id, name: i.name, category: '', price: i.price, qty: i.qty, total: i.total })),
+      )
+    } catch { /* don't block on sale recording */ }
+
+    // Add the loyalty visit (de-duped per order)
     const staffEmail = req.headers['x-user-email'] as string || 'staff'
     await supabase.from('loyalty_visits').insert({
       card_id: card.id,
-      recorded_by: staffEmail,
+      recorded_by: `order:${order.id}`,
       visit_type: 'visit',
     })
 
-    // Update totals
     const visitsForFree = await getVisitsForFreeCup()
     const newVisits = card.total_visits + 1
     const newFreeCups = Math.floor(newVisits / visitsForFree)
@@ -166,12 +208,11 @@ router.post('/add-visit', async (req: Request, res: Response) => {
       .eq('id', card.id)
       .select()
       .single()
-
     if (updateErr) throw updateErr
 
     const earnedFree = newVisits % visitsForFree === 0
 
-    await logAudit(req, { action: 'create', entity: 'order', entity_id: card.id, details: { page: 'Loyalty', customer: card.name || card.email, visit_number: newVisits, earned_free_cup: earnedFree } })
+    await logAudit(req, { action: 'create', entity: 'order', entity_id: order.id, details: { page: 'Loyalty', customer: card.name || card.email, items: orderItems.map((i: any) => `${i.name} x${i.qty}`).join(', '), total_amount, visit_number: newVisits } })
 
     res.json({
       ...updated,

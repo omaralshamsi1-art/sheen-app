@@ -58,6 +58,7 @@ export default function Menu() {
   const [editMilks, setEditMilks] = useState<string[]>([])
   const [editAddons, setEditAddons] = useState<{ name: string; price: number }[]>([])
   const [editExtraShot, setEditExtraShot] = useState(true)
+  const [editFreeCup, setEditFreeCup] = useState(false)
   const [newAddonName, setNewAddonName] = useState('')
   const [newAddonPrice, setNewAddonPrice] = useState('')
   const [addingRecipeTo, setAddingRecipeTo] = useState<string | null>(null)
@@ -125,6 +126,7 @@ export default function Menu() {
     setEditMilks(item.available_milks ?? [])
     setEditAddons(item.addons ?? [])
     setEditExtraShot(item.show_extra_shot !== false)
+    setEditFreeCup(item.free_cup_eligible === true)
   }
 
   function handleEditImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -179,6 +181,7 @@ export default function Menu() {
         available_milks: editMilks.length > 0 ? editMilks : null,
         addons: editAddons.length > 0 ? editAddons : null,
         show_extra_shot: editItem.category === 'Coffee' ? editExtraShot : undefined,
+        free_cup_eligible: editFreeCup,
         ...(image_url ? { image_url } : {}),
       })
       toast.success(t('menuItemUpdated'))
@@ -797,6 +800,20 @@ export default function Menu() {
                 </label>
               </div>
             )}
+
+            {/* Free-cup eligibility (any category) */}
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="edit-free-cup"
+                checked={editFreeCup}
+                onChange={(e) => setEditFreeCup(e.target.checked)}
+                className="h-5 w-5 accent-sheen-gold cursor-pointer"
+              />
+              <label htmlFor="edit-free-cup" className="text-sm font-body text-sheen-black">
+                {t('menuFreeCupEligible')}
+              </label>
+            </div>
 
             {/* Milk selection */}
             {globalMilks.length > 0 && (

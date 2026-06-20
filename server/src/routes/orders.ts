@@ -64,7 +64,7 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/orders — create a new order (customer)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { customer_id, customer_email, customer_name, items, notes } = req.body
+    const { customer_id, customer_email, customer_name, items, notes, free_item_id } = req.body
 
     if (!customer_id || typeof customer_id !== 'string') {
       res.status(400).json({ message: 'customer_id is required' })
@@ -83,7 +83,39 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    const total_amount = items.reduce((sum: number, i: any) => sum + (i.price * i.qty), 0)
+    let total_amount = items.reduce((sum: number, i: any) => sum + (i.price * i.qty), 0)
+
+    // Free-cup redemption: validate eligibility + availability server-side so it
+    // can't be faked, then discount one unit of the chosen item.
+    let freeCard: any = null
+    let freeNote = ''
+    if (free_item_id) {
+      if (!items.some((i: any) => String(i.menu_item_id) === String(free_item_id))) {
+        res.status(400).json({ message: 'Free item must be in the order', code: 'not_in_order' }); return
+      }
+      const { data: menuItem } = await supabase
+        .from('menu_items')
+        .select('name, selling_price, free_cup_eligible')
+        .eq('id', free_item_id)
+        .single()
+      if (!menuItem || !menuItem.free_cup_eligible) {
+        res.status(400).json({ message: 'This item is not included in the free cup offer', code: 'not_eligible' }); return
+      }
+      const { data: card } = await supabase
+        .from('loyalty_cards')
+        .select('*')
+        .eq('user_id', customer_id)
+        .single()
+      const available = card ? card.free_cups_earned - card.free_cups_used : 0
+      if (!card || available <= 0) {
+        res.status(400).json({ message: 'No free cups available', code: 'no_free_cups' }); return
+      }
+      freeCard = card
+      total_amount = Math.max(0, total_amount - Number(menuItem.selling_price))
+      freeNote = `[FreeCup: ${menuItem.name}]`
+    }
+
+    const finalNotes = [notes, freeNote].filter(Boolean).join(' ') || null
 
     // Insert order
     const { data: order, error: orderErr } = await supabase
@@ -94,12 +126,20 @@ router.post('/', async (req: Request, res: Response) => {
         customer_name: customer_name || null,
         status: 'pending',
         total_amount,
-        notes: notes || null,
+        notes: finalNotes,
       })
       .select()
       .single()
 
     if (orderErr) throw orderErr
+
+    // Reserve the free cup now (so it can't be double-spent across orders)
+    if (freeCard) {
+      try {
+        await supabase.from('loyalty_visits').insert({ card_id: freeCard.id, recorded_by: `order:${order.id}`, visit_type: 'redeem' })
+        await supabase.from('loyalty_cards').update({ free_cups_used: freeCard.free_cups_used + 1 }).eq('id', freeCard.id)
+      } catch { /* don't fail the order if the deduction hiccups */ }
+    }
 
     // Insert order items
     const orderItems = items.map((item: any) => ({
@@ -220,7 +260,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
               {
                 sale_date: new Date().toISOString().slice(0, 10),
                 recorded_by: `order:${orderId}`,
-                notes: 'Online order (card / Apple Pay)',
+                notes: data.notes && /cash/i.test(data.notes) ? 'Cash order (app)' : 'Online order (card / Apple Pay)',
               },
               oItems.map((i: any) => ({
                 menu_item_id: i.menu_item_id,

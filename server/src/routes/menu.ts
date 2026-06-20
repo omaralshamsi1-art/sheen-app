@@ -129,6 +129,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
       updates.show_extra_shot = req.body.show_extra_shot
     }
 
+    if (req.body.free_cup_eligible !== undefined) {
+      updates.free_cup_eligible = Boolean(req.body.free_cup_eligible)
+    }
+
     if (req.body.estimated_cogs !== undefined) {
       updates.estimated_cogs = Number(req.body.estimated_cogs)
     }
