@@ -197,8 +197,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
     if (error) throw error
 
-    // Auto-add loyalty visit only when order is completed (customer got their coffee)
-    if (status === 'completed' && data.customer_id) {
+    // Auto-add loyalty visit only when order is completed (customer got their coffee).
+    // A free-cup redemption order does NOT earn a visit toward the next reward.
+    const redeemedFreeCup = /FreeCup/i.test(data.notes || '')
+    if (status === 'completed' && data.customer_id && !redeemedFreeCup) {
       try {
         // Find or create loyalty card
         const { data: card } = await supabase
