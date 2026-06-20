@@ -159,6 +159,13 @@ export default function PublicMenu() {
           ))}
         </div>
 
+        {/* Ordering disabled banner */}
+        {!orderingEnabled && (
+          <div className="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-center">
+            <p className="font-body text-sm text-red-700 font-medium">{t('orderingClosed')}</p>
+          </div>
+        )}
+
         {/* Offers */}
         {activeCategory === 'Offers' ? (
           offers.length === 0 ? (

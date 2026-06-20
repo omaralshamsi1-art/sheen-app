@@ -551,7 +551,7 @@ export default function CustomerOrder() {
         {/* Ordering disabled banner */}
         {!orderingEnabled && (
           <div className="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-center">
-            <p className="font-body text-sm text-red-700 font-medium">Ordering is currently closed. Please check back later.</p>
+            <p className="font-body text-sm text-red-700 font-medium">{t('orderingClosed')}</p>
           </div>
         )}
 

@@ -182,6 +182,7 @@ export const translations = {
   headingFullMenu: { en: 'Full Menu', ar: 'القائمة كاملة' },
   noOffers: { en: 'No offers right now — check back soon.', ar: 'لا توجد عروض حالياً — عُد قريباً.' },
   noItemsHere: { en: 'Nothing here yet.', ar: 'لا يوجد شيء هنا بعد.' },
+  orderingClosed: { en: 'Ordering is currently closed. Please check back later.', ar: 'الطلب مغلق حالياً. يُرجى المحاولة لاحقاً.' },
   badgeNew: { en: 'NEW', ar: 'جديد' },
   addLabel: { en: 'Add', ar: 'أضف' },
   itemsLabel: { en: 'items', ar: 'عناصر' },

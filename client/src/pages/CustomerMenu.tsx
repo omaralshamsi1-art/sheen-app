@@ -58,6 +58,15 @@ export default function CustomerMenu() {
   const { data: menuItems = [] } = useMenuItems()
   const { data: offers = [] } = useQuery({ queryKey: ['offers'], queryFn: getOffers })
 
+  // Online ordering toggle (admin → Settings). When off, customers can browse but not order.
+  const { data: orderingEnabled = true } = useQuery({
+    queryKey: ['settings', 'online_ordering_enabled'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/settings/online_ordering_enabled')
+      return data === true || data === null // enabled by default
+    },
+  })
+
   // Customization settings (same sources as the classic order page)
   const { data: extraShotPrice = 5 } = useQuery({
     queryKey: ['settings', 'extra_shot_price'],
@@ -339,6 +348,11 @@ export default function CustomerMenu() {
             opacity: slideDir ? 0 : 1,
           }}
         >
+          {!orderingEnabled && (
+            <div style={{ margin: '6px 0 14px', padding: '12px 14px', borderRadius: 14, background: '#FBEDE7', border: `1px solid ${T.badgeBg}`, color: T.terracotta, fontSize: 13.5, fontWeight: 600, textAlign: 'center' }}>
+              {t('orderingClosed')}
+            </div>
+          )}
           {tab === 'offers' ? (
             <>
               <SectionHeading>{t('headingCurrentOffers')}</SectionHeading>
@@ -352,6 +366,7 @@ export default function CustomerMenu() {
                       badge={badge}
                       price={((o.slots?.length ?? 0) > 0 ? '~' : '') + money(final)}
                       oldPrice={original && original > final ? money(original) : ''}
+                      canAdd={orderingEnabled}
                       onAdd={() => addOffer(o)} />
                   )
                 })}
@@ -364,7 +379,7 @@ export default function CustomerMenu() {
                 : newItems.map(it => (
                   <Row key={it.id} category={it.category} image={getItemImage(it.name, it.image_url)}
                     title={it.name} secondary={it.description || ''} badge={t('badgeNew')}
-                    price={money(it.selling_price)} oldPrice="" onAdd={() => addMenuItem(it)} />
+                    price={money(it.selling_price)} oldPrice="" canAdd={orderingEnabled} onAdd={() => addMenuItem(it)} />
                 ))}
             </>
           ) : grouped.length === 0 ? (
@@ -376,7 +391,7 @@ export default function CustomerMenu() {
                 {g.items.map(it => (
                   <Row key={it.id} category={it.category} image={getItemImage(it.name, it.image_url)}
                     title={it.name} secondary={it.description || ''} badge={isNewItem(it) ? t('badgeNew') : ''}
-                    price={money(it.selling_price)} oldPrice="" onAdd={() => addMenuItem(it)} />
+                    price={money(it.selling_price)} oldPrice="" canAdd={orderingEnabled} onAdd={() => addMenuItem(it)} />
                 ))}
               </div>
             ))
@@ -384,7 +399,7 @@ export default function CustomerMenu() {
         </div>
 
         {/* Sticky order bar */}
-        {count > 0 && !cartOpen && (
+        {orderingEnabled && count > 0 && !cartOpen && (
           <button onClick={() => setCartOpen(true)} style={{
             position: 'fixed', insetInlineStart: 'max(16px, calc(50vw - 220px + 16px))', insetInlineEnd: 'max(16px, calc(50vw - 220px + 16px))',
             bottom: 16, height: 54, border: 'none', borderRadius: 16, background: T.espresso, color: T.onDark,
@@ -501,7 +516,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 function Row(props: {
   category: string; image?: string; title: string; secondary: string; badge?: string;
-  price: string; oldPrice?: string; onAdd: () => void
+  price: string; oldPrice?: string; canAdd?: boolean; onAdd: () => void
 }) {
   const g = GRAD[props.category] || GRAD.Coffee
   return (
@@ -520,7 +535,9 @@ function Row(props: {
           {props.oldPrice && <span style={{ fontSize: 12, color: T.struck, textDecoration: 'line-through' }}>{props.oldPrice}</span>}
         </div>
       </div>
-      <button onClick={props.onAdd} aria-label="add" style={{ flex: '0 0 auto', alignSelf: 'center', width: 40, height: 40, borderRadius: 12, border: 'none', background: T.espresso, color: T.onDark, fontSize: 18, cursor: 'pointer' }}>+</button>
+      {props.canAdd !== false && (
+        <button onClick={props.onAdd} aria-label="add" style={{ flex: '0 0 auto', alignSelf: 'center', width: 40, height: 40, borderRadius: 12, border: 'none', background: T.espresso, color: T.onDark, fontSize: 18, cursor: 'pointer' }}>+</button>
+      )}
     </div>
   )
 }
