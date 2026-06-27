@@ -2,6 +2,7 @@ import { PKPass } from 'passkit-generator'
 import jwt from 'jsonwebtoken'
 import sharp from 'sharp'
 import path from 'path'
+import { walletAuthToken } from './walletPush'
 
 /**
  * Apple Wallet (.pkpass) + Google Wallet loyalty pass generation for SHEEN.
@@ -190,6 +191,14 @@ export async function generateApplePass(
       backgroundColor: 'rgb(43, 43, 43)',
       foregroundColor: 'rgb(212, 168, 67)',
       labelColor: 'rgb(170, 170, 170)',
+      // When the PassKit web service is configured, these let the pass
+      // auto-update (Apple polls/pushes via this URL using the token).
+      ...(process.env.WALLET_WEB_SERVICE_URL
+        ? {
+            webServiceURL: process.env.WALLET_WEB_SERVICE_URL,
+            authenticationToken: walletAuthToken(card.qr_code),
+          }
+        : {}),
     },
   )
 

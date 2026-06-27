@@ -3,6 +3,7 @@ import { getSalesByDateRange, insertSale } from '../services/db'
 import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
 import { getVisitsForFreeCup } from './loyalty'
+import { notifyWalletUpdate } from '../lib/walletPush'
 
 const router = Router()
 
@@ -416,7 +417,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
           for (const [cardId, cnt] of Object.entries(byCard)) {
             const { data: card } = await supabase
               .from('loyalty_cards')
-              .select('total_visits, free_cups_used')
+              .select('qr_code, total_visits, free_cups_used')
               .eq('id', cardId)
               .single()
             if (!card) continue
@@ -430,6 +431,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
                 free_cups_earned: Math.floor(newVisits / visitsForFree),
               })
               .eq('id', cardId)
+
+            await notifyWalletUpdate(card.qr_code as string)
           }
         }
 

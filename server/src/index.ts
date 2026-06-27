@@ -21,6 +21,7 @@ import pettyCashRouter from './routes/pettyCash'
 import attendanceRouter from './routes/attendance'
 import pushRouter from './routes/push'
 import offersRouter from './routes/offers'
+import walletRouter from './routes/wallet'
 
 const app = express()
 
@@ -56,6 +57,7 @@ app.use('/api/petty-cash', pettyCashRouter)
 app.use('/api/attendance', attendanceRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/offers', offersRouter)
+app.use('/api/wallet', walletRouter)
 
 app.get('/health', (_, res) => res.json({ status: 'ok', version: '2.1' }))
 

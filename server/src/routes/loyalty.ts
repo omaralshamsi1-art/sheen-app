@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
 import { insertSale } from '../services/db'
+import { notifyWalletUpdate } from '../lib/walletPush'
 import crypto from 'crypto'
 import {
   isAppleWalletConfigured,
@@ -215,6 +216,8 @@ router.post('/order-visit', async (req: Request, res: Response) => {
       .single()
     if (updateErr) throw updateErr
 
+    await notifyWalletUpdate(card.qr_code)
+
     const earnedFree = newVisits % visitsForFree === 0
 
     await logAudit(req, { action: 'create', entity: 'order', entity_id: order.id, details: { page: 'Loyalty', customer: card.name || card.email, items: orderItems.map((i: any) => `${i.name} x${i.qty}`).join(', '), total_amount, visit_number: newVisits } })
@@ -263,6 +266,8 @@ router.post('/redeem', async (req: Request, res: Response) => {
       .single()
 
     if (updateErr) throw updateErr
+
+    await notifyWalletUpdate(card.qr_code)
 
     await logAudit(req, { action: 'update', entity: 'order', entity_id: card.id, details: { page: 'Loyalty', customer: card.name || card.email, action: 'Free cup redeemed' } })
 

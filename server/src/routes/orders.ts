@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
 import { insertSale } from '../services/db'
 import { isPushConfigured, sendToRoles } from '../lib/push'
+import { notifyWalletUpdate } from '../lib/walletPush'
 
 const router = Router()
 
@@ -233,6 +234,8 @@ router.patch('/:id', async (req: Request, res: Response) => {
               .from('loyalty_cards')
               .update({ total_visits: newVisits, free_cups_earned: newFreeCups })
               .eq('id', card.id)
+
+            await notifyWalletUpdate(card.qr_code)
           }
         }
       } catch {
