@@ -107,7 +107,7 @@ export default function Sales() {
     { id: 'Cash', commission: 0, vat: false },
     { id: 'Talabat', commission: 15, vat: false },
     { id: 'Beanz', commission: 2.5, vat: true },
-    { id: 'App', commission: 0, vat: false },
+    { id: 'Sheen App', commission: 0, vat: false },
     { id: 'Other', commission: 0, vat: false },
   ]
 

@@ -262,8 +262,8 @@ router.patch('/:id', async (req: Request, res: Response) => {
               {
                 sale_date: new Date().toISOString().slice(0, 10),
                 // All customer-app orders (card / Apple Pay / app cash) group
-                // under the "App" source. The de-dup key lives in order_id.
-                recorded_by: 'App',
+                // under the "Sheen App" source. The de-dup key lives in order_id.
+                recorded_by: 'Sheen App',
                 order_id: orderId,
                 notes: data.notes && /cash/i.test(data.notes) ? 'Cash order (app)' : 'Online order (card / Apple Pay)',
               },
