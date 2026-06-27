@@ -17,4 +17,9 @@ create table if not exists wallet_registrations (
 
 create index if not exists idx_wallet_reg_serial on wallet_registrations(serial_number);
 
+-- Only the API (service-role key) touches this table — it holds device push
+-- tokens that no client should read or write. Enable RLS with NO policy so the
+-- anon/authenticated keys are denied while the service role keeps full access.
+alter table wallet_registrations enable row level security;
+
 alter table loyalty_cards add column if not exists wallet_updated_at timestamptz;
