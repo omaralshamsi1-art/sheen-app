@@ -807,12 +807,13 @@ function ProductSalesModal({
   const totalQty = matches.reduce((s, m) => s + m.qty, 0)
   const totalRevenue = matches.reduce((s, m) => s + m.revenue, 0)
 
-  const bySource: Record<string, { qty: number; revenue: number }> = {}
+  const bySource: Record<string, { display: string; qty: number; revenue: number }> = {}
   for (const m of matches) {
-    const src = m.sale.recorded_by || 'POS'
-    if (!bySource[src]) bySource[src] = { qty: 0, revenue: 0 }
-    bySource[src].qty += m.qty
-    bySource[src].revenue += m.revenue
+    const raw = m.sale.recorded_by || 'POS'
+    const key = raw.toLowerCase()
+    if (!bySource[key]) bySource[key] = { display: raw, qty: 0, revenue: 0 }
+    bySource[key].qty += m.qty
+    bySource[key].revenue += m.revenue
   }
 
   const rangeLabel =
@@ -874,7 +875,7 @@ function ProductSalesModal({
                     key={src}
                     className="px-2.5 py-1 rounded-full bg-sheen-white border border-sheen-cream font-body text-xs text-sheen-black"
                   >
-                    {src}: <span className="font-semibold">{d.qty}</span>
+                    {d.display}: <span className="font-semibold">{d.qty}</span>
                     <span className="text-sheen-muted"> · {d.revenue.toFixed(2)} د.إ</span>
                   </span>
                 ))}

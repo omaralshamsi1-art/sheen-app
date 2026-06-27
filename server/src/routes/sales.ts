@@ -172,17 +172,32 @@ router.get('/by-source', async (req: Request, res: Response) => {
 
     if (error) throw error
 
-    const bySource: Record<string, { total: number; cups: number; count: number }> = {}
-    for (const s of sales ?? []) {
-      const src = (s.recorded_by as string) || 'POS'
-      if (!bySource[src]) bySource[src] = { total: 0, cups: 0, count: 0 }
-      bySource[src].total += Number(s.total_revenue)
-      bySource[src].cups += Number(s.total_cups)
-      bySource[src].count += 1
+    // Canonical casing for each source comes from the admin-configured list, so
+    // e.g. a sale recorded as 'Card' and one as 'CARD' both display as 'CARD'.
+    const { data: srcSetting } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'order_sources')
+      .maybeSingle()
+    const configured: any[] = Array.isArray(srcSetting?.value) ? srcSetting!.value : []
+    const canonical: Record<string, string> = {}
+    for (const c of configured) {
+      if (c?.id) canonical[String(c.id).toLowerCase()] = String(c.id)
     }
 
-    const result = Object.entries(bySource)
-      .map(([source, d]) => ({ source, total: d.total, cups: d.cups, count: d.count }))
+    // Group case-insensitively so casing differences never split one source.
+    const bySource: Record<string, { display: string; total: number; cups: number; count: number }> = {}
+    for (const s of sales ?? []) {
+      const raw = (s.recorded_by as string) || 'POS'
+      const key = raw.toLowerCase()
+      if (!bySource[key]) bySource[key] = { display: canonical[key] || raw, total: 0, cups: 0, count: 0 }
+      bySource[key].total += Number(s.total_revenue)
+      bySource[key].cups += Number(s.total_cups)
+      bySource[key].count += 1
+    }
+
+    const result = Object.values(bySource)
+      .map((d) => ({ source: d.display, total: d.total, cups: d.cups, count: d.count }))
       .sort((a, b) => b.total - a.total)
 
     res.json(result)
