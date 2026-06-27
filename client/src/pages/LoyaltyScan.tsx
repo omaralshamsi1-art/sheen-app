@@ -288,14 +288,14 @@ export default function LoyaltyScan() {
                       disabled={actionLoading || orderCount === 0}
                       className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors disabled:opacity-50"
                     >
-                      {actionLoading ? '...' : `💵 ${t('payByCash')}`}
+                      {actionLoading ? '...' : `💵 ${t('posPayCash')}`}
                     </button>
                     <button
                       onClick={() => handleSaveOrder('card')}
                       disabled={actionLoading || orderCount === 0}
                       className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors disabled:opacity-50"
                     >
-                      {actionLoading ? '...' : `💳 ${t('payByCard')}`}
+                      {actionLoading ? '...' : `💳 ${t('posPayCard')}`}
                     </button>
                   </div>
                 </div>
