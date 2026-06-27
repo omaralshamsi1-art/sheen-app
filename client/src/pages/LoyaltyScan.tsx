@@ -1,16 +1,13 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import api from '../lib/api'
 import TopBar from '../components/layout/TopBar'
 import Button from '../components/ui/Button'
-import { useMenuItems } from '../hooks/useFixedCosts'
 import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
+import PosMenuPicker, { OrderSummary, type OrderLine } from '../components/PosMenuPicker'
 
 const DEFAULT_VISITS_FOR_FREE = 6
-
-// Same category order the Sales page uses, so the item picker matches it.
-const CATEGORY_ORDER = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
 
 interface CardResult {
   id: string
@@ -35,21 +32,8 @@ export default function LoyaltyScan() {
   const [actionLoading, setActionLoading] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
-  const [qtys, setQtys] = useState<Record<string, number>>({})
-  const [activeCategory, setActiveCategory] = useState<string>('')
-  const { data: menuItems = [] } = useMenuItems()
-  const activeItems = menuItems.filter((m) => m.is_active)
-
-  // Categories present in the menu, ordered like the Sales page (extras appended).
-  const categories = useMemo(() => {
-    const present = Array.from(new Set(activeItems.map((m) => m.category as string)))
-    const ordered = CATEGORY_ORDER.filter((c) => present.includes(c))
-    const extras = present.filter((c) => !CATEGORY_ORDER.includes(c)).sort()
-    return [...ordered, ...extras]
-  }, [activeItems])
-
-  const currentCategory = activeCategory && categories.includes(activeCategory) ? activeCategory : categories[0]
-  const categoryItems = activeItems.filter((m) => m.category === currentCategory)
+  const [lines, setLines] = useState<OrderLine[]>([])
+  const [resetSignal, setResetSignal] = useState(0)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const scannerDivId = 'qr-scanner'
 
@@ -100,7 +84,7 @@ export default function LoyaltyScan() {
     setLoading(true)
     setCard(null)
     setOrderOpen(false)
-    setQtys({})
+    setResetSignal((s) => s + 1)
     try {
       const { data } = await api.get(`/api/loyalty/scan/${qrCode.trim()}`)
       setCard(data)
@@ -112,29 +96,18 @@ export default function LoyaltyScan() {
 
   const handleLookup = () => lookupCard(code)
 
-  const orderTotal = activeItems.reduce((s, m) => s + (qtys[m.id] || 0) * m.selling_price, 0)
-  const orderCount = Object.values(qtys).reduce((s, n) => s + n, 0)
-  const setQty = (id: string, delta: number) => setQtys(prev => {
-    const next = { ...prev }
-    const v = (next[id] || 0) + delta
-    if (v <= 0) delete next[id]; else next[id] = v
-    return next
-  })
-
   // Attach the current cash order's items to the scanned customer: records the
   // sale and adds one visit, on the customer's record.
   const handleSaveOrder = async (payment_method: 'cash' | 'card') => {
     if (!card) return
-    const items = activeItems
-      .filter(m => (qtys[m.id] || 0) > 0)
-      .map(m => ({ menu_item_id: m.id, name: m.name, price: m.selling_price, qty: qtys[m.id] }))
+    const items = lines.map(l => ({ menu_item_id: l.itemId, name: l.name, price: l.unitPrice, qty: l.qty }))
     if (items.length === 0) { toast.error(t('noItemsSelected')); return }
     setActionLoading(true)
     try {
       const { data } = await api.post('/api/loyalty/order-visit', { qr_code: card.qr_code, items, payment_method })
       setCard(data)
       setOrderOpen(false)
-      setQtys({})
+      setResetSignal((s) => s + 1)
       if (data.earned_free_cup) {
         toast.success(`🎉 ${card.name || 'Customer'} ${t('earnedFreeCup')}!`, { duration: 5000 })
       } else {
@@ -273,49 +246,13 @@ export default function LoyaltyScan() {
                 <div className="mt-3 border-t border-sheen-cream pt-3">
                   <p className="font-body text-xs text-sheen-muted mb-2">{t('attachOrderHint')}</p>
 
-                  {/* Category tabs — same grouping as the Sales page */}
-                  <div className="flex gap-2 mb-3 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar" style={{ scrollbarWidth: 'none' }}>
-                    {categories.map((cat) => {
-                      const catCount = activeItems
-                        .filter((m) => m.category === cat)
-                        .reduce((s, m) => s + (qtys[m.id] || 0), 0)
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => setActiveCategory(cat)}
-                          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
-                            cat === currentCategory
-                              ? 'bg-sheen-brown text-white'
-                              : 'bg-sheen-cream text-sheen-black hover:bg-sheen-gold/20'
-                          }`}
-                        >
-                          {cat}{catCount > 0 ? ` · ${catCount}` : ''}
-                        </button>
-                      )
-                    })}
+                  <PosMenuPicker resetSignal={resetSignal} onChange={setLines} />
+                  <div className="mb-2">
+                    <OrderSummary lines={lines} />
                   </div>
 
-                  <div className="max-h-64 overflow-y-auto -mx-1 px-1">
-                    {categoryItems.map((m) => (
-                      <div key={m.id} className="flex items-center justify-between py-1.5 border-b border-sheen-cream/60 last:border-0">
-                        <div className="min-w-0 pr-2">
-                          <p className="font-body text-sm text-sheen-black truncate">{m.name}</p>
-                          <p className="font-body text-[11px] text-sheen-muted">{m.selling_price} AED</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button onClick={() => setQty(m.id, -1)} disabled={!qtys[m.id]} className="w-7 h-7 rounded-md bg-sheen-cream text-sheen-black font-bold disabled:opacity-40">−</button>
-                          <span className="w-6 text-center font-body text-sm font-medium">{qtys[m.id] || 0}</span>
-                          <button onClick={() => setQty(m.id, 1)} className="w-7 h-7 rounded-md bg-sheen-brown text-white font-bold">+</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between mt-3 mb-2">
-                    <span className="font-body text-sm text-sheen-muted">{orderCount} · </span>
-                    <span className="font-display text-lg font-semibold text-sheen-brown">{orderTotal.toFixed(2)} AED</span>
-                  </div>
                   <button
-                    onClick={() => { setOrderOpen(false); setQtys({}) }}
+                    onClick={() => { setOrderOpen(false); setResetSignal((s) => s + 1) }}
                     className="w-full mb-2 px-4 py-2 rounded-lg bg-sheen-cream text-sheen-black font-body text-sm font-medium"
                   >
                     {t('cancelLabel')}
@@ -323,14 +260,14 @@ export default function LoyaltyScan() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleSaveOrder('cash')}
-                      disabled={actionLoading || orderCount === 0}
+                      disabled={actionLoading || lines.length === 0}
                       className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors disabled:opacity-50"
                     >
                       {actionLoading ? '...' : `💵 ${t('posPayCash')}`}
                     </button>
                     <button
                       onClick={() => handleSaveOrder('card')}
-                      disabled={actionLoading || orderCount === 0}
+                      disabled={actionLoading || lines.length === 0}
                       className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors disabled:opacity-50"
                     >
                       {actionLoading ? '...' : `💳 ${t('posPayCard')}`}
