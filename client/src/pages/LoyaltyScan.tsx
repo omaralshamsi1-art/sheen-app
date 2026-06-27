@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import api from '../lib/api'
 import TopBar from '../components/layout/TopBar'
@@ -8,6 +8,9 @@ import { useLanguage } from '../i18n/LanguageContext'
 import toast from 'react-hot-toast'
 
 const DEFAULT_VISITS_FOR_FREE = 6
+
+// Same category order the Sales page uses, so the item picker matches it.
+const CATEGORY_ORDER = ['Coffee', 'Matcha', 'Cold Drinks', 'Açaí', 'Desserts', 'Bites', 'Beans']
 
 interface CardResult {
   id: string
@@ -33,8 +36,20 @@ export default function LoyaltyScan() {
   const [cameraOpen, setCameraOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
   const [qtys, setQtys] = useState<Record<string, number>>({})
+  const [activeCategory, setActiveCategory] = useState<string>('')
   const { data: menuItems = [] } = useMenuItems()
   const activeItems = menuItems.filter((m) => m.is_active)
+
+  // Categories present in the menu, ordered like the Sales page (extras appended).
+  const categories = useMemo(() => {
+    const present = Array.from(new Set(activeItems.map((m) => m.category as string)))
+    const ordered = CATEGORY_ORDER.filter((c) => present.includes(c))
+    const extras = present.filter((c) => !CATEGORY_ORDER.includes(c)).sort()
+    return [...ordered, ...extras]
+  }, [activeItems])
+
+  const currentCategory = activeCategory && categories.includes(activeCategory) ? activeCategory : categories[0]
+  const categoryItems = activeItems.filter((m) => m.category === currentCategory)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const scannerDivId = 'qr-scanner'
 
@@ -257,8 +272,31 @@ export default function LoyaltyScan() {
               ) : (
                 <div className="mt-3 border-t border-sheen-cream pt-3">
                   <p className="font-body text-xs text-sheen-muted mb-2">{t('attachOrderHint')}</p>
+
+                  {/* Category tabs — same grouping as the Sales page */}
+                  <div className="flex gap-2 mb-3 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar" style={{ scrollbarWidth: 'none' }}>
+                    {categories.map((cat) => {
+                      const catCount = activeItems
+                        .filter((m) => m.category === cat)
+                        .reduce((s, m) => s + (qtys[m.id] || 0), 0)
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => setActiveCategory(cat)}
+                          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+                            cat === currentCategory
+                              ? 'bg-sheen-brown text-white'
+                              : 'bg-sheen-cream text-sheen-black hover:bg-sheen-gold/20'
+                          }`}
+                        >
+                          {cat}{catCount > 0 ? ` · ${catCount}` : ''}
+                        </button>
+                      )
+                    })}
+                  </div>
+
                   <div className="max-h-64 overflow-y-auto -mx-1 px-1">
-                    {activeItems.map((m) => (
+                    {categoryItems.map((m) => (
                       <div key={m.id} className="flex items-center justify-between py-1.5 border-b border-sheen-cream/60 last:border-0">
                         <div className="min-w-0 pr-2">
                           <p className="font-body text-sm text-sheen-black truncate">{m.name}</p>
