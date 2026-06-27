@@ -65,6 +65,17 @@ workflows:
           cd client/ios/App
           sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" App.xcodeproj/project.pbxproj
           echo "Set CURRENT_PROJECT_VERSION to $BUILD_NUMBER"
+      - name: Auto-bump marketing version
+        script: |
+          # CFBundleShortVersionString (the public x.y.z) must be HIGHER than the
+          # last App Store-approved version on every new release, or Apple rejects
+          # the upload. Derive it from the always-increasing $BUILD_NUMBER so it
+          # never needs a manual edit. To bump the major/minor, set VERSION_BASE
+          # in the "sheen" env group (e.g. "1.1"); the patch auto-increments.
+          cd client/ios/App
+          BASE="${VERSION_BASE:-1.0}"
+          sed -i '' "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = ${BASE}.${BUILD_NUMBER};/g" App.xcodeproj/project.pbxproj
+          echo "Set MARKETING_VERSION to ${BASE}.${BUILD_NUMBER}"
       - name: Build signed IPA
         script: |
           xcode-project build-ipa \
