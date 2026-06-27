@@ -40,10 +40,17 @@ export function verifyWalletAuth(serial: string, token?: string): boolean {
 
 // APNs provider token (ES256 JWT), cached ~50 min as Apple recommends.
 let cached: { token: string; iat: number } | null = null
+// Accept the .p8 either as raw PEM (possibly with escaped \n) or base64 of the file.
+function apnsPrivateKey(): string {
+  const raw = process.env.APNS_AUTH_KEY || ''
+  if (raw.includes('BEGIN')) return raw.replace(/\\n/g, '\n')
+  return Buffer.from(raw, 'base64').toString('utf8')
+}
+
 function apnsToken(): string {
   const now = Math.floor(Date.now() / 1000)
   if (cached && now - cached.iat < 3000) return cached.token
-  const key = Buffer.from(process.env.APNS_AUTH_KEY!, 'base64').toString('utf8')
+  const key = apnsPrivateKey()
   const token = jwt.sign({ iss: process.env.APPLE_TEAM_ID!, iat: now }, key, {
     algorithm: 'ES256',
     header: { alg: 'ES256', kid: process.env.APNS_KEY_ID! },
