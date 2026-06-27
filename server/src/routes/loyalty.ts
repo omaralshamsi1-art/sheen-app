@@ -138,8 +138,13 @@ router.get('/scan/:qrCode', async (req: Request, res: Response) => {
 // customer's record, records the sale, and adds one loyalty visit.
 router.post('/order-visit', async (req: Request, res: Response) => {
   try {
-    const { qr_code, items } = req.body
+    const { qr_code, items, payment_method } = req.body
     if (!qr_code) { res.status(400).json({ message: 'qr_code required' }); return }
+    // Staff pick how the walk-up / drive-through customer paid so the revenue
+    // lands in the right Sales-by-source bucket ('Cash' or 'Card').
+    const isCard = String(payment_method).toLowerCase() === 'card'
+    const paySource = isCard ? 'Card' : 'Cash'
+    const payLabel = isCard ? 'Card' : 'Cash'
     if (!Array.isArray(items) || items.length === 0) { res.status(400).json({ message: 'items array is required' }); return }
     for (const it of items) {
       if (!it.menu_item_id || !it.name || typeof it.qty !== 'number' || typeof it.price !== 'number') {
@@ -166,7 +171,7 @@ router.post('/order-visit', async (req: Request, res: Response) => {
         customer_name: card.name,
         status: 'completed',
         total_amount,
-        notes: '[Payment: Cash - Drive-through]',
+        notes: `[Payment: ${payLabel} - Drive-through]`,
       })
       .select()
       .single()
@@ -185,7 +190,7 @@ router.post('/order-visit', async (req: Request, res: Response) => {
     // Record the sale so the revenue shows in Dashboard / Reports
     try {
       await insertSale(
-        { sale_date: new Date().toISOString().slice(0, 10), recorded_by: `order:${order.id}`, notes: 'Cash order (drive-through)' },
+        { sale_date: new Date().toISOString().slice(0, 10), recorded_by: paySource, order_id: order.id, notes: `${payLabel} order (drive-through)` },
         orderItems.map((i: any) => ({ menu_item_id: i.menu_item_id, name: i.name, category: '', price: i.price, qty: i.qty, total: i.total })),
       )
     } catch { /* don't block on sale recording */ }

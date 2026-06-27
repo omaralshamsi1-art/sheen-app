@@ -108,7 +108,7 @@ export default function LoyaltyScan() {
 
   // Attach the current cash order's items to the scanned customer: records the
   // sale and adds one visit, on the customer's record.
-  const handleSaveOrder = async () => {
+  const handleSaveOrder = async (payment_method: 'cash' | 'card') => {
     if (!card) return
     const items = activeItems
       .filter(m => (qtys[m.id] || 0) > 0)
@@ -116,7 +116,7 @@ export default function LoyaltyScan() {
     if (items.length === 0) { toast.error(t('noItemsSelected')); return }
     setActionLoading(true)
     try {
-      const { data } = await api.post('/api/loyalty/order-visit', { qr_code: card.qr_code, items })
+      const { data } = await api.post('/api/loyalty/order-visit', { qr_code: card.qr_code, items, payment_method })
       setCard(data)
       setOrderOpen(false)
       setQtys({})
@@ -252,7 +252,7 @@ export default function LoyaltyScan() {
                   onClick={() => setOrderOpen(true)}
                   className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-sheen-brown/40 text-sheen-brown font-body text-sm font-medium hover:bg-sheen-brown/5 transition-colors"
                 >
-                  💵 {t('attachCashOrder')}
+                  ➕ {t('attachCashOrder')}
                 </button>
               ) : (
                 <div className="mt-3 border-t border-sheen-cream pt-3">
@@ -276,16 +276,27 @@ export default function LoyaltyScan() {
                     <span className="font-body text-sm text-sheen-muted">{orderCount} · </span>
                     <span className="font-display text-lg font-semibold text-sheen-brown">{orderTotal.toFixed(2)} AED</span>
                   </div>
+                  <button
+                    onClick={() => { setOrderOpen(false); setQtys({}) }}
+                    className="w-full mb-2 px-4 py-2 rounded-lg bg-sheen-cream text-sheen-black font-body text-sm font-medium"
+                  >
+                    {t('cancelLabel')}
+                  </button>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => { setOrderOpen(false); setQtys({}) }}
-                      className="px-4 py-2 rounded-lg bg-sheen-cream text-sheen-black font-body text-sm font-medium"
+                      onClick={() => handleSaveOrder('cash')}
+                      disabled={actionLoading || orderCount === 0}
+                      className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-brown text-white font-body text-sm font-medium hover:bg-sheen-brown/90 transition-colors disabled:opacity-50"
                     >
-                      {t('cancelLabel')}
+                      {actionLoading ? '...' : `💵 ${t('payByCash')}`}
                     </button>
-                    <Button onClick={handleSaveOrder} disabled={actionLoading || orderCount === 0} className="flex-1">
-                      {actionLoading ? '...' : t('saveOrderVisit')}
-                    </Button>
+                    <button
+                      onClick={() => handleSaveOrder('card')}
+                      disabled={actionLoading || orderCount === 0}
+                      className="flex-1 px-4 py-2.5 rounded-lg bg-sheen-gold text-sheen-black font-body text-sm font-medium hover:bg-sheen-gold/90 transition-colors disabled:opacity-50"
+                    >
+                      {actionLoading ? '...' : `💳 ${t('payByCard')}`}
+                    </button>
                   </div>
                 </div>
               )}

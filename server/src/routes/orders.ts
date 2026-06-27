@@ -244,11 +244,11 @@ router.patch('/:id', async (req: Request, res: Response) => {
     // shows in the Dashboard, Reports and AI. De-duped via recorded_by.
     if (status === 'completed') {
       try {
-        const orderId = req.params.id
+        const orderId = String(req.params.id)
         const { data: existingSale } = await supabase
           .from('sales')
           .select('id')
-          .eq('recorded_by', `order:${orderId}`)
+          .eq('order_id', orderId)
           .maybeSingle()
 
         if (!existingSale) {
@@ -261,7 +261,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
             await insertSale(
               {
                 sale_date: new Date().toISOString().slice(0, 10),
-                recorded_by: `order:${orderId}`,
+                // All customer-app orders (card / Apple Pay / app cash) group
+                // under the "App" source. The de-dup key lives in order_id.
+                recorded_by: 'App',
+                order_id: orderId,
                 notes: data.notes && /cash/i.test(data.notes) ? 'Cash order (app)' : 'Online order (card / Apple Pay)',
               },
               oItems.map((i: any) => ({
