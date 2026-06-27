@@ -15,7 +15,7 @@ const router = Router()
 const DEFAULT_VISITS_FOR_FREE_CUP = 6
 
 // Admin-configurable loyalty threshold (app_settings key: loyalty_visits_for_free)
-async function getVisitsForFreeCup(): Promise<number> {
+export async function getVisitsForFreeCup(): Promise<number> {
   try {
     const { data } = await supabase
       .from('app_settings')

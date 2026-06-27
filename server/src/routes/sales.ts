@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { getSalesByDateRange, insertSale } from '../services/db'
 import { supabase } from '../lib/supabase'
 import { logAudit } from '../lib/audit'
+import { getVisitsForFreeCup } from './loyalty'
 
 const router = Router()
 
@@ -380,12 +381,64 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     const { data: existing } = await supabase
       .from('sales')
-      .select('sale_date, total_revenue, total_cups, recorded_by, sale_items(name, qty)')
+      .select('sale_date, total_revenue, total_cups, recorded_by, order_id, sale_items(name, qty)')
       .eq('id', req.params.id)
       .single()
 
     const { error } = await supabase.from('sales').delete().eq('id', req.params.id)
     if (error) throw error
+
+    // If this sale came from an order (customer app or staff loyalty scan),
+    // reverse everything linked to it: the loyalty visit(s) it credited, the
+    // visit count on the card, and the order itself (order_items cascade).
+    const orderId = (existing as any)?.order_id as string | undefined
+    if (orderId) {
+      try {
+        const { data: visits } = await supabase
+          .from('loyalty_visits')
+          .select('card_id, visit_type')
+          .eq('recorded_by', `order:${orderId}`)
+
+        if (visits && visits.length) {
+          const visitsForFree = await getVisitsForFreeCup()
+          // Tally per card: 'visit' rows credited a visit, 'redeem' rows spent a free cup.
+          const byCard: Record<string, { visits: number; redeems: number }> = {}
+          for (const v of visits) {
+            const cardId = v.card_id as string | null
+            if (!cardId) continue
+            byCard[cardId] ??= { visits: 0, redeems: 0 }
+            if (v.visit_type === 'redeem') byCard[cardId].redeems += 1
+            else byCard[cardId].visits += 1
+          }
+
+          await supabase.from('loyalty_visits').delete().eq('recorded_by', `order:${orderId}`)
+
+          for (const [cardId, cnt] of Object.entries(byCard)) {
+            const { data: card } = await supabase
+              .from('loyalty_cards')
+              .select('total_visits, free_cups_used')
+              .eq('id', cardId)
+              .single()
+            if (!card) continue
+            const newVisits = Math.max(0, (card.total_visits ?? 0) - cnt.visits)
+            const newUsed = Math.max(0, (card.free_cups_used ?? 0) - cnt.redeems)
+            await supabase
+              .from('loyalty_cards')
+              .update({
+                total_visits: newVisits,
+                free_cups_used: newUsed,
+                free_cups_earned: Math.floor(newVisits / visitsForFree),
+              })
+              .eq('id', cardId)
+          }
+        }
+
+        // Remove the linked order (order_items cascade via FK).
+        await supabase.from('orders').delete().eq('id', orderId)
+      } catch {
+        // Don't fail the sale deletion if the cascade cleanup hiccups.
+      }
+    }
 
     const itemsSummary = (existing?.sale_items as any[] | undefined)?.map((si: any) => `${si.name} ×${si.qty}`).join(', ') ?? ''
 
@@ -401,6 +454,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
         source: existing?.recorded_by,
         items: itemsSummary,
         reason,
+        reversed_order: orderId ?? null,
       },
     })
 
